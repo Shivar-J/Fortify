@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Engine">
+      <UniqueIdentifier>{5eadbc4e-d294-44dd-9c3e-c502c058a752}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Graphics">
+      <UniqueIdentifier>{5c6014a8-d31f-4be3-a70a-3da66b679241}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Graphics\Headers">
+      <UniqueIdentifier>{aacb8cde-501f-47a6-b433-55c0bae35742}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Graphics\Source">
+      <UniqueIdentifier>{373362c2-e9bc-4297-a064-970648cc3602}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Core">
+      <UniqueIdentifier>{a9bc6ace-2810-41c2-935b-a53eb070b9ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Core\Headers">
+      <UniqueIdentifier>{9ab5c477-f5dd-4ef3-993e-a0149e5cbf28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Core\Source">
+      <UniqueIdentifier>{0467e0fc-bbda-4ece-83ba-569323735aac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\Settings">
+      <UniqueIdentifier>{265fe507-467e-46ce-8071-eb05bf8d91e7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="device.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="instance.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="swapchain.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="core.cpp">
+      <Filter>Engine\Core\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="sampler.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="utility.cpp">
+      <Filter>Engine\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="imageView.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="renderPass.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="pipeline.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="commandBuffer.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="frameBuffer.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="texture.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="descriptorSets.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="swapchain.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="device.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="instance.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="core.h">
+      <Filter>Engine\Core\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="utility.h">
+      <Filter>Engine\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="sampler.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="imageView.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="renderPass.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="pipeline.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="commandBuffer.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="frameBuffer.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="texture.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="descriptorSets.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
