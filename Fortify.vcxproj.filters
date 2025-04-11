@@ -122,5 +122,16 @@
     <ClInclude Include="descriptorSets.h">
       <Filter>Engine\Graphics\Headers</Filter>
     </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>Engine\Core\Headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\shader.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\shader.vert">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

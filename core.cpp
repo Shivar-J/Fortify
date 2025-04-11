@@ -21,8 +21,12 @@ void Engine::Core::Application::initWindow()
 	std::snprintf(title, 255, "%s %s - [FPS: %3.2f]", "Vulkan", "1.0.0", 0.0f);
 
 	window = glfwCreateWindow(Engine::Settings::WIDTH, Engine::Settings::HEIGHT, title, nullptr, nullptr);
-	glfwSetWindowUserPointer(window, this);
+	//glfwSetWindowUserPointer(window, this);
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetKeyCallback(window, key_callback);
+
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 void Engine::Core::Application::initVulkan()
@@ -57,16 +61,22 @@ void Engine::Core::Application::initVulkan()
 
 void Engine::Core::Application::mainLoop()
 {
-	double prev = glfwGetTime();
+	float prev = glfwGetTime();
+	float prevFPS = glfwGetTime();
 	int frameCount = 0;
 
 	while (!glfwWindowShouldClose(window)) {
-		double curr = glfwGetTime();
-		double deltaTime = curr - prev;
+		float curr = glfwGetTime();
+		float currFPS = glfwGetTime();
+		deltaTime = curr - prev;
+		fpsCounter = currFPS - prevFPS;
+		prev = curr;
 		frameCount++;
 
-		if (deltaTime >= 1.0) {
-			double fps = frameCount / deltaTime;
+		processInput(window);
+
+		if (fpsCounter >= 1.0) {
+			double fps = frameCount / fpsCounter;
 
 			char title[256];
 			title[255] = '\0';
@@ -74,7 +84,9 @@ void Engine::Core::Application::mainLoop()
 			std::snprintf(title, 255, "%s %s - [FPS: %3.2f]", "Fortify", "1.0.0", fps);
 
 			glfwSetWindowTitle(window, title);
-			prev = curr;
+
+			prevFPS = currFPS;
+
 			frameCount = 0;
 		}
 
@@ -142,6 +154,56 @@ void Engine::Core::Application::framebufferResizeCallback(GLFWwindow* window, in
 	app->framebufferResized = true;
 }
 
+void Engine::Core::Application::processInput(GLFWwindow* window)
+{
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, true);
+	}
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+		camera.processKeyboard(Camera_Movement::FORWARD, deltaTime);
+	}
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		camera.processKeyboard(Camera_Movement::BACKWARD, deltaTime);
+	}
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+		camera.processKeyboard(Camera_Movement::LEFT, deltaTime);
+	}
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+		camera.processKeyboard(Camera_Movement::RIGHT, deltaTime);
+	}
+	if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
+		camera.processKeyboard(Camera_Movement::UP, deltaTime);
+	}
+	if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
+		camera.processKeyboard(Camera_Movement::DOWN, deltaTime);
+	}
+}
+
+void Engine::Core::Application::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	//unused
+}
+
+void Engine::Core::Application::mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
+{
+	float xpos = static_cast<float>(xposIn);
+	float ypos = static_cast<float>(yposIn);
+
+	if (firstMouse) {
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+	}
+
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos;
+
+	lastX = xpos;
+	lastY = ypos;
+
+	camera.processMouseMovement(xoffset, yoffset);
+}
+
 void Engine::Core::Application::drawFrame()
 {
 	vkWaitForFences(Engine::Graphics::Device::device, 1, &Engine::Graphics::Texture::inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
@@ -156,7 +218,7 @@ void Engine::Core::Application::drawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 		throw std::runtime_error("Failed to acquire swap chain image");
 
-	Engine::Graphics::Texture::updateUniformBuffer(currentFrame);
+	Engine::Graphics::Texture::updateUniformBuffer(currentFrame, camera);
 
 	vkResetFences(Engine::Graphics::Device::device, 1, &Engine::Graphics::Texture::inFlightFences[currentFrame]);
 
@@ -206,3 +268,4 @@ void Engine::Core::Application::drawFrame()
 
 	currentFrame = (currentFrame + 1) % Engine::Settings::MAX_FRAMES_IN_FLIGHT;
 }
+

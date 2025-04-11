@@ -1,4 +1,6 @@
-#pragma once
+#ifndef COMMANDBUFFER_H
+#define COMMANDBUFFER_H
+
 #include "device.h"
 
 namespace Engine::Graphics {
@@ -16,3 +18,4 @@ namespace Engine::Graphics {
 		static void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 	};
 }
+#endif // !COMMANDBUFFER_H

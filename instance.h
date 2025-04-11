@@ -1,7 +1,7 @@
-#pragma once
+#ifndef INSTANCE_H
+#define INSTANCE_H
 #include "utility.h"
 #include "core.h"
-#include <iostream>
 
 namespace Engine::Graphics {
 	class Instance
@@ -24,4 +24,4 @@ namespace Engine::Graphics {
 	};
 };
 
-
+#endif

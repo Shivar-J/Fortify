@@ -2,8 +2,8 @@
 
 void Engine::Graphics::Pipeline::createGraphicsPipeline()
 {
-	auto vertShaderCode = readFile("shader/vert.spv");
-	auto fragShaderCode = readFile("shader/frag.spv");
+	auto vertShaderCode = readFile("shaders/vert.spv");
+	auto fragShaderCode = readFile("shaders/frag.spv");
 
 	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);

@@ -1,8 +1,9 @@
-#define GLM_FORCE_CXX17
-#include <glm/glm.hpp>
+#include <stb_image.h>
+#define STB_IMAGE_IMPLEMENTATION
 
-#include <stdexcept>
-#include <iostream>
+#include <tiny_obj_loader.h>
+#define TINYOBJLOADER_IMPLEMENTATION
+
 #include "core.h"
 
 int main() {

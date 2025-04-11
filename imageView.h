@@ -1,6 +1,8 @@
-#pragma once
+#ifndef IMAGEVIEW_H
+#define IMAGEVIEW_H
 #include "swapchain.h"
 #include "commandBuffer.h"
+#include "utility.h"
 
 namespace Engine::Graphics {
 	class ImageView
@@ -12,3 +14,4 @@ namespace Engine::Graphics {
 
 	};
 }
+#endif

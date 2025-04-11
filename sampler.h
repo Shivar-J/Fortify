@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SAMPLER_H
+#define SAMPLER_H
 #include "device.h"
 #include "commandBuffer.h"
 
@@ -14,4 +15,4 @@ namespace Engine::Graphics {
 	};
 }
 
-
+#endif

@@ -1,12 +1,10 @@
-#pragma once
+#ifndef DEVICE_H
+#define DEVICE_H
+
 #include "instance.h"
 #include "sampler.h"
 #include "swapchain.h"
-
-#include <vector>
-#include <optional>
-#include <set>
-#include <string>
+#include "utility.h"
 
 namespace Engine::Graphics {
 	struct QueueFamilyIndices {
@@ -36,4 +34,4 @@ namespace Engine::Graphics {
 	};
 }
 
-
+#endif // !DEVICE_H

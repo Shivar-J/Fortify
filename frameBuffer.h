@@ -1,8 +1,9 @@
-#pragma once
+#ifndef FRAMEBUFFER_H
+#define FRAMEBUFFER_H
 #include "imageView.h"
 #include "swapchain.h"
 #include "renderPass.h"
-#include <array>
+#include "utility.h"
 
 namespace Engine::Graphics {
 	class FrameBuffer
@@ -28,3 +29,4 @@ namespace Engine::Graphics {
 		static void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	};
 }
+#endif

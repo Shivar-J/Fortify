@@ -1,6 +1,6 @@
-#pragma once
+#ifndef RENDERPASS_H
+#define RENDERPASS_H
 #include "swapchain.h"
-#include <array>
 
 namespace Engine::Graphics {
 	class RenderPass
@@ -16,5 +16,4 @@ namespace Engine::Graphics {
 		static void createDescriptorSetLayout();
 	};
 }
-
-
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DESCRIPTORSETS_H
+#define DESCRIPTORSETS_H
 #include "texture.h"
 #include "renderPass.h"
 
@@ -14,3 +15,4 @@ namespace Engine::Graphics {
 		static void createDescriptorSets();
 	};
 }
+#endif

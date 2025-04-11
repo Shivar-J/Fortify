@@ -1,10 +1,6 @@
-#pragma once
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
-#include <vector>
-#include <algorithm>
-
+#ifndef SWAPCHAIN_H
+#define SWAPCHAIN_H
+#include "utility.h"
 #include "instance.h"
 #include "device.h"
 
@@ -36,3 +32,4 @@ namespace Engine::Graphics {
 	};
 };
 
+#endif
