@@ -7,7 +7,6 @@
 #include "commandBuffer.h"
 #include "pipeline.h"
 #include "renderPass.h"
-#include "imageView.h"
 #include "device.h"
 #include "Instance.h"
 #include "sampler.h"
@@ -31,7 +30,6 @@ namespace Engine::Core {
 		Engine::Graphics::Sampler sampler;
 		Engine::Graphics::Swapchain swapchain;
 		Engine::Graphics::RenderPass renderpass;
-		//Engine::Graphics::Pipeline pipeline;
 		std::vector<Engine::Graphics::Pipeline> pipelines;
 		Engine::Graphics::CommandBuffer commandbuffer;
 		Engine::Graphics::FrameBuffer framebuffer;

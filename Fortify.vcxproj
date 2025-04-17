@@ -112,7 +112,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\vulkan\1.4.304.1\Include;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\glfw-3.3.8.bin.WIN64\include;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\tinyobj;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\stb-master;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\vulkan\1.4.304.1\Include;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\glfw-3.3.8.bin.WIN64\include;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\tinyobj;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\stb-master;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\imgui;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\Engine\Core\Headers;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\Engine\Graphics\Headers;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\Engine\Utility;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -131,7 +131,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\vulkan\1.4.304.1\Include;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\glfw-3.3.8.bin.WIN64\include;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\tinyobj;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\stb-master;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\vulkan\1.4.304.1\Include;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\glfw-3.3.8.bin.WIN64\include;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\tinyobj;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\stb-master;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\lib\imgui;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\Engine\Core\Headers;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\Engine\Graphics\Headers;C:\Users\Shivar Jadoonanan\Source\Repos\Fortify\Engine\Utility;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -143,36 +143,34 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="commandBuffer.cpp" />
-    <ClCompile Include="core.cpp" />
-    <ClCompile Include="descriptorSets.cpp" />
-    <ClCompile Include="device.cpp" />
-    <ClCompile Include="frameBuffer.cpp" />
-    <ClCompile Include="imageView.cpp" />
-    <ClCompile Include="instance.cpp" />
+    <ClCompile Include="Engine\Core\Source\core.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\commandBuffer.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\descriptorSets.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\device.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\frameBuffer.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\instance.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\pipeline.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\renderPass.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\sampler.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\swapchain.cpp" />
+    <ClCompile Include="Engine\Graphics\Source\texture.cpp" />
+    <ClCompile Include="Engine\Utility\utility.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="pipeline.cpp" />
-    <ClCompile Include="renderPass.cpp" />
-    <ClCompile Include="sampler.cpp" />
-    <ClCompile Include="swapchain.cpp" />
-    <ClCompile Include="texture.cpp" />
-    <ClCompile Include="utility.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="camera.h" />
-    <ClInclude Include="commandBuffer.h" />
-    <ClInclude Include="core.h" />
-    <ClInclude Include="descriptorSets.h" />
-    <ClInclude Include="device.h" />
-    <ClInclude Include="frameBuffer.h" />
-    <ClInclude Include="imageView.h" />
-    <ClInclude Include="instance.h" />
-    <ClInclude Include="pipeline.h" />
-    <ClInclude Include="renderPass.h" />
-    <ClInclude Include="sampler.h" />
-    <ClInclude Include="swapchain.h" />
-    <ClInclude Include="texture.h" />
-    <ClInclude Include="utility.h" />
+    <ClInclude Include="Engine\Core\Headers\camera.h" />
+    <ClInclude Include="Engine\Core\Headers\core.h" />
+    <ClInclude Include="Engine\Graphics\Headers\commandBuffer.h" />
+    <ClInclude Include="Engine\Graphics\Headers\descriptorSets.h" />
+    <ClInclude Include="Engine\Graphics\Headers\device.h" />
+    <ClInclude Include="Engine\Graphics\Headers\frameBuffer.h" />
+    <ClInclude Include="Engine\Graphics\Headers\instance.h" />
+    <ClInclude Include="Engine\Graphics\Headers\pipeline.h" />
+    <ClInclude Include="Engine\Graphics\Headers\renderPass.h" />
+    <ClInclude Include="Engine\Graphics\Headers\sampler.h" />
+    <ClInclude Include="Engine\Graphics\Headers\swapchain.h" />
+    <ClInclude Include="Engine\Graphics\Headers\texture.h" />
+    <ClInclude Include="Engine\Utility\utility.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />

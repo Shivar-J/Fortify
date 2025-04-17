@@ -7,6 +7,11 @@ lib
 textures
 shaders/compile.bat
 
+Fortify.sln
+Fortify.vcxproj
+Fortify.vcxproj.filters
+Fortify.vcxproj.user
+
 # User-specific files
 *.rsuser
 *.suo

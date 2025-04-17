@@ -34,7 +34,7 @@
     <Filter Include="Engine\Core\Source">
       <UniqueIdentifier>{0467e0fc-bbda-4ece-83ba-569323735aac}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Engine\Settings">
+    <Filter Include="Engine\Utility">
       <UniqueIdentifier>{265fe507-467e-46ce-8071-eb05bf8d91e7}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -42,89 +42,42 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="device.cpp">
-      <Filter>Engine\Graphics\Source</Filter>
-    </ClCompile>
-    <ClCompile Include="instance.cpp">
-      <Filter>Engine\Graphics\Source</Filter>
-    </ClCompile>
-    <ClCompile Include="swapchain.cpp">
-      <Filter>Engine\Graphics\Source</Filter>
-    </ClCompile>
-    <ClCompile Include="core.cpp">
+    <ClCompile Include="Engine\Core\Source\core.cpp">
       <Filter>Engine\Core\Source</Filter>
     </ClCompile>
-    <ClCompile Include="sampler.cpp">
+    <ClCompile Include="Engine\Graphics\Source\commandBuffer.cpp">
       <Filter>Engine\Graphics\Source</Filter>
     </ClCompile>
-    <ClCompile Include="utility.cpp">
-      <Filter>Engine\Settings</Filter>
-    </ClCompile>
-    <ClCompile Include="imageView.cpp">
+    <ClCompile Include="Engine\Graphics\Source\descriptorSets.cpp">
       <Filter>Engine\Graphics\Source</Filter>
     </ClCompile>
-    <ClCompile Include="renderPass.cpp">
+    <ClCompile Include="Engine\Graphics\Source\device.cpp">
       <Filter>Engine\Graphics\Source</Filter>
     </ClCompile>
-    <ClCompile Include="pipeline.cpp">
+    <ClCompile Include="Engine\Graphics\Source\frameBuffer.cpp">
       <Filter>Engine\Graphics\Source</Filter>
     </ClCompile>
-    <ClCompile Include="commandBuffer.cpp">
+    <ClCompile Include="Engine\Graphics\Source\instance.cpp">
       <Filter>Engine\Graphics\Source</Filter>
     </ClCompile>
-    <ClCompile Include="frameBuffer.cpp">
+    <ClCompile Include="Engine\Graphics\Source\pipeline.cpp">
       <Filter>Engine\Graphics\Source</Filter>
     </ClCompile>
-    <ClCompile Include="texture.cpp">
+    <ClCompile Include="Engine\Graphics\Source\renderPass.cpp">
       <Filter>Engine\Graphics\Source</Filter>
     </ClCompile>
-    <ClCompile Include="descriptorSets.cpp">
+    <ClCompile Include="Engine\Graphics\Source\sampler.cpp">
       <Filter>Engine\Graphics\Source</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="swapchain.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="device.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="instance.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="core.h">
-      <Filter>Engine\Core\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="utility.h">
-      <Filter>Engine\Settings</Filter>
-    </ClInclude>
-    <ClInclude Include="sampler.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="imageView.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="renderPass.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="pipeline.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="commandBuffer.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="frameBuffer.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="texture.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="descriptorSets.h">
-      <Filter>Engine\Graphics\Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="camera.h">
-      <Filter>Engine\Core\Headers</Filter>
-    </ClInclude>
+    <ClCompile Include="Engine\Graphics\Source\swapchain.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Graphics\Source\texture.cpp">
+      <Filter>Engine\Graphics\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Utility\utility.cpp">
+      <Filter>Engine\Utility</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag">
@@ -133,5 +86,46 @@
     <None Include="shaders\shader.vert">
       <Filter>Resource Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Engine\Core\Headers\core.h">
+      <Filter>Engine\Core\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Core\Headers\camera.h">
+      <Filter>Engine\Core\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\commandBuffer.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\descriptorSets.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\device.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\frameBuffer.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\instance.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\pipeline.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\renderPass.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\sampler.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\swapchain.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Graphics\Headers\texture.h">
+      <Filter>Engine\Graphics\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Utility\utility.h">
+      <Filter>Engine\Utility</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
