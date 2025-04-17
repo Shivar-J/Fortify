@@ -60,6 +60,14 @@ namespace Engine::Core {
 			updateCameraVectors();
 		}
 
+		Camera() : MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY) {
+			Position = glm::vec3(0);
+			Orientation = glm::quat(0, 0, 0, -1);
+			RightAngle = 0.0f;
+			UpAngle = 0.0f;
+			updateCameraVectors();
+		}
+
 	public:
 		glm::mat4 GetViewMatrix() {
 			glm::quat reverseOrientation = glm::conjugate(Orientation);

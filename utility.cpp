@@ -38,10 +38,10 @@ std::vector<const char*> Engine::Settings::getRequiredExtensions()
 	return extensions;
 }
 
-uint32_t Engine::Utility::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+uint32_t Engine::Utility::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice)
 {
 	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(Engine::Graphics::Device::physicalDevice, &memProperties);
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
 	for(uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
 		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
@@ -55,4 +55,8 @@ uint32_t Engine::Utility::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFl
 bool Engine::Utility::hasStencilComponent(VkFormat format)
 {
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;;
+}
+
+VkPhysicalDevice getPhysicalDeviceFromDevice(Engine::Graphics::Device device) {
+	return device.getPhysicalDevice();
 }

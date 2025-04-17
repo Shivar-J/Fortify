@@ -1,20 +1,27 @@
 #include "renderPass.h"
+#include "device.h"
+#include "swapchain.h"
+#include "sampler.h"
 
-void Engine::Graphics::RenderPass::createRenderPass()
+Engine::Graphics::RenderPass::~RenderPass()
+{
+}
+
+void Engine::Graphics::RenderPass::createRenderPass(Engine::Graphics::Device device, VkSampleCountFlagBits msaaSamples, Engine::Graphics::Swapchain swapchain)
 {
 	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = Engine::Graphics::Swapchain::swapChainImageFormat;
-	colorAttachment.samples = Engine::Graphics::Sampler::msaaSamples;
+	colorAttachment.format = swapchain.getSwapchainImageFormat();
+	colorAttachment.samples = msaaSamples;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = findDepthFormat();
-	depthAttachment.samples = Engine::Graphics::Sampler::msaaSamples;
+	depthAttachment.format = findDepthFormat(device.getPhysicalDevice());
+	depthAttachment.samples = msaaSamples;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -23,7 +30,7 @@ void Engine::Graphics::RenderPass::createRenderPass()
 	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentDescription colorAttachmentResolve{};
-	colorAttachmentResolve.format = Engine::Graphics::Swapchain::swapChainImageFormat;
+	colorAttachmentResolve.format = swapchain.getSwapchainImageFormat();
 	colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
 	colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -73,15 +80,15 @@ void Engine::Graphics::RenderPass::createRenderPass()
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-	if (vkCreateRenderPass(Engine::Graphics::Device::device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
+	if (vkCreateRenderPass(device.getDevice(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
 		throw std::runtime_error("failed to create render pass");
 }
 
-VkFormat Engine::Graphics::RenderPass::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+VkFormat Engine::Graphics::RenderPass::findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 {
 	for (VkFormat format : candidates) {
 		VkFormatProperties props;
-		vkGetPhysicalDeviceFormatProperties(Engine::Graphics::Device::physicalDevice, format, &props);
+		vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
 
 		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
 			return format;
@@ -92,16 +99,17 @@ VkFormat Engine::Graphics::RenderPass::findSupportedFormat(const std::vector<VkF
 	throw std::runtime_error("failed to find supported format");
 }
 
-VkFormat Engine::Graphics::RenderPass::findDepthFormat()
+VkFormat Engine::Graphics::RenderPass::findDepthFormat(VkPhysicalDevice physicalDevice)
 {
 	return findSupportedFormat(
+		physicalDevice,
 		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
 	);
 }
 
-void Engine::Graphics::RenderPass::createDescriptorSetLayout()
+void Engine::Graphics::RenderPass::createDescriptorSetLayout(VkDevice device)
 {
 	VkDescriptorSetLayoutBinding uboLayoutBinding{};
 	uboLayoutBinding.binding = 0;
@@ -123,6 +131,6 @@ void Engine::Graphics::RenderPass::createDescriptorSetLayout()
 	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 	layoutInfo.pBindings = bindings.data();
 
-	if (vkCreateDescriptorSetLayout(Engine::Graphics::Device::device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+	if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
 		throw std::runtime_error("failed to create descriptor set layout");
 }

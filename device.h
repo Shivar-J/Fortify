@@ -1,12 +1,13 @@
 #ifndef DEVICE_H
 #define DEVICE_H
 
-#include "instance.h"
-#include "sampler.h"
-#include "swapchain.h"
 #include "utility.h"
 
 namespace Engine::Graphics {
+	class Instance;
+	class Swapchain;
+	class Sampler;
+
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;
 		std::optional<uint32_t> presentFamily;
@@ -18,19 +19,30 @@ namespace Engine::Graphics {
 
 	class Device
 	{
-	public:
-		inline static VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-		inline static VkDevice device;
-		inline static VkQueue graphicsQueue;
-		inline static VkQueue presentQueue;
+	private:
+		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+		VkDevice device;
+		VkQueue graphicsQueue;
+		VkQueue presentQueue;
 
 	public:
-		static void pickPhysicalDevice();
-		static bool isDeviceSuitable(VkPhysicalDevice device);
-		static Engine::Graphics::QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-		static bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+		Device() = default;
+		~Device();
 
-		static void createLogicalDevice();
+		//Device(const Device&) = delete;
+		//Device& operator=(const Device&) = delete;
+
+		VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
+		VkDevice getDevice() const { return device; }
+		VkQueue getGraphicsQueue() const { return graphicsQueue; } 
+		VkQueue getPresentQueue() const { return presentQueue; }
+
+		void pickPhysicalDevice(const Engine::Graphics::Instance& instance);
+		bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
+		Engine::Graphics::QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
+		bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+
+		void createLogicalDevice(VkSurfaceKHR surface);
 	};
 }
 

@@ -1,20 +1,26 @@
 #include "device.h"
+#include "instance.h"
+#include "sampler.h"
+#include "swapchain.h"
 
-void Engine::Graphics::Device::pickPhysicalDevice()
+Engine::Graphics::Device::~Device()
+{
+}
+
+void Engine::Graphics::Device::pickPhysicalDevice(const Engine::Graphics::Instance& instance)
 {
 	uint32_t deviceCount = 0;
-	vkEnumeratePhysicalDevices(Engine::Graphics::Instance::instance, &deviceCount, nullptr);
+	vkEnumeratePhysicalDevices(instance.getInstance(), &deviceCount, nullptr);
 
 	if (deviceCount == 0)
 		throw std::runtime_error("failed to find GPUs with Vulkan support");
 
 	std::vector<VkPhysicalDevice> devices(deviceCount);
-	vkEnumeratePhysicalDevices(Engine::Graphics::Instance::instance, &deviceCount, devices.data());
+	vkEnumeratePhysicalDevices(instance.getInstance(), &deviceCount, devices.data());
 
 	for (const auto& device : devices) {
-		if (isDeviceSuitable(device)) {
+		if (isDeviceSuitable(device, instance.getSurface())) {
 			physicalDevice = device;
-			Engine::Graphics::Sampler::msaaSamples = Engine::Graphics::Sampler::getMaxUsableSampleCount();
 			break;
 		}
 	}
@@ -23,15 +29,15 @@ void Engine::Graphics::Device::pickPhysicalDevice()
 		throw std::runtime_error("failed to find a suitable GPU");
 }
 
-bool Engine::Graphics::Device::isDeviceSuitable(VkPhysicalDevice device)
+bool Engine::Graphics::Device::isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
-	QueueFamilyIndices indices = Engine::Graphics::Device::findQueueFamilies(device);
+	QueueFamilyIndices indices = Engine::Graphics::Device::findQueueFamilies(device, surface);
 
 	bool extensionsSupported = checkDeviceExtensionSupport(device);
 
 	bool swapChainAdequate = false;
 	if (extensionsSupported) {
-		Engine::Graphics::SwapChainSupportDetails swapChainSupport = Engine::Graphics::Swapchain::querySwapChainSupport(device);
+		SwapChainSupportDetails swapChainSupport = SwapChainSupportDetails::querySwapChainSupport(device, surface);
 		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 	}
 
@@ -41,7 +47,7 @@ bool Engine::Graphics::Device::isDeviceSuitable(VkPhysicalDevice device)
 	return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
 }
 
-Engine::Graphics::QueueFamilyIndices Engine::Graphics::Device::findQueueFamilies(VkPhysicalDevice device)
+Engine::Graphics::QueueFamilyIndices Engine::Graphics::Device::findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
 	QueueFamilyIndices indices;
 
@@ -58,7 +64,7 @@ Engine::Graphics::QueueFamilyIndices Engine::Graphics::Device::findQueueFamilies
 			indices.graphicsFamily = i;
 
 		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, Engine::Graphics::Instance::surface, &presentSupport);
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 		
 		if (presentSupport)
 			indices.presentFamily = i;
@@ -88,9 +94,9 @@ bool Engine::Graphics::Device::checkDeviceExtensionSupport(VkPhysicalDevice devi
 	return requiredExtensions.empty();
 }
 
-void Engine::Graphics::Device::createLogicalDevice()
+void Engine::Graphics::Device::createLogicalDevice(VkSurfaceKHR surface)
 {
-	Engine::Graphics::QueueFamilyIndices indices = Engine::Graphics::Device::findQueueFamilies(physicalDevice);
+	Engine::Graphics::QueueFamilyIndices indices = Engine::Graphics::Device::findQueueFamilies(physicalDevice, surface);
 
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32_t> uniqueQueueFramilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };

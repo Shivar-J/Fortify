@@ -1,4 +1,10 @@
 #include "instance.h"
+#include "core.h"
+
+Engine::Graphics::Instance::~Instance()
+{
+
+}
 
 void Engine::Graphics::Instance::createInstance()
 {
@@ -7,7 +13,7 @@ void Engine::Graphics::Instance::createInstance()
 
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Hello Triangle";
+    appInfo.pApplicationName = "Fortify";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "Fortify Engine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -34,7 +40,7 @@ void Engine::Graphics::Instance::createInstance()
         createInfo.pNext = nullptr;
     }
 
-    if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
+    if (vkCreateInstance(&createInfo, nullptr, &m_instance) != VK_SUCCESS) {
         throw std::runtime_error("failed to create instance");
     }
 }
@@ -76,12 +82,12 @@ void Engine::Graphics::Instance::setupDebugMessenger()
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     Engine::Graphics::Instance::populateDebugMessengerCreateInfo(createInfo);
 
-    if (Engine::Graphics::Instance::CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+    if (Engine::Graphics::Instance::CreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger) != VK_SUCCESS)
         throw std::runtime_error("failed to setup debug messenger");
 }
 
-void Engine::Graphics::Instance::createSurface()
+void Engine::Graphics::Instance::createSurface(GLFWwindow* window)
 {
-    if (glfwCreateWindowSurface(instance, Engine::Core::Application::window, nullptr, &surface) != VK_SUCCESS)
+    if (glfwCreateWindowSurface(m_instance, window, nullptr, &m_surface) != VK_SUCCESS)
         throw std::runtime_error("failed to create window surface");
 }

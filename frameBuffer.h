@@ -1,32 +1,42 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
-#include "imageView.h"
-#include "swapchain.h"
-#include "renderPass.h"
+
 #include "utility.h"
 
 namespace Engine::Graphics {
+	class CommandBuffer;
+	class Swapchain;
+	class RenderPass;
+	class Sampler;
+	class Device;
+
 	class FrameBuffer
 	{
-	public:
-		inline static VkImage colorImage;
-		inline static VkImageView colorImageView;
-		inline static VkDeviceMemory colorImageMemory;
+	private:
+		VkImage colorImage;
+		VkImageView colorImageView;
+		VkDeviceMemory colorImageMemory;
 
-		inline static VkImage depthImage;
-		inline static VkImageView depthImageView;
-		inline static VkDeviceMemory depthImageMemory;
+		VkImage depthImage;
+		VkImageView depthImageView;
+		VkDeviceMemory depthImageMemory;
 
 	public:
-		static void createColorResources();
-		static void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-		static void createDepthResources();
-		static VkFormat findDepthFormat();
-		static VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-		static void createFramebuffers();
-		static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-		static void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-		static void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+		void createColorResources(Engine::Graphics::Device device, Engine::Graphics::Swapchain swapchain, VkSampleCountFlagBits msaaSamples);
+		void createImage(Engine::Graphics::Device device, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+		void createDepthResources(Engine::Graphics::Device device, Engine::Graphics::Swapchain swapchain, VkSampleCountFlagBits msaaSamples, Engine::Graphics::CommandBuffer commandBuffer);
+		VkFormat findDepthFormat(VkPhysicalDevice physicalDevice);
+		VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+		void createFramebuffers(VkDevice device, Engine::Graphics::Swapchain& swapchain, VkRenderPass renderPass);
+		void createBuffer(Engine::Graphics::Device device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+
+		VkImage getColorImage() const { return colorImage; }
+		VkImageView getColorImageView() const { return colorImageView; }
+		VkDeviceMemory getColorImageMemory() const { return colorImageMemory; }
+
+		VkImage getDepthImage() const { return depthImage; }
+		VkImageView getDepthImageView() const { return depthImageView; }
+		VkDeviceMemory getDepthImageMemory() const { return depthImageMemory; }
 	};
 }
 #endif

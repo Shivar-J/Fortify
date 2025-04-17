@@ -1,12 +1,20 @@
 #include "pipeline.h"
+#include "device.h"
+#include "renderPass.h"
+#include "sampler.h"
+#include "texture.h"
 
-void Engine::Graphics::Pipeline::createGraphicsPipeline()
+Engine::Graphics::Pipeline::~Pipeline()
 {
-	auto vertShaderCode = readFile("shaders/vert.spv");
-	auto fragShaderCode = readFile("shaders/frag.spv");
+}
 
-	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+void Engine::Graphics::Pipeline::createGraphicsPipeline(std::string vertexShaderPath, std::string fragmentShaderPath, VkDevice device, VkSampleCountFlagBits msaaSamples, Engine::Graphics::RenderPass renderpass)
+{
+	auto vertShaderCode = readFile(vertexShaderPath);
+	auto fragShaderCode = readFile(fragmentShaderPath);
+
+	VkShaderModule vertShaderModule = createShaderModule(device, vertShaderCode);
+	VkShaderModule fragShaderModule = createShaderModule(device, fragShaderCode);
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -65,7 +73,7 @@ void Engine::Graphics::Pipeline::createGraphicsPipeline()
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisampling.sampleShadingEnable = VK_TRUE;
 	multisampling.minSampleShading = 0.2f;
-	multisampling.rasterizationSamples = Engine::Graphics::Sampler::msaaSamples;
+	multisampling.rasterizationSamples = msaaSamples;
 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -93,10 +101,11 @@ void Engine::Graphics::Pipeline::createGraphicsPipeline()
 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 1;
-	pipelineLayoutInfo.pSetLayouts = &Engine::Graphics::RenderPass::descriptorSetLayout;
+	pipelineLayoutInfo.setLayoutCount = 1;	
+	auto descriptorsetlayout = renderpass.getDescriptorSetLayout();
+	pipelineLayoutInfo.pSetLayouts = &descriptorsetlayout;
 
-	if (vkCreatePipelineLayout(Engine::Graphics::Device::device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
 
@@ -113,19 +122,19 @@ void Engine::Graphics::Pipeline::createGraphicsPipeline()
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.layout = pipelineLayout;
-	pipelineInfo.renderPass = Engine::Graphics::RenderPass::renderPass;
+	pipelineInfo.renderPass = renderpass.getRenderPass();
 	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-	if (vkCreateGraphicsPipelines(Engine::Graphics::Device::device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create graphics pipeline!");
 	}
 
-	vkDestroyShaderModule(Engine::Graphics::Device::device, fragShaderModule, nullptr);
-	vkDestroyShaderModule(Engine::Graphics::Device::device, vertShaderModule, nullptr);
+	vkDestroyShaderModule(device, fragShaderModule, nullptr);
+	vkDestroyShaderModule(device, vertShaderModule, nullptr);
 }
 
-VkShaderModule Engine::Graphics::Pipeline::createShaderModule(const std::vector<char>& code)
+VkShaderModule Engine::Graphics::Pipeline::createShaderModule(VkDevice device, const std::vector<char>& code)
 {
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -133,7 +142,7 @@ VkShaderModule Engine::Graphics::Pipeline::createShaderModule(const std::vector<
 	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
 	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(Engine::Graphics::Device::device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+	if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
 		throw std::runtime_error("failed to create shader module");
 
 	return shaderModule;

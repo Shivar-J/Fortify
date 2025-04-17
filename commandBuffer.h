@@ -1,21 +1,39 @@
 #ifndef COMMANDBUFFER_H
 #define COMMANDBUFFER_H
 
-#include "device.h"
+#include "utility.h"
 
 namespace Engine::Graphics {
+	class Device;
+	class Pipeline;
+	class RenderPass;
+	class Texture;
+	class Swapchain;
+	class DescriptorSets;
+
 	class CommandBuffer
 	{
-	public:
-		inline static VkCommandPool commandPool;
-		inline static std::vector<VkCommandBuffer> commandBuffers;
+	private:
+		VkCommandPool commandPool;
+		std::vector<VkCommandBuffer> commandBuffers;
 
 	public:
-		static void createCommandPool();
-		static VkCommandBuffer beginSingleTimeCommands();
-		static void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-		static void createCommandBuffers();
-		static void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+		CommandBuffer() = default;
+		~CommandBuffer();
+
+		void createCommandPool(Engine::Graphics::Device device, VkSurfaceKHR surface);
+		VkCommandBuffer beginSingleTimeCommands(VkDevice device);
+		void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue graphicsQueue, VkDevice device);
+		void createCommandBuffers(VkDevice device);
+
+		void transitionImageLayout(const Engine::Graphics::Device& device, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
+
+		void copyBufferToImage(const Engine::Graphics::Device& device, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+		void copyBuffer(const Engine::Graphics::Device& device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+
+		VkCommandPool getCommandPool() const { return commandPool; }
+		const std::vector<VkCommandBuffer>& getCommandBuffers() const { return commandBuffers; }
+
 	};
 }
-#endif // !COMMANDBUFFER_H
+#endif

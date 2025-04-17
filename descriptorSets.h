@@ -1,18 +1,25 @@
 #ifndef DESCRIPTORSETS_H
 #define DESCRIPTORSETS_H
-#include "texture.h"
-#include "renderPass.h"
+
+#include "utility.h"
 
 namespace Engine::Graphics {
+	class Texture;
+	class Device;
+	class RenderPass;
+
 	class DescriptorSets
 	{
-	public:
-		inline static VkDescriptorPool descriptorPool;
-		inline static std::vector<VkDescriptorSet> descriptorSets;
+	private:
+		VkDescriptorPool descriptorPool;
+		std::vector<VkDescriptorSet> descriptorSets;
 
 	public:
-		static void createDescriptorPool();
-		static void createDescriptorSets();
+		void createDescriptorPool(VkDevice device);
+		void createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout);
+
+		VkDescriptorPool getDescriptorPool() const { return descriptorPool; }
+		std::vector<VkDescriptorSet> getDescriptorSets() const { return descriptorSets; }
 	};
 }
 #endif

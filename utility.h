@@ -35,7 +35,7 @@ namespace Engine::Settings {
 	inline uint32_t WIDTH = 1280;
 	inline uint32_t HEIGHT = 720;
 
-	inline const int MAX_FRAMES_IN_FLIGHT = 2;
+	constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 	inline uint32_t currentFrame = 0;
 
@@ -58,7 +58,7 @@ namespace Engine::Settings {
 };
 
 namespace Engine::Utility {
-	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice);
 	bool hasStencilComponent(VkFormat format);
 }
 #endif

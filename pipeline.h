@@ -2,19 +2,27 @@
 #define PIPELINE_H
 
 #include "utility.h"
-#include "device.h"
-#include "renderPass.h"
 
 namespace Engine::Graphics {
+	class Device;
+	class RenderPass;
+	class Sampler;
+
 	class Pipeline
 	{
+	private:
+		VkPipelineLayout pipelineLayout;
+		VkPipeline graphicsPipeline;
 	public:
-		inline static VkPipelineLayout pipelineLayout;
-		inline static VkPipeline graphicsPipeline;
-	public:
-		static void createGraphicsPipeline();
-		static VkShaderModule createShaderModule(const std::vector<char>& code);
-		static std::vector<char> readFile(const std::string& filename);
+		Pipeline() = default;
+		~Pipeline();
+
+		void createGraphicsPipeline(std::string vertexShaderPath, std::string fragmentShaderPath, VkDevice device, VkSampleCountFlagBits msaaSamples, Engine::Graphics::RenderPass renderpass);
+		VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code);
+		std::vector<char> readFile(const std::string& filename);
+
+		VkPipelineLayout getPipelineLayout() const { return pipelineLayout; }
+		VkPipeline getGraphicsPipeline() const { return graphicsPipeline; }
 	};
 }
 #endif

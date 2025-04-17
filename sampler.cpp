@@ -1,9 +1,19 @@
 #include "sampler.h"
+#include "device.h"
+#include "commandBuffer.h"
 
-VkSampleCountFlagBits Engine::Graphics::Sampler::getMaxUsableSampleCount()
+Engine::Graphics::Sampler::~Sampler()
+{
+}
+
+void Engine::Graphics::Sampler::setSamples(VkPhysicalDevice physicalDevice) {
+    msaaSamples = getMaxUsableSampleCount(physicalDevice);
+}
+
+VkSampleCountFlagBits Engine::Graphics::Sampler::getMaxUsableSampleCount(VkPhysicalDevice physicalDevice)
 {
     VkPhysicalDeviceProperties physicalDeviceProperties;
-    vkGetPhysicalDeviceProperties(Engine::Graphics::Device::physicalDevice, &physicalDeviceProperties);
+    vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
 
     VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
 
@@ -17,16 +27,16 @@ VkSampleCountFlagBits Engine::Graphics::Sampler::getMaxUsableSampleCount()
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-void Engine::Graphics::Sampler::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
+void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::Device device, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
 {
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(Engine::Graphics::Device::physicalDevice, imageFormat, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(device.getPhysicalDevice(), imageFormat, &formatProperties);
 
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
         throw std::runtime_error("texture image format does not support linear blitting");
     }
 
-    VkCommandBuffer commandBuffer = Engine::Graphics::CommandBuffer::beginSingleTimeCommands();
+    VkCommandBuffer commandBuffer = commandBuf.beginSingleTimeCommands(device.getDevice());
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -37,6 +47,19 @@ void Engine::Graphics::Sampler::generateMipmaps(VkImage image, VkFormat imageFor
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
     barrier.subresourceRange.levelCount = 1;
+
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
 
     int32_t mipWidth = texWidth;
     int32_t mipHeight = texHeight;
@@ -105,5 +128,5 @@ void Engine::Graphics::Sampler::generateMipmaps(VkImage image, VkFormat imageFor
         1, &barrier
     );
 
-    Engine::Graphics::CommandBuffer::endSingleTimeCommands(commandBuffer);
+    commandBuf.endSingleTimeCommands(commandBuffer, device.getGraphicsQueue(), device.getDevice());
 }

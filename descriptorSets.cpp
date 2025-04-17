@@ -1,6 +1,9 @@
 #include "descriptorSets.h"
+#include "device.h"
+#include "texture.h"
+#include "renderPass.h"
 
-void Engine::Graphics::DescriptorSets::createDescriptorPool()
+void Engine::Graphics::DescriptorSets::createDescriptorPool(VkDevice device)
 {
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -14,14 +17,14 @@ void Engine::Graphics::DescriptorSets::createDescriptorPool()
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = static_cast<uint32_t>(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
 
-    if (vkCreateDescriptorPool(Engine::Graphics::Device::device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
     }
 }
 
-void Engine::Graphics::DescriptorSets::createDescriptorSets()
+void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout)
 {
-    std::vector<VkDescriptorSetLayout> layouts(Engine::Settings::MAX_FRAMES_IN_FLIGHT, Engine::Graphics::RenderPass::descriptorSetLayout);
+    std::vector<VkDescriptorSetLayout> layouts(Engine::Settings::MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = descriptorPool;
@@ -29,20 +32,21 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets()
     allocInfo.pSetLayouts = layouts.data();
 
     descriptorSets.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
-    if (vkAllocateDescriptorSets(Engine::Graphics::Device::device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+    if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
     for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = Engine::Graphics::Texture::uniformBuffers[i];
+        bufferInfo.buffer = texture.getUniformBuffers()[i];
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = Engine::Graphics::Texture::textureImageView;
-        imageInfo.sampler = Engine::Graphics::Texture::textureSampler;
+
+        imageInfo.imageView = texture.getTextureImageView();
+        imageInfo.sampler = texture.getTextureSampler();
 
         std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -61,6 +65,6 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets()
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pImageInfo = &imageInfo;
 
-        vkUpdateDescriptorSets(Engine::Graphics::Device::device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 }

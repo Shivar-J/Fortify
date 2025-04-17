@@ -1,10 +1,6 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
 
-#include "frameBuffer.h"
-#include "imageView.h"
-#include "sampler.h"
-#include "pipeline.h"
 #include "utility.h"
 #include "camera.h"
 
@@ -63,40 +59,71 @@ namespace Engine::Graphics {
 		glm::mat4 proj;
 	};
 
+	class Device;
+	class FrameBuffer;
+	class Sampler;
+	class Pipeline;
+	class CommandBuffer;
+	class Swapchain;
+
 	class Texture
 	{
+	private:
+		uint32_t mipLevels;
+		VkImage textureImage;
+		VkImageView textureImageView;
+		VkSampler textureSampler;
+		VkDeviceMemory textureImageMemory;
+
+		VkBuffer vertexBuffer;
+		VkDeviceMemory vertexBufferMemory;
+		VkBuffer indexBuffer;
+		VkDeviceMemory indexBufferMemory;
+
+		std::vector<VkBuffer> uniformBuffers;
+		std::vector<VkDeviceMemory> uniformBuffersMemory;
+		std::vector<void*> uniformBuffersMapped;
+
+		std::vector<VkSemaphore> imageAvailableSemaphores;
+		std::vector<VkSemaphore> renderFinishedSemaphores;
+		std::vector<VkFence> inFlightFences;
+
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
+		
 	public:
-		inline static uint32_t mipLevels;
-		inline static VkImage textureImage;
-		inline static VkImageView textureImageView;
-		inline static VkSampler textureSampler;
-		inline static VkDeviceMemory textureImageMemory;
+		void createTextureImage(std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture);
+		void createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device);
+		void createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice);
+		void loadModel(std::string modelPath);
+		void createVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
+		void createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
+		void createUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);
+		void createSyncObjects(VkDevice device);
+		void updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent);
+		void updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent, glm::mat4 model);
 
-		inline static VkBuffer vertexBuffer;
-		inline static VkDeviceMemory vertexBufferMemory;
-		inline static VkBuffer indexBuffer;
-		inline static VkDeviceMemory indexBufferMemory;
+		uint32_t getMipLevels() const { return mipLevels; }
+		VkImage getTextureImage() const { return textureImage; }
+		VkImageView getTextureImageView() const { return textureImageView; }
+		VkSampler getTextureSampler() const { return textureSampler; }
+		VkDeviceMemory getTextureImageMemory() const { return textureImageMemory; }
 
-		inline static std::vector<VkBuffer> uniformBuffers;
-		inline static std::vector<VkDeviceMemory> uniformBuffersMemory;
-		inline static std::vector<void*> uniformBuffersMapped;
+		VkBuffer getVertexBuffer() const { return vertexBuffer; } 
+		VkDeviceMemory getVertexBufferMemory() const { return vertexBufferMemory; }
+		VkBuffer getIndexBuffer() const { return indexBuffer; }
+		VkDeviceMemory getIndexBufferMemory() const { return indexBufferMemory; }
 
-		inline static std::vector<VkSemaphore> imageAvailableSemaphores;
-		inline static std::vector<VkSemaphore> renderFinishedSemaphores;
-		inline static std::vector<VkFence> inFlightFences;
+		std::vector<VkBuffer> getUniformBuffers() const { return uniformBuffers; }
+		std::vector<VkDeviceMemory> getUniformBuffersMemory() const { return uniformBuffersMemory; }
+		std::vector<void*> getUniformBuffersMapped() const { return uniformBuffersMapped; }
 
-		inline static std::vector<Vertex> vertices;
-		inline static std::vector<uint32_t> indices;
-	public:
-		static void createTextureImage();
-		static void createTextureImageView();
-		static void createTextureSampler();
-		static void loadModel();
-		static void createVertexBuffer();
-		static void createIndexBuffer();
-		static void createUniformBuffers();
-		static void createSyncObjects();
-		static void updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera);
+		std::vector<VkSemaphore> getImageAvailableSemaphores() { return imageAvailableSemaphores; }
+		std::vector<VkSemaphore> getRenderFinishedSemaphores() { return renderFinishedSemaphores; }
+		std::vector<VkFence> getInFlightFences() { return inFlightFences; }
+		
+		std::vector<Vertex> getVertices() const { return vertices; }
+		std::vector<uint32_t> getIndices() const { return indices; }
 	};
 }
 
