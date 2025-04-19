@@ -33,7 +33,7 @@ namespace Engine::Core {
 
 		float FOV = 45.0f;
 		float NearClip = 0.1f;
-		float FarClip = 1000.0f;
+		float FarClip = 100000.0f;
 		float AspectRatio = 16.0f / 9.0f;
 
 		Camera(glm::vec3 position) : MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY) {

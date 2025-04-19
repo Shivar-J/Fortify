@@ -124,21 +124,28 @@ void Engine::Graphics::Swapchain::createImageViews(VkDevice device) {
 	swapChainImageViews.resize(swapChainImages.size());
 
 	for(uint32_t i = 0; i < swapChainImages.size(); i++) {
-		swapChainImageViews[i] = createImageView(device, swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		swapChainImageViews[i] = createImageView(device, swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, false);
 	}
 }
 
-VkImageView Engine::Graphics::Swapchain::createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) {
+VkImageView Engine::Graphics::Swapchain::createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, bool isCube) {
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewInfo.image = image;
-	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	viewInfo.format = format;
 	viewInfo.subresourceRange.aspectMask = aspectFlags;
 	viewInfo.subresourceRange.baseMipLevel = 0;
 	viewInfo.subresourceRange.levelCount = mipLevels;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
-	viewInfo.subresourceRange.layerCount = 1;
+
+	if (isCube) {
+		viewInfo.subresourceRange.layerCount = 6;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+	}
+	else {
+		viewInfo.subresourceRange.layerCount = 1;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	}
 
 	VkImageView imageView;
 	if(vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {

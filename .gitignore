@@ -5,7 +5,8 @@
 
 lib
 textures
-shaders/compile.bat
+shaders/compileShader.bat
+shaders/compileSkyboxShader.bat
 
 Fortify.sln
 Fortify.vcxproj

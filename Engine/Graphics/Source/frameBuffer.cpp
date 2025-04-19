@@ -9,20 +9,21 @@ void Engine::Graphics::FrameBuffer::createColorResources(Engine::Graphics::Devic
 {
 	VkFormat colorFormat = swapchain.getSwapchainImageFormat();
 
-	createImage(device, swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
-	colorImageView = swapchain.createImageView(device.getDevice(), colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+	createImage(device, swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory, 1, 0);
+	colorImageView = swapchain.createImageView(device.getDevice(), colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, false);
 }
 
-void Engine::Graphics::FrameBuffer::createImage(Engine::Graphics::Device device, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+void Engine::Graphics::FrameBuffer::createImage(Engine::Graphics::Device device, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, uint32_t arrayLayers, VkImageCreateFlags flags)
 {
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.flags = flags;
 	imageInfo.extent.width = width;
 	imageInfo.extent.height = height;
 	imageInfo.extent.depth = 1;
 	imageInfo.mipLevels = mipLevels;
-	imageInfo.arrayLayers = 1;
+	imageInfo.arrayLayers = arrayLayers;
 	imageInfo.format = format;
 	imageInfo.tiling = tiling;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -50,10 +51,10 @@ void Engine::Graphics::FrameBuffer::createImage(Engine::Graphics::Device device,
 void Engine::Graphics::FrameBuffer::createDepthResources(Engine::Graphics::Device device, Engine::Graphics::Swapchain swapchain, VkSampleCountFlagBits msaaSamples, Engine::Graphics::CommandBuffer commandBuffer)
 {
 	VkFormat depthFormat = findDepthFormat(device.getPhysicalDevice());
-	createImage(device, swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
-	depthImageView = swapchain.createImageView(device.getDevice(), depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+	createImage(device, swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory, 1, 0);
+	depthImageView = swapchain.createImageView(device.getDevice(), depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, false);
 
-	commandBuffer.transitionImageLayout(device, depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
+	commandBuffer.transitionImageLayout(device, depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, 1);
 }
 
 VkFormat Engine::Graphics::FrameBuffer::findDepthFormat(VkPhysicalDevice physicalDevice)

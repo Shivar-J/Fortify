@@ -13,6 +13,17 @@
 #include "swapchain.h"
 #include "camera.h"
 
+enum class ModelType {
+	Object,
+	Skybox,
+	UI,
+	Transparent,
+	Shadow,
+	Light,
+	Terrain,
+	Particle
+};
+
 struct Model {
 	Engine::Graphics::Pipeline pipeline;
 	Engine::Graphics::Texture texture;
@@ -20,6 +31,7 @@ struct Model {
 	uint32_t indexCount;
 	glm::mat4 modelMatrix;
 	int32_t pipelineIndex;
+	ModelType type;
 };
 
 namespace Engine::Core {

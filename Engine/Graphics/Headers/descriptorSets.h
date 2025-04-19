@@ -16,7 +16,7 @@ namespace Engine::Graphics {
 
 	public:
 		void createDescriptorPool(VkDevice device);
-		void createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout);
+		void createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout, bool isCube);
 
 		VkDescriptorPool getDescriptorPool() const { return descriptorPool; }
 		std::vector<VkDescriptorSet> getDescriptorSets() const { return descriptorSets; }

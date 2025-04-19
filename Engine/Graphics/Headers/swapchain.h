@@ -66,7 +66,7 @@ namespace Engine::Graphics {
 		//void recreateSwapChain();
 
 		void createImageViews(VkDevice device);
-		VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
+		VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, bool isCube);
 
 		VkSwapchainKHR getSwapchain() const { return swapChain; }
 		std::vector<VkImage> getSwapchainImages() const { return swapChainImages; }

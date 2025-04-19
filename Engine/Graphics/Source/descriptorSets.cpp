@@ -22,7 +22,7 @@ void Engine::Graphics::DescriptorSets::createDescriptorPool(VkDevice device)
     }
 }
 
-void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout)
+void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout, bool isCube)
 {
     std::vector<VkDescriptorSetLayout> layouts(Engine::Settings::MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -38,9 +38,16 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
 
     for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = texture.getUniformBuffers()[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
+        if (isCube) {
+            bufferInfo.buffer = texture.getSkyboxUniformBuffers()[i];
+            bufferInfo.offset = 0;
+            bufferInfo.range = sizeof(SkyboxUBO);
+        }
+        else {
+            bufferInfo.buffer = texture.getUniformBuffers()[i];
+            bufferInfo.offset = 0;
+            bufferInfo.range = sizeof(UniformBufferObject);
+        }
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
