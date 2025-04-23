@@ -13,6 +13,7 @@ namespace Engine::Graphics {
 	private:
 		VkRenderPass renderPass;
 		VkDescriptorSetLayout descriptorSetLayout;
+		VkDescriptorSetLayout pbrDescriptorSetLayout;
 
 	public:
 		RenderPass() = default;
@@ -23,9 +24,12 @@ namespace Engine::Graphics {
 		VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 		VkFormat findDepthFormat(VkPhysicalDevice physicalDevice);
 		void createDescriptorSetLayout(VkDevice device);
+		void createDescriptorSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding>& bindings);
+		void setupLayoutBindings(VkDevice device);
 
 		VkRenderPass getRenderPass() const { return renderPass; }
 		VkDescriptorSetLayout getDescriptorSetLayout() const { return descriptorSetLayout; }
+		VkDescriptorSetLayout getPBRDescriptorSetLayout() const { return pbrDescriptorSetLayout; }
 	};
 }
 #endif

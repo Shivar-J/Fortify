@@ -9,7 +9,7 @@ void Engine::Graphics::DescriptorSets::createDescriptorPool(VkDevice device)
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(Engine::Settings::MAX_FRAMES_IN_FLIGHT) * 5;
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -36,6 +36,8 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
+    int textureCount = static_cast<int>(texture.getTextureCount());
+
     for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{};
         if (isCube) {
@@ -49,29 +51,67 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
             bufferInfo.range = sizeof(UniformBufferObject);
         }
 
+        std::vector<VkDescriptorImageInfo> imageInfos{};
         VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        imageInfo.imageView = texture.getTextureImageView();
-        imageInfo.sampler = texture.getTextureSampler();
+        if (textureCount == -1) {
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = descriptorSets[i];
-        descriptorWrites[0].dstBinding = 0;
-        descriptorWrites[0].dstArrayElement = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
+            imageInfo.imageView = texture.getTextureImageView();
+            imageInfo.sampler = texture.getTextureSampler();
+            imageInfos.push_back(imageInfo);
+        }
+        else {
+            for (int j = 0; j < textureCount; j++) {
 
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = descriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
+                imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+                imageInfo.imageView = texture.getTextureImageView(j);
+                imageInfo.sampler = texture.getTextureSampler(j);
+
+                imageInfos.push_back(imageInfo);
+            }
+        }
+
+        std::vector<VkWriteDescriptorSet> descriptorWrites;
+        VkWriteDescriptorSet uniformWrite{};
+        uniformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        uniformWrite.dstSet = descriptorSets[i];
+        uniformWrite.dstBinding = 0;
+        uniformWrite.dstArrayElement = 0;
+        uniformWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uniformWrite.descriptorCount = 1;
+        uniformWrite.pBufferInfo = &bufferInfo;
+
+        descriptorWrites.push_back(uniformWrite);
+
+        if (textureCount == -1) {
+            VkWriteDescriptorSet imageWrite{};
+            imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            imageWrite.dstSet = descriptorSets[i];
+            imageWrite.dstBinding = 1;
+            imageWrite.dstArrayElement = 0;
+            imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            imageWrite.descriptorCount = 1;
+            imageWrite.pImageInfo = &imageInfo;
+
+            descriptorWrites.push_back(imageWrite);
+        }
+        else {
+            for (size_t j = 0; j < textureCount; j++) {
+                VkWriteDescriptorSet imageWrite{};
+                imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                imageWrite.dstSet = descriptorSets[i];
+                imageWrite.dstBinding = static_cast<uint32_t>(j + 1);
+                imageWrite.dstArrayElement = 0;
+                imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                imageWrite.descriptorCount = 1;
+                imageWrite.pImageInfo = &imageInfos[j];
+
+                descriptorWrites.push_back(imageWrite);
+            }
+        }
+        
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 }

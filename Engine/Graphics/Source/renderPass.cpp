@@ -134,3 +134,48 @@ void Engine::Graphics::RenderPass::createDescriptorSetLayout(VkDevice device)
 	if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
 		throw std::runtime_error("failed to create descriptor set layout");
 }
+
+void Engine::Graphics::RenderPass::createDescriptorSetLayout(VkDevice device, const std::vector<VkDescriptorSetLayoutBinding>& bindings)
+{
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	layoutInfo.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+		throw std::runtime_error("failed to create descriptor set layout");
+}
+
+void Engine::Graphics::RenderPass::setupLayoutBindings(VkDevice device)
+{
+	std::vector<VkDescriptorSetLayoutBinding> pbrBindings;
+
+	VkDescriptorSetLayoutBinding uboLayoutBinding{};
+	uboLayoutBinding.binding = 0;
+	uboLayoutBinding.descriptorCount = 1;
+	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	uboLayoutBinding.pImmutableSamplers = nullptr;
+	//bindings.push_back(uboLayoutBinding);
+	pbrBindings.push_back(uboLayoutBinding);
+
+	for (size_t i = 1; i <= 5; i++) {
+		VkDescriptorSetLayoutBinding pbrLayoutBindings{};
+		pbrLayoutBindings.binding = i;
+		pbrLayoutBindings.descriptorCount = 1;
+		pbrLayoutBindings.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		pbrLayoutBindings.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		pbrLayoutBindings.pImmutableSamplers = nullptr;
+
+		pbrBindings.push_back(pbrLayoutBindings);
+	}
+
+	VkDescriptorSetLayoutCreateInfo pbrLayoutInfo{};
+	pbrLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	pbrLayoutInfo.bindingCount = static_cast<uint32_t>(pbrBindings.size());
+	pbrLayoutInfo.pBindings = pbrBindings.data();
+
+	if (vkCreateDescriptorSetLayout(device, &pbrLayoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+		throw std::runtime_error("failed to create descriptor set layout");
+}
+

@@ -19,7 +19,7 @@ namespace Engine::Graphics {
 		~Pipeline();
 
 		template<typename VertexType>
-		void createGraphicsPipeline(std::string vertexShaderPath, std::string fragmentShaderPath, VkDevice device, VkSampleCountFlagBits msaaSamples, Engine::Graphics::RenderPass renderpass, bool isCube) {
+		void createGraphicsPipeline(std::string vertexShaderPath, std::string fragmentShaderPath, VkDevice device, VkSampleCountFlagBits msaaSamples, Engine::Graphics::RenderPass renderpass, bool isCube, bool isMAT5) {
 			auto vertShaderCode = readFile(vertexShaderPath);
 			auto fragShaderCode = readFile(fragmentShaderPath);
 
@@ -132,7 +132,9 @@ namespace Engine::Graphics {
 			VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 			pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 			pipelineLayoutInfo.setLayoutCount = 1;
-			auto descriptorsetlayout = renderpass.getDescriptorSetLayout();
+			VkDescriptorSetLayout descriptorsetlayout;
+			descriptorsetlayout = renderpass.getDescriptorSetLayout();
+			
 			pipelineLayoutInfo.pSetLayouts = &descriptorsetlayout;
 
 			if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {

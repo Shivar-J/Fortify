@@ -40,14 +40,14 @@ void Engine::Core::Application::initVulkan()
 	swapchain.createSwapChain(window, instance, device);
 	swapchain.createImageViews(device.getDevice());
 	renderpass.createRenderPass(device, sampler.getSamples(), swapchain);
-	renderpass.createDescriptorSetLayout(device.getDevice());
+	renderpass.setupLayoutBindings(device.getDevice());
 
 	pipelines.emplace_back();
-	pipelines.back().createGraphicsPipeline<CubeVertex>("shaders/skyboxVert.spv", "shaders/skyboxFrag.spv", device.getDevice(), sampler.getSamples(), renderpass, true);
+	pipelines.back().createGraphicsPipeline<CubeVertex>("shaders/skyboxVert.spv", "shaders/skyboxFrag.spv", device.getDevice(), sampler.getSamples(), renderpass, true, false);
 	pipelines.emplace_back();
-	pipelines.back().createGraphicsPipeline<Vertex>("shaders/vert.spv", "shaders/frag.spv", device.getDevice(), sampler.getSamples(), renderpass, false);
+	pipelines.back().createGraphicsPipeline<Vertex>("shaders/vert.spv", "shaders/frag.spv", device.getDevice(), sampler.getSamples(), renderpass, false, false);
 	pipelines.emplace_back();
-	pipelines.back().createGraphicsPipeline<Vertex>("shaders/vert.spv", "shaders/frag.spv", device.getDevice(), sampler.getSamples(), renderpass, false);
+	pipelines.back().createGraphicsPipeline<Vertex>("shaders/textureMapVert.spv", "shaders/textureMapFrag.spv", device.getDevice(), sampler.getSamples(), renderpass, false, true);
 
 	commandbuffer.createCommandPool(device, instance.getSurface());
 	framebuffer.createColorResources(device, swapchain, sampler.getSamples());
@@ -76,16 +76,35 @@ void Engine::Core::Application::initVulkan()
 			m.indexCount = static_cast<uint32_t>(m.texture.getCubeIndices().size());
 			m.texture.createSkyboxUniformBuffers(device, framebuffer);
 			m.type = ModelType::Skybox;
+			m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox);
+			m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox);
 		}
 		else {
 			if (i == 1) {
 				m.texture.createTextureImage("textures/viking_room/viking_room.png", device, commandbuffer, framebuffer, sampler, false);
-				m.modelMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+				m.modelMatrix = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f)), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 				m.texture.loadModel("textures/viking_room/viking_room.obj");
+				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox);
+				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox);
 			}
 			else if (i == 2) {
-				m.texture.createTextureImage("textures/backpack/diffuse.jpg", device, commandbuffer, framebuffer, sampler, true);
-				m.modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f));
+				m.texture.createTextureImage("textures/backpack/diffuse.jpg", device, commandbuffer, framebuffer, sampler, true, 0);
+				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 0);
+				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 0);
+				m.texture.createTextureImage("textures/backpack/ao.jpg", device, commandbuffer, framebuffer, sampler, true, 1);
+				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 1);
+				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 1);
+				m.texture.createTextureImage("textures/backpack/normal.png", device, commandbuffer, framebuffer, sampler, true, 2);
+				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 2);
+				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 2);
+				m.texture.createTextureImage("textures/backpack/roughness.jpg", device, commandbuffer, framebuffer, sampler, true, 3);
+				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 3);
+				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 3);
+				m.texture.createTextureImage("textures/backpack/specular.jpg", device, commandbuffer, framebuffer, sampler, true, 4);
+				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 4);
+				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 4);
+				m.modelMatrix = glm::mat4(1.0f);
+				//m.modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f));
 				m.texture.loadModel("textures/backpack/backpack.obj");
 			}
 
@@ -95,11 +114,8 @@ void Engine::Core::Application::initVulkan()
 			m.texture.createUniformBuffers(device, framebuffer);
 			m.type = ModelType::Object;
 		}
-		
 		m.pipelineIndex = i;
-		m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox);
-		m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox);
-		
+	
 		m.descriptor.createDescriptorPool(device.getDevice());
 		m.descriptor.createDescriptorSets(device.getDevice(), m.texture, renderpass.getDescriptorSetLayout(), isSkybox);
 		
@@ -160,6 +176,8 @@ void Engine::Core::Application::cleanup()
 	vkDestroyRenderPass(device.getDevice(), renderpass.getRenderPass(), nullptr);
 	
 	for(auto& m : models) {
+		int textureCount = m.texture.getTextureCount();
+
 		for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
 			if (i < m.texture.getUniformBuffers().size()) {
 				vkDestroyBuffer(device.getDevice(), m.texture.getUniformBuffers()[i], nullptr);
@@ -172,14 +190,24 @@ void Engine::Core::Application::cleanup()
 		}
 
 		vkDestroyDescriptorPool(device.getDevice(), m.descriptor.getDescriptorPool(), nullptr);
+		if (textureCount == -1) {
+			vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(), nullptr);
+			vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(), nullptr);
 
-		vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(), nullptr);
-		vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(), nullptr);
+			vkDestroyImage(device.getDevice(), m.texture.getTextureImage(), nullptr);
+			vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(), nullptr);
+		}
+		else {
+			for (int i = 0; i < textureCount; i++) {
+				vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(i), nullptr);
+				vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(i), nullptr);
 
-		vkDestroyImage(device.getDevice(), m.texture.getTextureImage(), nullptr);
-		vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(), nullptr);
+				vkDestroyImage(device.getDevice(), m.texture.getTextureImage(i), nullptr);
+				vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(i), nullptr);
+			}
+		}
 	}
-	
+
 	vkDestroyDescriptorSetLayout(device.getDevice(), renderpass.getDescriptorSetLayout(), nullptr);
 	
 	for (auto& m : models) {

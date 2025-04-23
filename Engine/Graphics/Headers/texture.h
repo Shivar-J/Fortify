@@ -110,6 +110,12 @@ namespace Engine::Graphics {
 		VkSampler textureSampler;
 		VkDeviceMemory textureImageMemory;
 
+		std::vector<VkImage> textureImages;
+		std::vector<VkImageView> textureImageViews;
+		std::vector<VkDeviceMemory> textureImageMemories;
+		std::vector<VkSampler> textureSamples;
+		std::vector<uint32_t> vecMipLevels;
+
 		VkBuffer vertexBuffer;
 		VkDeviceMemory vertexBufferMemory;
 		VkBuffer indexBuffer;
@@ -134,9 +140,9 @@ namespace Engine::Graphics {
 		std::vector<uint32_t> cubeIndices;
 		
 	public:
-		void createTextureImage(std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture);
-		void createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube);
-		void createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube);
+		void createTextureImage(std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, int mat5Index = 0);
+		void createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube, int mat5Index = -1);
+		void createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, int mat5Index = -1);
 		void loadModel(std::string modelPath);
 		void createVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
@@ -152,11 +158,20 @@ namespace Engine::Graphics {
 		void createSkyboxUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer);
 		void updateSkyboxUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent);
 
+		int getTextureCount() const {
+			return textureImageViews.size() > 0 ? static_cast<int>(textureImageViews.size()) : -1;
+		}
 		uint32_t getMipLevels() const { return mipLevels; }
 		VkImage getTextureImage() const { return textureImage; }
 		VkImageView getTextureImageView() const { return textureImageView; }
 		VkSampler getTextureSampler() const { return textureSampler; }
 		VkDeviceMemory getTextureImageMemory() const { return textureImageMemory; }
+
+		uint32_t getMipLevels(int index) const { return vecMipLevels[index]; }
+		VkImage getTextureImage(int index) const { return textureImages[index]; }
+		VkImageView getTextureImageView(int index) const { return textureImageViews[index]; }
+		VkSampler getTextureSampler(int index) const { return textureSamples[index]; }
+		VkDeviceMemory getTextureImageMemory(int index) const { return textureImageMemories[index]; }
 
 		VkBuffer getVertexBuffer() const { return vertexBuffer; } 
 		VkDeviceMemory getVertexBufferMemory() const { return vertexBufferMemory; }
