@@ -4,6 +4,7 @@ void Engine::Core::Application::run()
 {
 	initWindow();
 	initVulkan();
+	initImGui();
 	mainLoop();
 	cleanup();
 }
@@ -126,11 +127,63 @@ void Engine::Core::Application::initVulkan()
 	texture.createSyncObjects(device.getDevice());
 }
 
+void Engine::Core::Application::initImGui()
+{
+	VkDescriptorPoolSize poolSizes[] = {
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	poolInfo.maxSets = 1000;
+	poolInfo.poolSizeCount = static_cast<uint32_t>(std::size(poolSizes));
+	poolInfo.pPoolSizes = poolSizes;
+
+	if (vkCreateDescriptorPool(device.getDevice(), &poolInfo, nullptr, &imguiPool)) {
+		throw std::runtime_error("failed to create imgui descriptor pool");
+	}
+
+	ImGui::CreateContext();
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForVulkan(window, true);
+
+	ImGui_ImplVulkan_InitInfo initInfo{};
+	initInfo.Instance = instance.getInstance();
+	initInfo.PhysicalDevice = device.getPhysicalDevice();
+	initInfo.Device = device.getDevice();
+	initInfo.Queue = device.getGraphicsQueue();
+	initInfo.DescriptorPool = imguiPool;
+	initInfo.RenderPass = renderpass.getRenderPass();
+	initInfo.MinImageCount = 3;
+	initInfo.ImageCount = 3;
+	initInfo.MSAASamples = sampler.getSamples();
+
+	ImGui_ImplVulkan_Init(&initInfo);
+
+	VkCommandBuffer imguiCB = commandbuffer.beginSingleTimeCommands(device.getDevice());
+	ImGui_ImplVulkan_CreateFontsTexture();
+	commandbuffer.endSingleTimeCommands(imguiCB, device.getGraphicsQueue(), device.getDevice());
+	ImGui_ImplVulkan_DestroyFontsTexture();
+
+}
+
 void Engine::Core::Application::mainLoop()
 {
 	float prev = glfwGetTime();
 	float prevFPS = glfwGetTime();
 	int frameCount = 0;
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
 	while (!glfwWindowShouldClose(window)) {
 		float curr = glfwGetTime();
@@ -158,6 +211,17 @@ void Engine::Core::Application::mainLoop()
 		}
 
 		glfwPollEvents();
+
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		ImGui::Begin("Test Window");
+		ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+		ImGui::End();
+
+		ImGui::Render();
+
 		drawFrame();
 	}
 
@@ -166,6 +230,12 @@ void Engine::Core::Application::mainLoop()
 
 void Engine::Core::Application::cleanup()
 {
+	vkDeviceWaitIdle(device.getDevice());
+
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
 	swapchain.cleanupSwapChain(device, framebuffer);
 
 	for (size_t i = 0; i < pipelines.size(); i++) {
@@ -207,7 +277,7 @@ void Engine::Core::Application::cleanup()
 			}
 		}
 	}
-
+	vkDestroyDescriptorPool(device.getDevice(), imguiPool, nullptr);
 	vkDestroyDescriptorSetLayout(device.getDevice(), renderpass.getDescriptorSetLayout(), nullptr);
 	
 	for (auto& m : models) {
@@ -384,6 +454,7 @@ void Engine::Core::Application::drawFrame()
 	else if (result != VK_SUCCESS) {
 		throw std::runtime_error("failed to present swap chain image");
 	}
+
 	currentFrame = (currentFrame + 1) % Engine::Settings::MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -461,6 +532,7 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 
 		vkCmdDrawIndexed(commandBuffer, m.indexCount, 1, 0, 0, 0);
 	}
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
 	vkCmdEndRenderPass(commandBuffer);
 

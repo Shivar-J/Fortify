@@ -173,6 +173,8 @@ namespace Engine::Graphics {
 		VkSampler getTextureSampler(int index) const { return textureSamples[index]; }
 		VkDeviceMemory getTextureImageMemory(int index) const { return textureImageMemories[index]; }
 
+		std::vector<VkDeviceMemory> getTextureImageMemories() const { return textureImageMemories; }
+
 		VkBuffer getVertexBuffer() const { return vertexBuffer; } 
 		VkDeviceMemory getVertexBufferMemory() const { return vertexBufferMemory; }
 		VkBuffer getIndexBuffer() const { return indexBuffer; }

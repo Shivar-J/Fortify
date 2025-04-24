@@ -12,6 +12,9 @@
 #include "sampler.h"
 #include "swapchain.h"
 #include "camera.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 
 enum class ModelType {
 	Object,
@@ -53,6 +56,7 @@ namespace Engine::Core {
 		void run();
 		void initWindow();
 		void initVulkan();
+		void initImGui();
 		void mainLoop();
 		void cleanup();
 		void drawFrame();
@@ -79,6 +83,7 @@ namespace Engine::Core {
 
 	private:
 		GLFWwindow* window;
+		VkDescriptorPool imguiPool;
 	};
 }
 #endif
