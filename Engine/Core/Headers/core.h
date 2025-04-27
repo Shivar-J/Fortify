@@ -1,41 +1,18 @@
 #ifndef CORE_H
 #define CORE_H
 #include "utility.h"
-#include "descriptorSets.h"
-#include "texture.h"
+#include "sceneManager.h"
 #include "frameBuffer.h"
 #include "commandBuffer.h"
-#include "pipeline.h"
 #include "renderPass.h"
 #include "device.h"
-#include "Instance.h"
+#include "instance.h"
 #include "sampler.h"
 #include "swapchain.h"
 #include "camera.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-
-enum class ModelType {
-	Object,
-	Skybox,
-	UI,
-	Transparent,
-	Shadow,
-	Light,
-	Terrain,
-	Particle
-};
-
-struct Model {
-	Engine::Graphics::Pipeline pipeline;
-	Engine::Graphics::Texture texture;
-	Engine::Graphics::DescriptorSets descriptor;
-	uint32_t indexCount;
-	glm::mat4 modelMatrix;
-	int32_t pipelineIndex;
-	ModelType type;
-};
 
 namespace Engine::Core {
 	class Application {
@@ -45,14 +22,17 @@ namespace Engine::Core {
 		Engine::Graphics::Sampler sampler;
 		Engine::Graphics::Swapchain swapchain;
 		Engine::Graphics::RenderPass renderpass;
-		std::vector<Engine::Graphics::Pipeline> pipelines;
+		//std::vector<Engine::Graphics::Pipeline> pipelines;
 		Engine::Graphics::CommandBuffer commandbuffer;
 		Engine::Graphics::FrameBuffer framebuffer;
 		Engine::Graphics::Texture texture;
 		Engine::Graphics::DescriptorSets descriptor;
-		std::vector<Model> models;
+		Engine::Core::SceneManager scenemanager;
 
 	public:
+		Application() :
+			scenemanager(device, sampler, renderpass, commandbuffer, framebuffer, swapchain) {}
+
 		void run();
 		void initWindow();
 		void initVulkan();
@@ -78,6 +58,7 @@ namespace Engine::Core {
 		inline static float lastX = 0.0f;
 		inline static float lastY = 0.0f;
 		inline static bool firstMouse = true;
+		inline static bool isFocused = true;
 
 		inline static Engine::Core::Camera camera;
 

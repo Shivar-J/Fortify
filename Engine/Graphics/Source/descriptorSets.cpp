@@ -22,7 +22,7 @@ void Engine::Graphics::DescriptorSets::createDescriptorPool(VkDevice device)
     }
 }
 
-void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout, bool isCube)
+void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout, bool isCube, std::unordered_map<PBRTextureType, std::string> texturePaths)
 {
     std::vector<VkDescriptorSetLayout> layouts(Engine::Settings::MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -51,7 +51,7 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
             bufferInfo.range = sizeof(UniformBufferObject);
         }
 
-        std::vector<VkDescriptorImageInfo> imageInfos{};
+        std::vector<VkDescriptorImageInfo> imageInfos(texturePaths.size());
         VkDescriptorImageInfo imageInfo{};
 
         if (textureCount == -1) {
@@ -62,14 +62,18 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
             imageInfos.push_back(imageInfo);
         }
         else {
-            for (int j = 0; j < textureCount; j++) {
+            int index = 0;
+            for (auto& texturePair : texturePaths) {
+                PBRTextureType textureType = texturePair.first;
+                const std::string& texturePath = texturePair.second;
 
                 imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                imageInfo.imageView = texture.getTextureImageView(j);
-                imageInfo.sampler = texture.getTextureSampler(j);
+                imageInfo.imageView = texture.getTextureImageView(index);
+                imageInfo.sampler = texture.getTextureSampler(index);
 
-                imageInfos.push_back(imageInfo);
+                imageInfos[index] = (imageInfo);
+                index++;
             }
         }
 
@@ -98,7 +102,7 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
             descriptorWrites.push_back(imageWrite);
         }
         else {
-            for (size_t j = 0; j < textureCount; j++) {
+            for(uint32_t j = 0; j < imageInfos.size(); j++) {
                 VkWriteDescriptorSet imageWrite{};
                 imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
                 imageWrite.dstSet = descriptorSets[i];

@@ -159,7 +159,7 @@ void Engine::Graphics::RenderPass::setupLayoutBindings(VkDevice device)
 	//bindings.push_back(uboLayoutBinding);
 	pbrBindings.push_back(uboLayoutBinding);
 
-	for (size_t i = 1; i <= 5; i++) {
+	for (uint32_t i = 1; i <= 5; i++) {
 		VkDescriptorSetLayoutBinding pbrLayoutBindings{};
 		pbrLayoutBindings.binding = i;
 		pbrLayoutBindings.descriptorCount = 1;

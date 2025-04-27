@@ -145,7 +145,7 @@ void Engine::Graphics::CommandBuffer::copyBufferToImage(const Engine::Graphics::
 
     VkDeviceSize layerSize = width * height * 4;
 
-    for(size_t i = 0; i < layerCount; i++)
+    for(uint32_t i = 0; i < layerCount; i++)
     {
         VkBufferImageCopy region{};
         region.bufferOffset = layerSize * i;

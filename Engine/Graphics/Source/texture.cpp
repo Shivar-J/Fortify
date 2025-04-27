@@ -6,7 +6,7 @@
 #include "swapchain.h"
 #include "sampler.h"
 
-void Engine::Graphics::Texture::createTextureImage(std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, int mat5Index)
+void Engine::Graphics::Texture::createTextureImage(const std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, bool isPBR)
 {
 	if (flipTexture) {
 		stbi_set_flip_vertically_on_load(true);
@@ -38,41 +38,26 @@ void Engine::Graphics::Texture::createTextureImage(std::string texturePath, Engi
 
 	sampler.generateMipmaps(commandBuf, device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 1);
     
-    if (mat5Index > 0) {
-        if (textureImages.size() <= mat5Index) {
-            textureImages.resize(mat5Index + 1);
-            textureImageMemories.resize(mat5Index + 1);
-            vecMipLevels.resize(mat5Index + 1);
-        }
-
-        textureImages[mat5Index] = (textureImage);
-        textureImageMemories[mat5Index] = (textureImageMemory);
-        vecMipLevels[mat5Index] = (mipLevels);
+    if (isPBR) {
+        textureImages.push_back(textureImage);
+        textureImageMemories.push_back(textureImageMemory);
+        vecMipLevels.push_back(mipLevels);
     }
 
     vkDestroyBuffer(device.getDevice(), stagingBuffer, nullptr);
     vkFreeMemory(device.getDevice(), stagingBufferMemory, nullptr);
 }
 
-void Engine::Graphics::Texture::createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube, int mat5Index)
+void Engine::Graphics::Texture::createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube, bool isPBR)
 {
     textureImageView = swapchain.createImageView(device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels, isCube);
 
-    if (mat5Index >= 0) {
-        if (textureImages.size() <= mat5Index) {
-            textureImages.resize(mat5Index + 1);
-            vecMipLevels.resize(mat5Index + 1);
-        }
-        if (mat5Index >= textureImageViews.size()) {
-            textureImageViews.resize(mat5Index + 1);
-        }
-        textureImageViews[mat5Index] = textureImageView;
-        textureImages[mat5Index] = textureImage;
-        vecMipLevels[mat5Index] = mipLevels;
+    if (isPBR) {
+        textureImageViews.push_back(textureImageView);
     }
 }
 
-void Engine::Graphics::Texture::createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, int mat5Index)
+void Engine::Graphics::Texture::createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, bool isPBR)
 {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -108,15 +93,12 @@ void Engine::Graphics::Texture::createTextureSampler(VkDevice device, VkPhysical
         throw std::runtime_error("failed to create texture sampler!");
     }
     
-    if(mat5Index >= 0) {
-        if (textureSamples.size() <= mat5Index) {
-            textureSamples.resize(mat5Index + 1);
-        }
-        textureSamples[mat5Index] = textureSampler;
+    if (isPBR) {
+        textureSamples.push_back(textureSampler);
     }
 }
 
-void Engine::Graphics::Texture::loadModel(std::string modelPath)
+void Engine::Graphics::Texture::loadModel(const std::string modelPath)
 {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -256,7 +238,7 @@ void Engine::Graphics::Texture::updateUniformBuffer(uint32_t currentImage, Engin
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 
-void Engine::Graphics::Texture::createCubemap(std::vector<std::string>& faces, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture)
+void Engine::Graphics::Texture::createCubemap(const std::vector<std::string>& faces, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture)
 {
     if (flipTexture) {
         stbi_set_flip_vertically_on_load(true);

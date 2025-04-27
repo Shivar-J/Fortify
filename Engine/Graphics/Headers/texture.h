@@ -2,7 +2,6 @@
 #define TEXTURE_H
 
 #include "utility.h"
-#include <glm/gtx/hash.hpp>
 #include "camera.h"
 
 struct Vertex {
@@ -140,10 +139,10 @@ namespace Engine::Graphics {
 		std::vector<uint32_t> cubeIndices;
 		
 	public:
-		void createTextureImage(std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, int mat5Index = 0);
-		void createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube, int mat5Index = -1);
-		void createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, int mat5Index = -1);
-		void loadModel(std::string modelPath);
+		void createTextureImage(const std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, bool isPBR = false);
+		void createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube, bool isPBR = false);
+		void createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, bool isPBR = false);
+		void loadModel(const std::string modelPath);
 		void createVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);
@@ -151,7 +150,7 @@ namespace Engine::Graphics {
 		void updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent);
 		void updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent, glm::mat4 model);
 
-		void createCubemap(std::vector<std::string>& faces, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuffer, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture);
+		void createCubemap(const std::vector<std::string>& faces, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuffer, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture);
 		void createCube();
 		void createCubeVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createCubeIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
@@ -173,7 +172,7 @@ namespace Engine::Graphics {
 		VkSampler getTextureSampler(int index) const { return textureSamples[index]; }
 		VkDeviceMemory getTextureImageMemory(int index) const { return textureImageMemories[index]; }
 
-		std::vector<VkDeviceMemory> getTextureImageMemories() const { return textureImageMemories; }
+		//std::vector<VkDeviceMemory> getTextureImageMemories() const { return textureImageMemories; }
 
 		VkBuffer getVertexBuffer() const { return vertexBuffer; } 
 		VkDeviceMemory getVertexBufferMemory() const { return vertexBufferMemory; }

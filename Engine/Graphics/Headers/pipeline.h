@@ -19,7 +19,7 @@ namespace Engine::Graphics {
 		~Pipeline();
 
 		template<typename VertexType>
-		void createGraphicsPipeline(std::string vertexShaderPath, std::string fragmentShaderPath, VkDevice device, VkSampleCountFlagBits msaaSamples, Engine::Graphics::RenderPass renderpass, bool isCube, bool isMAT5) {
+		void createGraphicsPipeline(std::string vertexShaderPath, std::string fragmentShaderPath, VkDevice device, VkSampleCountFlagBits msaaSamples, Engine::Graphics::RenderPass renderpass, bool isCube) {
 			auto vertShaderCode = readFile(vertexShaderPath);
 			auto fragShaderCode = readFile(fragmentShaderPath);
 

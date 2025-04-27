@@ -43,13 +43,7 @@ void Engine::Core::Application::initVulkan()
 	renderpass.createRenderPass(device, sampler.getSamples(), swapchain);
 	renderpass.setupLayoutBindings(device.getDevice());
 
-	pipelines.emplace_back();
-	pipelines.back().createGraphicsPipeline<CubeVertex>("shaders/skyboxVert.spv", "shaders/skyboxFrag.spv", device.getDevice(), sampler.getSamples(), renderpass, true, false);
-	pipelines.emplace_back();
-	pipelines.back().createGraphicsPipeline<Vertex>("shaders/vert.spv", "shaders/frag.spv", device.getDevice(), sampler.getSamples(), renderpass, false, false);
-	pipelines.emplace_back();
-	pipelines.back().createGraphicsPipeline<Vertex>("shaders/textureMapVert.spv", "shaders/textureMapFrag.spv", device.getDevice(), sampler.getSamples(), renderpass, false, true);
-
+	//add recreate function for swapchain changes
 	commandbuffer.createCommandPool(device, instance.getSurface());
 	framebuffer.createColorResources(device, swapchain, sampler.getSamples());
 	framebuffer.createDepthResources(device, swapchain, sampler.getSamples(), commandbuffer);
@@ -64,64 +58,18 @@ void Engine::Core::Application::initVulkan()
 		"textures/skybox/back.jpg"
 	};
 
-	for (size_t i = 0; i < pipelines.size(); i++) {
-		Model m{};
-		bool isSkybox = (i == 0);
+	std::unordered_map<PBRTextureType, std::string> pbrTextures = {
+		{ PBRTextureType::Albedo, "textures/backpack/diffuse.jpg" },
+		{ PBRTextureType::Normal, "textures/backpack/normal.png" },
+		{ PBRTextureType::AmbientOcclusion, "textures/backpack/ao.jpg" },
+		{ PBRTextureType::Roughness, "textures/backpack/roughness.jpg" },
+		{ PBRTextureType::Specular, "textures/backpack/specular.jpg" },
 
-		if (isSkybox) {
-			m.texture.createCubemap(skyboxPaths, device, commandbuffer, framebuffer, sampler, false);
-			m.texture.createCube();
-			m.modelMatrix = glm::mat4(1.0);
-			m.texture.createCubeVertexBuffer(device, commandbuffer, framebuffer);
-			m.texture.createCubeIndexBuffer(device, commandbuffer, framebuffer);
-			m.indexCount = static_cast<uint32_t>(m.texture.getCubeIndices().size());
-			m.texture.createSkyboxUniformBuffers(device, framebuffer);
-			m.type = ModelType::Skybox;
-			m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox);
-			m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox);
-		}
-		else {
-			if (i == 1) {
-				m.texture.createTextureImage("textures/viking_room/viking_room.png", device, commandbuffer, framebuffer, sampler, false);
-				m.modelMatrix = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f)), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-				m.texture.loadModel("textures/viking_room/viking_room.obj");
-				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox);
-			}
-			else if (i == 2) {
-				m.texture.createTextureImage("textures/backpack/diffuse.jpg", device, commandbuffer, framebuffer, sampler, true, 0);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 0);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 0);
-				m.texture.createTextureImage("textures/backpack/ao.jpg", device, commandbuffer, framebuffer, sampler, true, 1);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 1);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 1);
-				m.texture.createTextureImage("textures/backpack/normal.png", device, commandbuffer, framebuffer, sampler, true, 2);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 2);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 2);
-				m.texture.createTextureImage("textures/backpack/roughness.jpg", device, commandbuffer, framebuffer, sampler, true, 3);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 3);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 3);
-				m.texture.createTextureImage("textures/backpack/specular.jpg", device, commandbuffer, framebuffer, sampler, true, 4);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), isSkybox, 4);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), isSkybox, 4);
-				m.modelMatrix = glm::mat4(1.0f);
-				//m.modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(10.0f, 0.0f, 0.0f));
-				m.texture.loadModel("textures/backpack/backpack.obj");
-			}
+	};
 
-			m.texture.createVertexBuffer(device, commandbuffer, framebuffer);
-			m.texture.createIndexBuffer(device, commandbuffer, framebuffer);
-			m.indexCount = static_cast<uint32_t>(m.texture.getIndices().size());
-			m.texture.createUniformBuffers(device, framebuffer);
-			m.type = ModelType::Object;
-		}
-		m.pipelineIndex = i;
-	
-		m.descriptor.createDescriptorPool(device.getDevice());
-		m.descriptor.createDescriptorSets(device.getDevice(), m.texture, renderpass.getDescriptorSetLayout(), isSkybox);
-		
-		models.push_back(m);
-	}
+	scenemanager.addEntity<CubeVertex, EntityType::Skybox>("shaders/skyboxVert.spv", "shaders/skyboxFrag.spv", skyboxPaths, "", true);
+	scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
+	scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/textureMapVert.spv", "shaders/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
 
 	commandbuffer.createCommandBuffers(device.getDevice());
 	texture.createSyncObjects(device.getDevice());
@@ -180,14 +128,14 @@ void Engine::Core::Application::initImGui()
 
 void Engine::Core::Application::mainLoop()
 {
-	float prev = glfwGetTime();
-	float prevFPS = glfwGetTime();
+	float prev = static_cast<float>(glfwGetTime());
+	float prevFPS = static_cast<float>(glfwGetTime());
 	int frameCount = 0;
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
 	while (!glfwWindowShouldClose(window)) {
-		float curr = glfwGetTime();
-		float currFPS = glfwGetTime();
+		float curr = static_cast<float>(glfwGetTime());
+		float currFPS = static_cast<float>(glfwGetTime());
 		deltaTime = curr - prev;
 		fpsCounter = currFPS - prevFPS;
 		prev = curr;
@@ -201,7 +149,7 @@ void Engine::Core::Application::mainLoop()
 			char title[256];
 			title[255] = '\0';
 
-			std::snprintf(title, 255, "%s %s - [FPS: %3.2f]", "Fortify", "1.0.0", fps);
+			std::snprintf(title, 255, "%s - [FPS: %3.2f (%3.2f ms/frame)]", "Fortify", fps, 1000.0f/ fps);
 
 			glfwSetWindowTitle(window, title);
 
@@ -216,8 +164,22 @@ void Engine::Core::Application::mainLoop()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		ImGui::Begin("Test Window");
+		if (!isFocused) {
+			io.WantCaptureMouse = true;
+			io.WantCaptureKeyboard = true;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+		else {
+			io.WantCaptureKeyboard = false;
+			io.WantCaptureMouse = false;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+		}
+
+		ImGui::Begin("Fortify");
 		ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
+		scenemanager.updateScene();
 		ImGui::End();
 
 		ImGui::Render();
@@ -238,14 +200,18 @@ void Engine::Core::Application::cleanup()
 
 	swapchain.cleanupSwapChain(device, framebuffer);
 
-	for (size_t i = 0; i < pipelines.size(); i++) {
-		vkDestroyPipeline(device.getDevice(), pipelines[i].getGraphicsPipeline(), nullptr);
-		vkDestroyPipelineLayout(device.getDevice(), pipelines[i].getPipelineLayout(), nullptr);
+	for (auto& scene : scenemanager.getScenes()) {
+		auto& p = scene.model.pipeline;
+
+		vkDestroyPipeline(device.getDevice(), p.getGraphicsPipeline(), nullptr);
+		vkDestroyPipelineLayout(device.getDevice(), p.getPipelineLayout(), nullptr);
 	}
 
 	vkDestroyRenderPass(device.getDevice(), renderpass.getRenderPass(), nullptr);
 	
-	for(auto& m : models) {
+	for(auto& scene : scenemanager.getScenes()) {
+		auto& m = scene.model;
+
 		int textureCount = m.texture.getTextureCount();
 
 		for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
@@ -280,7 +246,8 @@ void Engine::Core::Application::cleanup()
 	vkDestroyDescriptorPool(device.getDevice(), imguiPool, nullptr);
 	vkDestroyDescriptorSetLayout(device.getDevice(), renderpass.getDescriptorSetLayout(), nullptr);
 	
-	for (auto& m : models) {
+	for (auto& scene : scenemanager.getScenes()) {
+		auto& m = scene.model;
 		vkDestroyBuffer(device.getDevice(), m.texture.getIndexBuffer(), nullptr);
 		vkFreeMemory(device.getDevice(), m.texture.getIndexBufferMemory(), nullptr);
 		vkDestroyBuffer(device.getDevice(), m.texture.getVertexBuffer(), nullptr);
@@ -322,49 +289,55 @@ void Engine::Core::Application::processInput(GLFWwindow* window)
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
 	}
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		camera.processKeyboard(Camera_Movement::FORWARD, deltaTime);
-	}
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		camera.processKeyboard(Camera_Movement::BACKWARD, deltaTime);
-	}
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-		camera.processKeyboard(Camera_Movement::LEFT, deltaTime);
-	}
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-		camera.processKeyboard(Camera_Movement::RIGHT, deltaTime);
-	}
-	if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
-		camera.processKeyboard(Camera_Movement::UP, deltaTime);
-	}
-	if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
-		camera.processKeyboard(Camera_Movement::DOWN, deltaTime);
+	if (isFocused) {
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+			camera.processKeyboard(Camera_Movement::FORWARD, deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+			camera.processKeyboard(Camera_Movement::BACKWARD, deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+			camera.processKeyboard(Camera_Movement::LEFT, deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+			camera.processKeyboard(Camera_Movement::RIGHT, deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
+			camera.processKeyboard(Camera_Movement::UP, deltaTime);
+		}
+		if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
+			camera.processKeyboard(Camera_Movement::DOWN, deltaTime);
+		}
 	}
 }
 
 void Engine::Core::Application::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	//unused
+	if (glfwGetKey(window, GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS) {
+		isFocused = !isFocused;
+	}
 }
 
 void Engine::Core::Application::mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
-	float xpos = static_cast<float>(xposIn);
-	float ypos = static_cast<float>(yposIn);
+	if (isFocused) {
+		float xpos = static_cast<float>(xposIn);
+		float ypos = static_cast<float>(yposIn);
 
-	if (firstMouse) {
+		if (firstMouse) {
+			lastX = xpos;
+			lastY = ypos;
+			firstMouse = false;
+		}
+
+		float xoffset = xpos - lastX;
+		float yoffset = lastY - ypos;
+
 		lastX = xpos;
 		lastY = ypos;
-		firstMouse = false;
+
+		camera.processMouseMovement(xoffset, yoffset);
 	}
-
-	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos;
-
-	lastX = xpos;
-	lastY = ypos;
-
-	camera.processMouseMovement(xoffset, yoffset);
 }
 
 void Engine::Core::Application::drawFrame()
@@ -387,12 +360,14 @@ void Engine::Core::Application::drawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 		throw std::runtime_error("failed to acquire swap chain image");
 
-	for (auto& m : models) {
-		if (m.type == ModelType::Skybox) {
+	if(isFocused)
+	for (auto& scene : scenemanager.getScenes()) {
+		auto& m = scene.model;
+		if (m.type == EntityType::Skybox) {
 			m.texture.updateSkyboxUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent());
 		}
-		else if (m.type == ModelType::Object) {
-			m.texture.updateUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent(), m.modelMatrix);
+		else if (m.type == EntityType::Object || m.type == EntityType::PBRObject) {
+			m.texture.updateUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent(), m.matrix);
 		}
 	}
 	
@@ -517,14 +492,15 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 	scissor.extent = swapchain.getSwapchainExtent();
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	for (size_t i = 0; i < models.size(); i++) {
-		auto& m = models[i];
-		auto& p = pipelines[m.pipelineIndex];
+	for (auto& scene : scenemanager.getScenes()) {
+		auto& m = scene.model;
+		auto& p = scene.model.pipeline;
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p.getGraphicsPipeline());
 
 		VkBuffer vertexBuffers[] = { m.texture.getVertexBuffer() };
 		VkDeviceSize offsets[] = { 0 };
+
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(commandBuffer, m.texture.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
@@ -532,6 +508,7 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 
 		vkCmdDrawIndexed(commandBuffer, m.indexCount, 1, 0, 0, 0);
 	}
+
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
 	vkCmdEndRenderPass(commandBuffer);
