@@ -14,8 +14,6 @@ enum class EntityType {
 	Object,
 	Skybox,
 	UI,
-	Transparent,
-	Shadow,
 	Light,
 	Terrain,
 	Particle,
@@ -37,6 +35,9 @@ struct Model {
 	Engine::Graphics::DescriptorSets descriptor;
 	uint32_t indexCount;
 	glm::mat4 matrix;
+	glm::vec3 position;
+	glm::vec3 rotation;
+	glm::vec3 scale = glm::vec3(1.0f);
 	int32_t pipelineIndex;
 	EntityType type;
 };

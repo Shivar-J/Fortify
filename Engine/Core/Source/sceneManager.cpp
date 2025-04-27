@@ -11,6 +11,34 @@ void Engine::Core::SceneManager::updateScene() {
 		
 		ImGui::Text("Entity Type: %s", entityString(scenes[i].model.type));
 
+		glm::vec3& pos = scenes[i].model.position;
+		glm::vec3& rot = scenes[i].model.rotation;
+		glm::vec3& scale = scenes[i].model.scale;
+
+		float posArr[3] = { pos.x, pos.y, pos.z };
+		if (ImGui::SliderFloat3("Pos", posArr, -10, 10)) {
+			pos = glm::vec3(posArr[0], posArr[1], posArr[2]);	
+		}
+
+		float rotArr[3] = { rot.x, rot.y, rot.z };
+		if (ImGui::SliderFloat3("Rot", rotArr, -180.0f, 180.0f)) {
+			rot = glm::vec3(rotArr[0], rotArr[1], rotArr[2]);
+		}
+
+		float scaleArr[3] = { scale.x, scale.y, scale.z };
+		if (ImGui::SliderFloat3("Scale", scaleArr, 0.1, 10)) {
+			scale = glm::vec3(scaleArr[0], scaleArr[1], scaleArr[2]);
+		}
+
+		glm::mat4 transform = glm::mat4(1.0f);
+		transform = glm::translate(transform, pos);
+		transform = glm::rotate(transform, glm::radians(rot.x), glm::vec3(1, 0, 0));
+		transform = glm::rotate(transform, glm::radians(rot.y), glm::vec3(0, 1, 0));
+		transform = glm::rotate(transform, glm::radians(rot.z), glm::vec3(0, 0, 1));
+		transform = glm::scale(transform, scale);
+
+		scenes[i].model.matrix = transform;
+
 		if (ImGui::Button("Remove Entity")) {
 			removeEntity(scenes[i], i);
 		}
@@ -73,8 +101,6 @@ const char* Engine::Core::SceneManager::entityString(EntityType type)
 		case EntityType::Object: return "Object";
 		case EntityType::Skybox: return "Skybox";
 		case EntityType::UI: return "UI";
-		case EntityType::Transparent: return "Transparent";
-		case EntityType::Shadow: return "Shadow";
 		case EntityType::Light: return "Light";
 		case EntityType::Terrain: return "Terrain";
 		case EntityType::Particle: return "Particle";

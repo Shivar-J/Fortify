@@ -45,6 +45,7 @@ namespace Engine::Core {
 		void processInput(GLFWwindow* window);
 		static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 		static void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
+		void guiAddEntity();
 
 		void recreateSwapchain();
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);

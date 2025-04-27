@@ -19,7 +19,7 @@ void Engine::Core::Application::initWindow()
 	char title[256];
 	title[255] = '\0';
 
-	std::snprintf(title, 255, "%s %s - [FPS: %6.2f]", "Fortify", "1.0.0", 0.0f);
+	std::snprintf(title, 255, "%s - [FPS: %6.2f]", "Fortify", 0.0f);
 
 	window = glfwCreateWindow(Engine::Settings::WIDTH, Engine::Settings::HEIGHT, title, nullptr, nullptr);
 	//glfwSetWindowUserPointer(window, this);
@@ -68,7 +68,7 @@ void Engine::Core::Application::initVulkan()
 	};
 
 	scenemanager.addEntity<CubeVertex, EntityType::Skybox>("shaders/skyboxVert.spv", "shaders/skyboxFrag.spv", skyboxPaths, "", true);
-	scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
+	//scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
 	scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/textureMapVert.spv", "shaders/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
 
 	commandbuffer.createCommandBuffers(device.getDevice());
@@ -180,6 +180,9 @@ void Engine::Core::Application::mainLoop()
 		ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
 		scenemanager.updateScene();
+
+		guiAddEntity();
+
 		ImGui::End();
 
 		ImGui::Render();
@@ -340,6 +343,16 @@ void Engine::Core::Application::mouse_callback(GLFWwindow* window, double xposIn
 	}
 }
 
+void Engine::Core::Application::guiAddEntity()
+{
+	const char* items[] = { "Object", "Skybox", "UI", "Light", "Terrain", "Particle", "PBR Object" };
+	static const char* currentItem = NULL;
+
+	if (ImGui::Button("Add Object")) {
+		scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
+	}
+}
+
 void Engine::Core::Application::drawFrame()
 {
 	vkDeviceWaitIdle(device.getDevice());
@@ -360,7 +373,6 @@ void Engine::Core::Application::drawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 		throw std::runtime_error("failed to acquire swap chain image");
 
-	if(isFocused)
 	for (auto& scene : scenemanager.getScenes()) {
 		auto& m = scene.model;
 		if (m.type == EntityType::Skybox) {
