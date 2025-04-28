@@ -6,45 +6,60 @@ void Engine::Core::SceneManager::removeEntity(Scene scene, int index) {
 }
 
 void Engine::Core::SceneManager::updateScene() {
+	ImGuizmo::SetOrthographic(true);
+	ImGuizmo::BeginFrame();
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+	ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
+
 	for (int i = 0; i < scenes.size(); i++) {
-		ImGui::PushID(i);
-		
-		ImGui::Text("Entity Type: %s", entityString(scenes[i].model.type));
+		if (scenes[i].model.type != EntityType::Skybox) {
+			ImGui::PushID(i);
 
-		glm::vec3& pos = scenes[i].model.position;
-		glm::vec3& rot = scenes[i].model.rotation;
-		glm::vec3& scale = scenes[i].model.scale;
+			ImGui::Text("Entity Type: %s", entityString(scenes[i].model.type));
 
-		float posArr[3] = { pos.x, pos.y, pos.z };
-		if (ImGui::SliderFloat3("Pos", posArr, -10, 10)) {
-			pos = glm::vec3(posArr[0], posArr[1], posArr[2]);	
+			glm::mat4& matrix = scenes[i].model.matrix;
+
+			static ImGuizmo::OPERATION currentOp = ImGuizmo::TRANSLATE;
+			static ImGuizmo::MODE currentMode = ImGuizmo::LOCAL;
+
+			ImGui::Checkbox("Show Gizmo", &scenes[i].model.showGizmo);
+
+			if (scenes[i].model.showGizmo) {
+				if (ImGui::RadioButton("Translate", currentOp == ImGuizmo::TRANSLATE)) {
+					currentOp = ImGuizmo::TRANSLATE;
+				}
+				ImGui::SameLine();
+				if (ImGui::RadioButton("Rotate", currentOp == ImGuizmo::ROTATE)) {
+					currentOp = ImGuizmo::ROTATE;
+				}
+				ImGui::SameLine();
+				if (ImGui::RadioButton("Scale", currentOp == ImGuizmo::SCALE)) {
+					currentOp = ImGuizmo::SCALE;
+				}
+
+				ImGuizmo::Manipulate(glm::value_ptr(camera.GetViewMatrix()), glm::value_ptr(camera.GetProjectionMatrix()), currentOp, currentMode, glm::value_ptr(matrix));
+			}
+			
+			if (ImGui::Button("Remove Entity")) {
+				removeEntity(scenes[i], i);
+			}
+
+			ImGui::PopID();
+			ImGui::Separator();
 		}
+		else {
+			ImGui::PushID(i);
 
-		float rotArr[3] = { rot.x, rot.y, rot.z };
-		if (ImGui::SliderFloat3("Rot", rotArr, -180.0f, 180.0f)) {
-			rot = glm::vec3(rotArr[0], rotArr[1], rotArr[2]);
+			ImGui::Text("Entity Type: %s", entityString(scenes[i].model.type));
+
+			if (ImGui::Button("Remove Entity")) {
+				removeEntity(scenes[i], i);
+			}
+
+			ImGui::PopID();
+			ImGui::Separator();
 		}
-
-		float scaleArr[3] = { scale.x, scale.y, scale.z };
-		if (ImGui::SliderFloat3("Scale", scaleArr, 0.1, 10)) {
-			scale = glm::vec3(scaleArr[0], scaleArr[1], scaleArr[2]);
-		}
-
-		glm::mat4 transform = glm::mat4(1.0f);
-		transform = glm::translate(transform, pos);
-		transform = glm::rotate(transform, glm::radians(rot.x), glm::vec3(1, 0, 0));
-		transform = glm::rotate(transform, glm::radians(rot.y), glm::vec3(0, 1, 0));
-		transform = glm::rotate(transform, glm::radians(rot.z), glm::vec3(0, 0, 1));
-		transform = glm::scale(transform, scale);
-
-		scenes[i].model.matrix = transform;
-
-		if (ImGui::Button("Remove Entity")) {
-			removeEntity(scenes[i], i);
-		}
-
-		ImGui::PopID();
-		ImGui::Separator();
 	}
 }
 

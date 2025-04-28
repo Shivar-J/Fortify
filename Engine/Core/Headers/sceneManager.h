@@ -7,8 +7,10 @@
 #include "descriptorSets.h"
 #include "sampler.h"
 #include "string"
+#include "camera.h"
 
 #include "imgui.h"
+#include "ImGuizmo.h"
 
 enum class EntityType {
 	Object,
@@ -40,6 +42,7 @@ struct Model {
 	glm::vec3 scale = glm::vec3(1.0f);
 	int32_t pipelineIndex;
 	EntityType type;
+	bool showGizmo = false;
 };
 
 struct Scene {
@@ -58,8 +61,9 @@ namespace Engine::Core {
 			Engine::Graphics::RenderPass& renderpass, 
 			Engine::Graphics::CommandBuffer& commandbuffer, 
 			Engine::Graphics::FrameBuffer& framebuffer, 
-			Engine::Graphics::Swapchain& swapchain
-		) : device(device), sampler(sampler), renderpass(renderpass), commandbuffer(commandbuffer), framebuffer(framebuffer), swapchain(swapchain) {}
+			Engine::Graphics::Swapchain& swapchain,
+			Engine::Core::Camera& camera
+		) : device(device), sampler(sampler), renderpass(renderpass), commandbuffer(commandbuffer), framebuffer(framebuffer), swapchain(swapchain), camera(camera) {}
 
 		template<EntityType Entity> struct TagFromEntityType {};
 		template<> struct TagFromEntityType<EntityType::Object> { using type = ObjectTag; };
@@ -213,6 +217,7 @@ namespace Engine::Core {
 		Engine::Graphics::CommandBuffer& commandbuffer;
 		Engine::Graphics::FrameBuffer& framebuffer;
 		Engine::Graphics::Swapchain& swapchain;
+		Engine::Core::Camera& camera;
 	};
 }
 

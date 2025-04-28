@@ -31,7 +31,7 @@ namespace Engine::Core {
 
 	public:
 		Application() :
-			scenemanager(device, sampler, renderpass, commandbuffer, framebuffer, swapchain) {}
+			scenemanager(device, sampler, renderpass, commandbuffer, framebuffer, swapchain, camera) {}
 
 		void run();
 		void initWindow();
