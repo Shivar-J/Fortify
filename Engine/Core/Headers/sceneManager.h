@@ -34,6 +34,7 @@ struct Entity {
 	std::string fragmentPath = "";
 	std::string texturePath = "";
 	std::unordered_map<PBRTextureType, std::string> texturePaths;
+	std::vector<std::string> skyboxPaths;
 	std::string modelPath = "";
 	bool flipTexture = false;
 	bool add = false;
@@ -216,7 +217,7 @@ namespace Engine::Core {
 
 			scene.model = m;
 
-			scenes.push_back(scene);
+			scenes.insert(scenes.begin(), scene);
 		}
 
 		void removeEntity(Scene scene, int index);
@@ -224,6 +225,7 @@ namespace Engine::Core {
 		void cleanup(Scene scene);
 		const char* entityString(EntityType type);
 		const char* textureString(PBRTextureType type);
+		bool hasSkybox();
 
 		bool checkExtension(const std::string path, const std::string ext);
 

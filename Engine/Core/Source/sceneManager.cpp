@@ -174,6 +174,16 @@ const char* Engine::Core::SceneManager::textureString(PBRTextureType type)
 	}
 }
 
+bool Engine::Core::SceneManager::hasSkybox() {
+	for (auto& scene : scenes) {
+		if (scene.model.type == EntityType::Skybox) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool Engine::Core::SceneManager::checkExtension(const std::string path, const std::string ext)
 {
 	return path.size() >= ext.size() && path.compare(path.size() - ext.size(), ext.size(), ext) == 0;
