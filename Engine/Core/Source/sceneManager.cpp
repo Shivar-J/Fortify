@@ -13,16 +13,46 @@ void Engine::Core::SceneManager::updateScene() {
 	ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
 
 	for (int i = 0; i < scenes.size(); i++) {
+		if (scenes[i].markedForDeletion) {
+			removeEntity(scenes[i], i);
+		}
+	}
+
+	for (int i = 0; i < scenes.size(); i++) {
 		if (scenes[i].model.type != EntityType::Skybox) {
 			ImGui::PushID(i);
 
 			ImGui::Text("Entity Type: %s", entityString(scenes[i].model.type));
 
+			int textureCount = static_cast<int>(scenes[i].model.texture.getTextureCount());
+
+			if (textureCount == -1) {
+				if (scenes[i].model.textureIDs.count(0) == 0) {
+					VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(), scenes[i].model.texture.getTextureImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+					scenes[i].model.textureIDs[0] = textureID;
+				}
+				ImGui::Image((ImTextureID)scenes[i].model.textureIDs[0], ImVec2(64, 64));
+			}
+			else {
+				scenes[i].model.textureIDs.reserve(textureCount);
+				int index = 0;
+				for (auto& texturePair : scenes[i].model.texturePaths) {
+					if (scenes[i].model.textureIDs.count(index) == 0) {
+						VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(index), scenes[i].model.texture.getTextureImageView(index), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+						scenes[i].model.textureIDs[index] = textureID;
+					}
+					ImGui::Image((ImTextureID)scenes[i].model.textureIDs[index], ImVec2(64, 64));
+					ImGui::SameLine();
+					ImGui::Text("%s", textureString(texturePair.first));
+					index++;
+				}
+			}
+
 			glm::mat4& matrix = scenes[i].model.matrix;
 
 			static ImGuizmo::OPERATION currentOp = ImGuizmo::TRANSLATE;
 			static ImGuizmo::MODE currentMode = ImGuizmo::LOCAL;
-
+			ImGui::NewLine();
 			ImGui::Checkbox("Show Gizmo", &scenes[i].model.showGizmo);
 
 			if (scenes[i].model.showGizmo) {
@@ -40,9 +70,9 @@ void Engine::Core::SceneManager::updateScene() {
 
 				ImGuizmo::Manipulate(glm::value_ptr(camera.GetViewMatrix()), glm::value_ptr(camera.GetProjectionMatrix()), currentOp, currentMode, glm::value_ptr(matrix));
 			}
-			
+
 			if (ImGui::Button("Remove Entity")) {
-				removeEntity(scenes[i], i);
+				scenes[i].markedForDeletion = true;
 			}
 
 			ImGui::PopID();
@@ -54,7 +84,7 @@ void Engine::Core::SceneManager::updateScene() {
 			ImGui::Text("Entity Type: %s", entityString(scenes[i].model.type));
 
 			if (ImGui::Button("Remove Entity")) {
-				removeEntity(scenes[i], i);
+				scenes[i].markedForDeletion = true;
 			}
 
 			ImGui::PopID();
@@ -72,6 +102,12 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 	auto& m = scene.model;
 	int textureCount = m.texture.getTextureCount();
 
+	for (auto& texturePair : m.textureIDs) {
+		ImGui_ImplVulkan_RemoveTexture(texturePair.second);
+	}
+
+	m.textureIDs.clear();
+
 	vkDestroyPipeline(device.getDevice(), p.getGraphicsPipeline(), nullptr);
 	vkDestroyPipelineLayout(device.getDevice(), p.getPipelineLayout(), nullptr);
 
@@ -87,6 +123,7 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 	}
 
 	vkDestroyDescriptorPool(device.getDevice(), m.descriptor.getDescriptorPool(), nullptr);
+
 	if (textureCount == -1) {
 		vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(), nullptr);
 		vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(), nullptr);
@@ -120,6 +157,19 @@ const char* Engine::Core::SceneManager::entityString(EntityType type)
 		case EntityType::Terrain: return "Terrain";
 		case EntityType::Particle: return "Particle";
 		case EntityType::PBRObject: return "PBR Object";
+		default: return "Unknown";
+	}
+}
+
+const char* Engine::Core::SceneManager::textureString(PBRTextureType type)
+{
+	switch (type) {
+		case PBRTextureType::Albedo: return "Albedo";
+		case PBRTextureType::Normal: return "Normal";
+		case PBRTextureType::Roughness: return "Roughness";
+		case PBRTextureType::Metalness: return "Metalness";
+		case PBRTextureType::AmbientOcclusion: return "Ambient Occlusion";
+		case PBRTextureType::Specular: return "Specular";
 		default: return "Unknown";
 	}
 }

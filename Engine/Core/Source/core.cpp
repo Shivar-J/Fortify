@@ -4,7 +4,9 @@ void Engine::Core::Application::run()
 {
 	initWindow();
 	initVulkan();
-	initImGui();
+	if (Engine::Settings::enableValidationLayers) {
+		initImGui();
+	}
 	mainLoop();
 	cleanup();
 }
@@ -68,7 +70,7 @@ void Engine::Core::Application::initVulkan()
 	};
 
 	scenemanager.addEntity<CubeVertex, EntityType::Skybox>("shaders/skyboxVert.spv", "shaders/skyboxFrag.spv", skyboxPaths, "", true);
-	//scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
+	scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
 	scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/textureMapVert.spv", "shaders/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
 
 	commandbuffer.createCommandBuffers(device.getDevice());
@@ -79,7 +81,7 @@ void Engine::Core::Application::initImGui()
 {
 	VkDescriptorPoolSize poolSizes[] = {
 		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10000 },
 		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
@@ -94,7 +96,7 @@ void Engine::Core::Application::initImGui()
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	poolInfo.maxSets = 1000;
+	poolInfo.maxSets = 10000;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(std::size(poolSizes));
 	poolInfo.pPoolSizes = poolSizes;
 
@@ -133,6 +135,15 @@ void Engine::Core::Application::mainLoop()
 	int frameCount = 0;
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
+	Entity entity;
+	bool selectVertex = false;
+	bool selectFragment = false;
+	bool selectTexture = false;
+	bool selectModel = false;
+
+	ImGui::FileBrowser file;
+	file.SetTitle("File Browser");
+
 	while (!glfwWindowShouldClose(window)) {
 		float curr = static_cast<float>(glfwGetTime());
 		float currFPS = static_cast<float>(glfwGetTime());
@@ -160,32 +171,202 @@ void Engine::Core::Application::mainLoop()
 
 		glfwPollEvents();
 
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+		if (Engine::Settings::enableValidationLayers) {
+			ImGui_ImplVulkan_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
 
-		if (!isFocused) {
-			io.WantCaptureMouse = true;
-			io.WantCaptureKeyboard = true;
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			if (!isFocused) {
+				io.WantCaptureMouse = true;
+				io.WantCaptureKeyboard = true;
+				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			}
+			else {
+				io.WantCaptureKeyboard = false;
+				io.WantCaptureMouse = false;
+				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+			}
+
+			ImGui::Begin("Fortify");
+			ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
+			scenemanager.updateScene();
+
+			if (ImGui::Button("Add Entity")) {
+				entity.add = true;
+			}
+
+			if (entity.add) {
+				ImGui::OpenPopup("Add Entity");
+
+				ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+				ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+
+				if (ImGui::BeginPopupModal("Add Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+					ImGui::SetItemDefaultFocus();
+
+					const char* entityItems[] = {
+						scenemanager.entityString(EntityType::Object),
+						scenemanager.entityString(EntityType::Skybox),
+						scenemanager.entityString(EntityType::UI),
+						scenemanager.entityString(EntityType::Light),
+						scenemanager.entityString(EntityType::Terrain),
+						scenemanager.entityString(EntityType::Particle),
+						scenemanager.entityString(EntityType::PBRObject)
+					};
+
+					int currentItem = static_cast<int>(entity.type);
+
+					if (ImGui::Combo("Entity Type", &currentItem, entityItems, IM_ARRAYSIZE(entityItems))) {
+						entity.type = static_cast<EntityType>(currentItem);
+					}
+
+					if (ImGui::Button("Vertex Shader")) {
+						selectVertex = true;
+						file.Open();
+					}
+
+					if (selectVertex) {
+						file.Display();
+						if (file.HasSelected()) {
+							entity.vertexPath = file.GetSelected().string();
+							file.ClearSelected();
+							selectVertex = false;
+						}
+					}
+
+					ImGui::SameLine();
+
+					ImGui::Text("%s", entity.vertexPath.c_str());
+
+					if (ImGui::Button("Fragment Shader")) {
+						selectFragment = true;
+						file.Open();
+					}
+
+					if (selectFragment) {
+						file.Display();
+						if (file.HasSelected()) {
+							entity.fragmentPath = file.GetSelected().string();
+							file.ClearSelected();
+							selectFragment = false;
+						}
+					}
+
+					ImGui::SameLine();
+
+					ImGui::Text("%s", entity.fragmentPath.c_str());
+
+					if (entity.type == EntityType::Object) {
+						if (ImGui::Button("Texture Path")) {
+							selectTexture = true;
+							file.Open();
+						}
+
+						if (selectTexture) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.texturePath = file.GetSelected().string();
+								file.ClearSelected();
+								selectTexture = false;
+							}
+						}
+
+						ImGui::SameLine();
+						ImGui::Text("%s", entity.texturePath.c_str());
+					}
+					else if (entity.type == EntityType::PBRObject) {
+						const char* textureType[] = {
+							scenemanager.textureString(PBRTextureType::Albedo),
+							scenemanager.textureString(PBRTextureType::Normal),
+							scenemanager.textureString(PBRTextureType::Roughness),
+							scenemanager.textureString(PBRTextureType::Metalness),
+							scenemanager.textureString(PBRTextureType::AmbientOcclusion),
+							scenemanager.textureString(PBRTextureType::Specular),
+						};
+
+						int currentItem = static_cast<int>(entity.textureType) - 1;
+
+						if (ImGui::Combo("Texture Type", &currentItem, textureType, IM_ARRAYSIZE(textureType))) {
+							entity.textureType = static_cast<PBRTextureType>(currentItem + 1);
+						}
+
+						if (ImGui::Button("Add Texture")) {
+							selectTexture = true;
+							file.Open();
+						}
+
+						if (selectTexture) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.texturePaths.insert({ entity.textureType , file.GetSelected().string() });
+								file.ClearSelected();
+								selectTexture = false;
+							}
+						}
+
+						ImGui::SameLine();
+
+						if (ImGui::Button("Remove Texture")) {
+							entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
+						}
+
+						for (auto& texturePair : entity.texturePaths) {
+							ImGui::Text("%s %s", scenemanager.textureString(texturePair.first), texturePair.second.c_str());
+						}
+					}
+
+					if (ImGui::Button("Model Path")) {
+						selectModel = true;
+						file.Open();
+					}
+
+					if (selectModel) {
+						file.Display();
+						if (file.HasSelected()) {
+							entity.modelPath = file.GetSelected().string();
+							file.ClearSelected();
+							selectModel = false;
+						}
+					}
+
+					ImGui::SameLine();
+
+					ImGui::Text("%s", entity.modelPath.c_str());
+
+					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+
+					if (ImGui::Button("Close")) {
+						ImGui::CloseCurrentPopup();
+						entity.add = false;
+					}
+
+					ImGui::SameLine();
+
+					if (ImGui::Button("Add")) {
+						ImGui::CloseCurrentPopup();
+						EntityType type = static_cast<EntityType>(entity.type);
+
+						switch (type) {
+						case EntityType::Object: 
+							scenemanager.addEntity<Vertex, EntityType::Object>(entity.vertexPath, entity.fragmentPath, entity.texturePath, entity.modelPath, entity.flipTexture);
+							break;
+						case EntityType::PBRObject:
+							scenemanager.addEntity<Vertex, EntityType::PBRObject>(entity.vertexPath, entity.fragmentPath, entity.texturePaths, entity.modelPath, entity.flipTexture);
+							break;
+						}
+						entity.add = false;
+					}
+
+					ImGui::EndPopup();
+				}
+			}
+
+			ImGui::End();
+
+			ImGui::Render();
 		}
-		else {
-			io.WantCaptureKeyboard = false;
-			io.WantCaptureMouse = false;
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-		}
-
-		ImGui::Begin("Fortify");
-		ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-
-		scenemanager.updateScene();
-
-		guiAddEntity();
-
-		ImGui::End();
-
-		ImGui::Render();
 
 		drawFrame();
 	}
@@ -197,9 +378,11 @@ void Engine::Core::Application::cleanup()
 {
 	vkDeviceWaitIdle(device.getDevice());
 
-	ImGui_ImplVulkan_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
+	if (Engine::Settings::enableValidationLayers) {
+		ImGui_ImplVulkan_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
+	}
 
 	swapchain.cleanupSwapChain(device, framebuffer);
 
@@ -340,16 +523,6 @@ void Engine::Core::Application::mouse_callback(GLFWwindow* window, double xposIn
 		lastY = ypos;
 
 		camera.processMouseMovement(xoffset, yoffset);
-	}
-}
-
-void Engine::Core::Application::guiAddEntity()
-{
-	const char* items[] = { "Object", "Skybox", "UI", "Light", "Terrain", "Particle", "PBR Object" };
-	static const char* currentItem = NULL;
-
-	if (ImGui::Button("Add Object")) {
-		scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
 	}
 }
 
@@ -521,7 +694,9 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 		vkCmdDrawIndexed(commandBuffer, m.indexCount, 1, 0, 0, 0);
 	}
 
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+	if (Engine::Settings::enableValidationLayers) {
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+	}
 
 	vkCmdEndRenderPass(commandBuffer);
 

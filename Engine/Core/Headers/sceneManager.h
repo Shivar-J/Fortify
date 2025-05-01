@@ -5,12 +5,14 @@
 #include "pipeline.h"
 #include "texture.h"
 #include "descriptorSets.h"
+#include "commandBuffer.h"
 #include "sampler.h"
 #include "string"
 #include "camera.h"
 
 #include "imgui.h"
 #include "ImGuizmo.h"
+#include "imfilebrowser.h"
 
 enum class EntityType {
 	Object,
@@ -27,6 +29,19 @@ enum class ShaderType {
 	Fragment
 };
 
+struct Entity {
+	std::string vertexPath = "";
+	std::string fragmentPath = "";
+	std::string texturePath = "";
+	std::unordered_map<PBRTextureType, std::string> texturePaths;
+	std::string modelPath = "";
+	bool flipTexture = false;
+	bool add = false;
+	EntityType type = EntityType::Object;
+	PBRTextureType textureType = PBRTextureType::Albedo;
+};
+
+
 struct ObjectTag{};
 struct PBRObjectTag{};
 struct SkyboxTag{};
@@ -42,6 +57,8 @@ struct Model {
 	glm::vec3 scale = glm::vec3(1.0f);
 	int32_t pipelineIndex;
 	EntityType type;
+	std::unordered_map<PBRTextureType, std::string> texturePaths;
+	std::unordered_map<int, VkDescriptorSet> textureIDs;
 	bool showGizmo = false;
 };
 
@@ -50,6 +67,7 @@ struct Scene {
 	std::string vertexShader;
 	std::string fragmentShader;
 	bool isVisible = true;
+	bool markedForDeletion = false;
 };
 
 namespace Engine::Core {
@@ -114,6 +132,7 @@ namespace Engine::Core {
 			scene.fragmentShader = fragmentShaderPath;
 
 			Model m{};
+			m.texturePaths = texturePaths;
 			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, false);
 			
 			if (texturePaths.count(PBRTextureType::Albedo)) {
@@ -204,6 +223,7 @@ namespace Engine::Core {
 		void updateScene();
 		void cleanup(Scene scene);
 		const char* entityString(EntityType type);
+		const char* textureString(PBRTextureType type);
 
 		bool checkExtension(const std::string path, const std::string ext);
 

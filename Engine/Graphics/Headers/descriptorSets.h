@@ -2,6 +2,8 @@
 #define DESCRIPTORSETS_H
 
 #include "utility.h"
+#include "imgui.h"
+#include "imgui_impl_vulkan.h"
 
 enum class PBRTextureType {
 	Albedo = 1,
