@@ -21,12 +21,20 @@ enum class EntityType {
 	Light,
 	Terrain,
 	Particle,
-	PBRObject
+	PBRObject,
+	MatObject,
+	Primitive
 };
 
 enum class ShaderType {
 	Vertex,
 	Fragment
+};
+
+enum class PrimitiveType {
+	Cube,
+	Sphere,
+	Plane,
 };
 
 struct Entity {
@@ -35,17 +43,20 @@ struct Entity {
 	std::string texturePath = "";
 	std::unordered_map<PBRTextureType, std::string> texturePaths;
 	std::vector<std::string> skyboxPaths;
+	std::string materialPath = "";
 	std::string modelPath = "";
+	PrimitiveType primitiveType = PrimitiveType::Cube;
 	bool flipTexture = false;
 	bool add = false;
 	EntityType type = EntityType::Object;
 	PBRTextureType textureType = PBRTextureType::Albedo;
 };
 
-
 struct ObjectTag{};
 struct PBRObjectTag{};
 struct SkyboxTag{};
+struct MatObjectTag{};
+struct PrimitiveTag{};
 
 struct Model {
 	Engine::Graphics::Pipeline pipeline;
@@ -56,8 +67,10 @@ struct Model {
 	glm::vec3 position;
 	glm::vec3 rotation;
 	glm::vec3 scale = glm::vec3(1.0f);
+	float color[3] = { 0.7f, 0.7f, 0.7f };
 	int32_t pipelineIndex;
 	EntityType type;
+	PrimitiveType primitiveType = PrimitiveType::Cube;
 	std::unordered_map<PBRTextureType, std::string> texturePaths;
 	std::unordered_map<int, VkDescriptorSet> textureIDs;
 	bool showGizmo = false;
@@ -88,6 +101,8 @@ namespace Engine::Core {
 		template<> struct TagFromEntityType<EntityType::Object> { using type = ObjectTag; };
 		template<> struct TagFromEntityType<EntityType::PBRObject> { using type = PBRObjectTag; };
 		template<> struct TagFromEntityType<EntityType::Skybox> { using type = SkyboxTag; };
+		template<> struct TagFromEntityType<EntityType::MatObject> { using type = MatObjectTag; };
+		template<> struct TagFromEntityType<EntityType::Primitive> { using type = PrimitiveTag; };
 
 		template<EntityType Entity>
 		using tag = typename TagFromEntityType<Entity>::type;
@@ -105,14 +120,15 @@ namespace Engine::Core {
 
 			Model m{};
 			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, false);
-			m.texture.createTextureImage(texturePath, device, commandbuffer, framebuffer, sampler, flipTexture);
-			m.matrix = glm::mat4(1.0f);
-
+			
 			if (!modelPath.empty())
 				m.texture.loadModel(modelPath);
+
+			m.texture.createTextureImage(texturePath, device, commandbuffer, framebuffer, sampler, flipTexture);
 			m.texture.createTextureImageView(swapchain, device.getDevice(), false);
 			m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
 			m.type = EntityType::Object;
+			m.matrix = glm::mat4(1.0f);
 			m.texture.createVertexBuffer(device, commandbuffer, framebuffer);
 			m.texture.createIndexBuffer(device, commandbuffer, framebuffer);
 			m.texture.createUniformBuffers(device, framebuffer);
@@ -202,7 +218,7 @@ namespace Engine::Core {
 			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, true);
 
 			m.texture.createCubemap(skyboxPaths, device, commandbuffer, framebuffer, sampler, false);
-			m.texture.createCube();
+			m.texture.createSkybox();
 			m.texture.createCubeVertexBuffer(device, commandbuffer, framebuffer);
 			m.texture.createCubeIndexBuffer(device, commandbuffer, framebuffer);
 			m.matrix = glm::mat4(1.0f);
@@ -220,11 +236,132 @@ namespace Engine::Core {
 			scenes.insert(scenes.begin(), scene);
 		}
 
+		template<typename VertexType>
+		void addEntityImplementation(MatObjectTag, const std::string vertexShaderPath, const std::string fragmentShaderPath, const std::string materialPath, const std::string modelPath, bool flipTexture) {
+			Scene scene;
+			scene.vertexShader = vertexShaderPath;
+			scene.fragmentShader = fragmentShaderPath;
+
+			Model m{};
+			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, false);			
+			
+			if (!modelPath.empty()) {
+				m.texture.loadModel(modelPath, materialPath);
+			}
+
+			std::string baseDir = std::filesystem::path(materialPath).parent_path().string();
+			std::unordered_map<PBRTextureType, std::string> paths;
+
+			for (auto& mat : m.texture.getMaterials()) {
+				if (!mat.diffusePath.empty()) {
+					std::string path = baseDir + "/" + mat.diffusePath;
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
+					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
+					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					paths.insert({ PBRTextureType::Albedo, path });
+				}
+
+				if (!mat.normalPath.empty()) {
+					std::string path = baseDir + "/" + mat.normalPath;
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
+					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
+					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					paths.insert({ PBRTextureType::Normal, path });
+				}
+
+				if (!mat.roughnessPath.empty()) {
+					std::string path = baseDir + "/" + mat.roughnessPath;
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
+					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
+					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					paths.insert({ PBRTextureType::Roughness, path });
+				}
+
+				if (!mat.metalnessPath.empty()) {
+					std::string path = baseDir + "/" + mat.metalnessPath;
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
+					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
+					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					paths.insert({ PBRTextureType::Metalness, path });
+				}
+
+				if (!mat.aoPath.empty()) {
+					std::string path = baseDir + "/" + mat.aoPath;
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
+					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
+					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					paths.insert({ PBRTextureType::AmbientOcclusion, path });
+				}
+
+				if (!mat.specularPath.empty()) {
+					std::string path = baseDir + "/" + mat.specularPath;
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
+					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
+					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					paths.insert({ PBRTextureType::Specular, path });
+				}
+			}
+
+			m.type = EntityType::MatObject;
+			m.texturePaths = paths;
+
+			m.texture.createVertexBuffer(device, commandbuffer, framebuffer);
+			m.texture.createIndexBuffer(device, commandbuffer, framebuffer);
+			m.texture.createUniformBuffers(device, framebuffer);
+			m.indexCount = static_cast<uint32_t>(m.texture.getIndices().size());
+			m.matrix = glm::mat4(1.0f);
+
+			m.descriptor.createDescriptorPool(device.getDevice());
+			m.descriptor.createDescriptorSets(device.getDevice(), m.texture, renderpass.getDescriptorSetLayout(), false, paths);
+		
+			scene.model = m;
+
+			scenes.push_back(scene);
+		}
+
+		template<typename VertexType>
+		void addEntityImplementation(PrimitiveTag, const std::string vertexShaderPath, const std::string fragmentShaderPath, const PrimitiveType primitiveType, const std::string modelPath, bool flipTexture) {
+			Scene scene;
+			scene.vertexShader = vertexShaderPath;
+			scene.fragmentShader = fragmentShaderPath;
+
+			Model m{};
+			m.primitiveType = primitiveType;
+			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, true);
+
+			if (primitiveType == PrimitiveType::Cube) {
+				m.texture.createCube();
+				m.matrix = glm::mat4(1.0f);
+			}
+			else if (primitiveType == PrimitiveType::Plane) {
+				m.texture.createPlane();
+				m.matrix = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
+			}
+			else if (primitiveType == PrimitiveType::Sphere) {
+				m.texture.createSphere();
+				m.matrix = glm::mat4(1.0f);
+			}
+
+			m.texture.createVertexBuffer(device, commandbuffer, framebuffer);
+			m.texture.createIndexBuffer(device, commandbuffer, framebuffer);
+			m.indexCount = static_cast<uint32_t>(m.texture.getIndices().size());
+			m.texture.createUniformBuffers(device, framebuffer);
+			m.type = EntityType::Primitive;
+			
+			m.descriptor.createDescriptorPool(device.getDevice());
+			m.descriptor.createDescriptorSets(device.getDevice(), m.texture, renderpass.getDescriptorSetLayout(), false, {}, false);
+			
+			scene.model = m;
+
+			scenes.push_back(scene);
+		}
+
 		void removeEntity(Scene scene, int index);
 		void updateScene();
 		void cleanup(Scene scene);
 		const char* entityString(EntityType type);
 		const char* textureString(PBRTextureType type);
+		const char* primitiveString(PrimitiveType type);
 		bool hasSkybox();
 
 		bool checkExtension(const std::string path, const std::string ext);

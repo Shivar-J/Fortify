@@ -81,6 +81,16 @@ struct CubeVertex {
 	}
 };
 
+struct Materials {
+	std::string name;
+	std::string diffusePath;
+	std::string normalPath;
+	std::string roughnessPath;
+	std::string metalnessPath;
+	std::string aoPath;
+	std::string specularPath;
+};
+
 namespace Engine::Graphics {
 	struct UniformBufferObject {
 		glm::mat4 model;
@@ -134,6 +144,7 @@ namespace Engine::Graphics {
 
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
+		std::vector<Materials> mats;
 
 		std::vector<CubeVertex> cubeVertices;
 		std::vector<uint32_t> cubeIndices;
@@ -143,6 +154,7 @@ namespace Engine::Graphics {
 		void createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube, bool isPBR = false);
 		void createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, bool isPBR = false);
 		void loadModel(const std::string modelPath);
+		void loadModel(const std::string modelPath, const std::string materialPath);
 		void createVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);
@@ -152,6 +164,9 @@ namespace Engine::Graphics {
 
 		void createCubemap(const std::vector<std::string>& faces, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuffer, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture);
 		void createCube();
+		void createSkybox();
+		void createPlane();
+		void createSphere(float radius=1.0f, int stacks=50, int sectors=50);
 		void createCubeVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createCubeIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createSkyboxUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer);
@@ -193,6 +208,7 @@ namespace Engine::Graphics {
 		
 		std::vector<Vertex> getVertices() const { return vertices; }
 		std::vector<uint32_t> getIndices() const { return indices; }
+		std::vector<Materials> getMaterials() const { return mats; }
 
 		std::vector<CubeVertex> getCubeVertices() const { return cubeVertices; }
 		std::vector<uint32_t> getCubeIndices() const { return cubeIndices; }

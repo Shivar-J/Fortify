@@ -69,10 +69,11 @@ void Engine::Core::Application::initVulkan()
 
 	};
 
-	scenemanager.addEntity<CubeVertex, EntityType::Skybox>("shaders/skyboxVert.spv", "shaders/skyboxFrag.spv", skyboxPaths, "", true);
-	scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
-	scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/textureMapVert.spv", "shaders/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
-
+	scenemanager.addEntity<CubeVertex, EntityType::Skybox>("shaders/spv/skyboxVert.spv", "shaders/spv/skyboxFrag.spv", skyboxPaths, "", true);
+	//scenemanager.addEntity<Vertex, EntityType::Object>("shaders/spv/vert.spv", "shaders/spv/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
+	//scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
+	//scenemanager.addEntity<Vertex, EntityType::MatObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", "textures/backpack/backpack.mtl", "textures/backpack/backpack.obj", true);
+	scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/spv/primitiveVert.spv", "shaders/spv/primitiveFrag.spv", PrimitiveType::Plane, "", false);
 	commandbuffer.createCommandBuffers(device.getDevice());
 	texture.createSyncObjects(device.getDevice());
 }
@@ -125,7 +126,6 @@ void Engine::Core::Application::initImGui()
 	ImGui_ImplVulkan_CreateFontsTexture();
 	commandbuffer.endSingleTimeCommands(imguiCB, device.getGraphicsQueue(), device.getDevice());
 	ImGui_ImplVulkan_DestroyFontsTexture();
-
 }
 
 void Engine::Core::Application::mainLoop()
@@ -140,6 +140,7 @@ void Engine::Core::Application::mainLoop()
 	bool selectFragment = false;
 	bool selectTexture = false;
 	bool selectModel = false;
+	bool selectMat = false;
 
 	ImGui::FileBrowser file;
 	file.SetTitle("File Browser");
@@ -213,7 +214,9 @@ void Engine::Core::Application::mainLoop()
 						scenemanager.entityString(EntityType::Light),
 						scenemanager.entityString(EntityType::Terrain),
 						scenemanager.entityString(EntityType::Particle),
-						scenemanager.entityString(EntityType::PBRObject)
+						scenemanager.entityString(EntityType::PBRObject),
+						scenemanager.entityString(EntityType::MatObject),
+						scenemanager.entityString(EntityType::Primitive)
 					};
 
 					int currentItem = static_cast<int>(entity.type);
@@ -293,6 +296,8 @@ void Engine::Core::Application::mainLoop()
 						ImGui::SameLine();
 
 						ImGui::Text("%s", entity.modelPath.c_str());
+
+						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
 					}
 					else if (entity.type == EntityType::PBRObject) {
 						const char* textureType[] = {
@@ -351,6 +356,8 @@ void Engine::Core::Application::mainLoop()
 						ImGui::SameLine();
 
 						ImGui::Text("%s", entity.modelPath.c_str());
+
+						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
 					}
 					else if (entity.type == EntityType::Skybox) {
 						if (!scenemanager.hasSkybox()) {
@@ -380,9 +387,61 @@ void Engine::Core::Application::mainLoop()
 								ImGui::Text("%s", skybox.c_str());
 							}
 						}
-					}
 
-					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+					}
+					else if (entity.type == EntityType::MatObject) {
+						if (ImGui::Button("Model Path")) {
+							selectModel = true;
+							file.Open();
+						}
+
+						if (selectModel) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.modelPath = file.GetSelected().string();
+								file.ClearSelected();
+								selectModel = false;
+							}
+						}
+
+						ImGui::SameLine();
+
+						ImGui::Text("%s", entity.modelPath.c_str());
+
+						if (ImGui::Button("Material Path")) {
+							selectMat = true;
+							file.Open();
+						}
+
+						if (selectMat) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.materialPath = file.GetSelected().string();
+								file.ClearSelected();
+								selectMat = false;
+							}
+						}
+
+						ImGui::SameLine();
+
+						ImGui::Text("%s", entity.materialPath.c_str());
+
+						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+					}
+					else if (entity.type == EntityType::Primitive) {
+						const char* primitiveType[] = {
+							scenemanager.primitiveString(PrimitiveType::Cube),
+							scenemanager.primitiveString(PrimitiveType::Sphere),
+							scenemanager.primitiveString(PrimitiveType::Plane),
+						};
+
+						int currentItem = static_cast<int>(entity.primitiveType);
+
+						if (ImGui::Combo("Primitive Type", &currentItem, primitiveType, IM_ARRAYSIZE(primitiveType))) {
+							entity.primitiveType = static_cast<PrimitiveType>(currentItem);
+						}
+					}
 
 					if (ImGui::Button("Close")) {
 						ImGui::CloseCurrentPopup();
@@ -396,12 +455,20 @@ void Engine::Core::Application::mainLoop()
 						EntityType type = static_cast<EntityType>(entity.type);
 
 						switch (type) {
-						case EntityType::Object: 
+						case EntityType::Object:
 							scenemanager.addEntity<Vertex, EntityType::Object>(entity.vertexPath, entity.fragmentPath, entity.texturePath, entity.modelPath, entity.flipTexture);
 							entity.add = false;
 							break;
 						case EntityType::PBRObject:
 							scenemanager.addEntity<Vertex, EntityType::PBRObject>(entity.vertexPath, entity.fragmentPath, entity.texturePaths, entity.modelPath, entity.flipTexture);
+							entity.add = false;
+							break;
+						case EntityType::MatObject:
+							scenemanager.addEntity<Vertex, EntityType::MatObject>(entity.vertexPath, entity.fragmentPath, entity.materialPath, entity.modelPath, entity.flipTexture);
+							entity.add = false;
+							break;
+						case EntityType::Primitive:
+							scenemanager.addEntity<Vertex, EntityType::Primitive>(entity.vertexPath, entity.fragmentPath, entity.primitiveType, "", entity.flipTexture);
 							entity.add = false;
 							break;
 						case EntityType::Skybox:
@@ -416,7 +483,6 @@ void Engine::Core::Application::mainLoop()
 							}
 						}
 					}
-
 					ImGui::EndPopup();
 				}
 			}
@@ -609,7 +675,7 @@ void Engine::Core::Application::drawFrame()
 		if (m.type == EntityType::Skybox) {
 			m.texture.updateSkyboxUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent());
 		}
-		else if (m.type == EntityType::Object || m.type == EntityType::PBRObject) {
+		else if (m.type == EntityType::Object || m.type == EntityType::PBRObject || m.type == EntityType::MatObject || m.type == EntityType::Primitive) {
 			m.texture.updateUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent(), m.matrix);
 		}
 	}

@@ -30,6 +30,7 @@
 #include <array>
 #include <cstdio>
 #include <unordered_map>
+#include <filesystem>
 
 #include "device.h"
 

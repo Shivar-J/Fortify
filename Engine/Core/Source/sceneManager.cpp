@@ -25,27 +25,34 @@ void Engine::Core::SceneManager::updateScene() {
 			ImGui::Text("Entity Type: %s", entityString(scenes[i].model.type));
 
 			int textureCount = static_cast<int>(scenes[i].model.texture.getTextureCount());
-
-			if (textureCount == -1) {
-				if (scenes[i].model.textureIDs.count(0) == 0) {
-					VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(), scenes[i].model.texture.getTextureImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-					scenes[i].model.textureIDs[0] = textureID;
-				}
-				ImGui::Image((ImTextureID)scenes[i].model.textureIDs[0], ImVec2(64, 64));
-			}
-			else {
-				scenes[i].model.textureIDs.reserve(textureCount);
-				int index = 0;
-				for (auto& texturePair : scenes[i].model.texturePaths) {
-					if (scenes[i].model.textureIDs.count(index) == 0) {
-						VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(index), scenes[i].model.texture.getTextureImageView(index), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-						scenes[i].model.textureIDs[index] = textureID;
+			if (scenes[i].model.type != EntityType::Primitive) {
+				if (textureCount == -1) {
+					if (scenes[i].model.textureIDs.count(0) == 0) {
+						VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(), scenes[i].model.texture.getTextureImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+						scenes[i].model.textureIDs[0] = textureID;
 					}
-					ImGui::Image((ImTextureID)scenes[i].model.textureIDs[index], ImVec2(64, 64));
-					ImGui::SameLine();
-					ImGui::Text("%s", textureString(texturePair.first));
-					index++;
+					ImGui::Image((ImTextureID)scenes[i].model.textureIDs[0], ImVec2(64, 64));
 				}
+				else {
+					scenes[i].model.textureIDs.reserve(textureCount);
+					int index = 0;
+					for (auto& texturePair : scenes[i].model.texturePaths) {
+						if (scenes[i].model.textureIDs.count(index) == 0) {
+							VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(index), scenes[i].model.texture.getTextureImageView(index), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+							scenes[i].model.textureIDs[index] = textureID;
+						}
+						ImGui::Image((ImTextureID)scenes[i].model.textureIDs[index], ImVec2(64, 64));
+						ImGui::SameLine();
+						ImGui::Text("%s", textureString(texturePair.first));
+						index++;
+					}
+				}
+			}
+
+			if (scenes[i].model.type == EntityType::Primitive) {
+				ImGui::SameLine();
+				ImGui::Text("%s", primitiveString(scenes[i].model.primitiveType));
+				//ImGui::ColorPicker3("Color", scenes[i].model.color);
 			}
 
 			glm::mat4& matrix = scenes[i].model.matrix;
@@ -157,6 +164,8 @@ const char* Engine::Core::SceneManager::entityString(EntityType type)
 		case EntityType::Terrain: return "Terrain";
 		case EntityType::Particle: return "Particle";
 		case EntityType::PBRObject: return "PBR Object";
+		case EntityType::MatObject: return "Material Object";
+		case EntityType::Primitive: return "Primitive";
 		default: return "Unknown";
 	}
 }
@@ -171,6 +180,15 @@ const char* Engine::Core::SceneManager::textureString(PBRTextureType type)
 		case PBRTextureType::AmbientOcclusion: return "Ambient Occlusion";
 		case PBRTextureType::Specular: return "Specular";
 		default: return "Unknown";
+	}
+}
+
+const char* Engine::Core::SceneManager::primitiveString(PrimitiveType type) {
+	switch (type) {
+	case PrimitiveType::Cube: return "Cube";
+	case PrimitiveType::Sphere: return "Sphere";
+	case PrimitiveType::Plane: return "Plane";
+	default: return "Unknown";
 	}
 }
 

@@ -27,7 +27,7 @@ namespace Engine::Graphics {
 
 	public:
 		void createDescriptorPool(VkDevice device);
-		void createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout, bool isCube, std::unordered_map<PBRTextureType, std::string> texturePaths = {});
+		void createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout, bool isCube, std::unordered_map<PBRTextureType, std::string> texturePaths = {}, bool hasTextures = true);
 
 		VkDescriptorPool getDescriptorPool() const { return descriptorPool; }
 		std::vector<VkDescriptorSet> getDescriptorSets() const { return descriptorSets; }

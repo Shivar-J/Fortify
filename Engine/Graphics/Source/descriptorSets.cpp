@@ -22,7 +22,7 @@ void Engine::Graphics::DescriptorSets::createDescriptorPool(VkDevice device)
     }
 }
 
-void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout, bool isCube, std::unordered_map<PBRTextureType, std::string> texturePaths)
+void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Engine::Graphics::Texture texture, VkDescriptorSetLayout descriptorSetLayout, bool isCube, std::unordered_map<PBRTextureType, std::string> texturePaths, bool hasTexture)
 {
     std::vector<VkDescriptorSetLayout> layouts(Engine::Settings::MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -53,27 +53,29 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
 
         std::vector<VkDescriptorImageInfo> imageInfos(texturePaths.size());
         VkDescriptorImageInfo imageInfo{};
-
-        if (textureCount == -1) {
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-            imageInfo.imageView = texture.getTextureImageView();
-            imageInfo.sampler = texture.getTextureSampler();
-            imageInfos.push_back(imageInfo);
-        }
-        else {
-            int index = 0;
-            for (auto& texturePair : texturePaths) {
-                PBRTextureType textureType = texturePair.first;
-                const std::string& texturePath = texturePair.second;
-
+        
+        if (hasTexture) {
+            if (textureCount == -1) {
                 imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                imageInfo.imageView = texture.getTextureImageView(index);
-                imageInfo.sampler = texture.getTextureSampler(index);
+                imageInfo.imageView = texture.getTextureImageView();
+                imageInfo.sampler = texture.getTextureSampler();
+                imageInfos.push_back(imageInfo);
+            }
+            else {
+                int index = 0;
+                for (auto& texturePair : texturePaths) {
+                    PBRTextureType textureType = texturePair.first;
+                    const std::string& texturePath = texturePair.second;
 
-                imageInfos[index] = (imageInfo);
-                index++;
+                    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+                    imageInfo.imageView = texture.getTextureImageView(index);
+                    imageInfo.sampler = texture.getTextureSampler(index);
+
+                    imageInfos[index] = (imageInfo);
+                    index++;
+                }
             }
         }
 
@@ -89,30 +91,32 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
 
         descriptorWrites.push_back(uniformWrite);
 
-        if (textureCount == -1) {
-            VkWriteDescriptorSet imageWrite{};
-            imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            imageWrite.dstSet = descriptorSets[i];
-            imageWrite.dstBinding = 1;
-            imageWrite.dstArrayElement = 0;
-            imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            imageWrite.descriptorCount = 1;
-            imageWrite.pImageInfo = &imageInfo;
-
-            descriptorWrites.push_back(imageWrite);
-        }
-        else {
-            for(uint32_t j = 0; j < imageInfos.size(); j++) {
+        if (hasTexture) {
+            if (textureCount == -1) {
                 VkWriteDescriptorSet imageWrite{};
                 imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
                 imageWrite.dstSet = descriptorSets[i];
-                imageWrite.dstBinding = static_cast<uint32_t>(j + 1);
+                imageWrite.dstBinding = 1;
                 imageWrite.dstArrayElement = 0;
                 imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                 imageWrite.descriptorCount = 1;
-                imageWrite.pImageInfo = &imageInfos[j];
+                imageWrite.pImageInfo = &imageInfo;
 
                 descriptorWrites.push_back(imageWrite);
+            }
+            else {
+                for (uint32_t j = 0; j < imageInfos.size(); j++) {
+                    VkWriteDescriptorSet imageWrite{};
+                    imageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                    imageWrite.dstSet = descriptorSets[i];
+                    imageWrite.dstBinding = static_cast<uint32_t>(j + 1);
+                    imageWrite.dstArrayElement = 0;
+                    imageWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    imageWrite.descriptorCount = 1;
+                    imageWrite.pImageInfo = &imageInfos[j];
+
+                    descriptorWrites.push_back(imageWrite);
+                }
             }
         }
         

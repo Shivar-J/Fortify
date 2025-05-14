@@ -105,6 +105,8 @@ void Engine::Graphics::Texture::loadModel(const std::string modelPath)
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
 
+    std::string baseDir = std::filesystem::path(modelPath).parent_path().string();
+
     if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str())) {
         throw std::runtime_error(warn + err);
     }
@@ -112,6 +114,65 @@ void Engine::Graphics::Texture::loadModel(const std::string modelPath)
     std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
     for (const auto& shape : shapes) {
+        int face = 0;
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex{};
+
+            vertex.pos = {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            };
+
+            vertex.texCoord = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+            };
+
+            vertex.color = { 1.0f, 1.0f, 1.0f };
+
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                vertices.push_back(vertex);
+            }
+
+            indices.push_back(uniqueVertices[vertex]);
+        }
+    }
+}
+
+void Engine::Graphics::Texture::loadModel(const std::string modelPath, const std::string materialPath)
+{
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    std::string baseDir = std::filesystem::path(materialPath).parent_path().string();
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str(), baseDir.c_str())) {
+        throw std::runtime_error(warn + err);
+    }
+
+    for (const auto& mat : materials) {
+        Materials material;
+
+        material.name = mat.name;
+        material.diffusePath = mat.diffuse_texname;
+        material.normalPath = mat.normal_texname;
+        material.roughnessPath = mat.roughness_texname;
+        material.metalnessPath = mat.metallic_texname;
+        material.aoPath = mat.ambient_texname;
+        material.specularPath = mat.specular_texname;
+
+        mats.push_back(material);
+    }
+
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+    for (const auto& shape : shapes) {
+        int face = 0;
         for (const auto& index : shape.mesh.indices) {
             Vertex vertex{};
 
@@ -286,6 +347,118 @@ void Engine::Graphics::Texture::createCubemap(const std::vector<std::string>& fa
 }
 
 void Engine::Graphics::Texture::createCube()
+{
+    vertices = {
+        {{-1.0f, -1.0f,  1.0f}, {0.7f, 0.7f, 0.7f}, {0.0f, 0.0f}},
+        {{ 1.0f, -1.0f,  1.0f}, {0.7f, 0.7f, 0.7f}, {1.0f, 0.0f}},
+        {{ 1.0f,  1.0f,  1.0f}, {0.7f, 0.7f, 0.7f}, {1.0f, 1.0f}},
+        {{-1.0f,  1.0f,  1.0f}, {0.7f, 0.7f, 0.7f}, {0.0f, 1.0f}},
+        {{-1.0f, -1.0f, -1.0f}, {0.7f, 0.7f, 0.7f}, {0.0f, 0.0f}},
+        {{ 1.0f, -1.0f, -1.0f}, {0.7f, 0.7f, 0.7f}, {1.0f, 0.0f}},
+        {{ 1.0f,  1.0f, -1.0f}, {0.7f, 0.7f, 0.7f}, {1.0f, 1.0f}},
+        {{-1.0f,  1.0f, -1.0f}, {0.7f, 0.7f, 0.7f}, {0.0f, 1.0f}}
+    };
+
+    indices = {
+        0, 1, 2, 2, 3, 0,
+        5, 4, 7, 7, 6, 5,
+        3, 2, 6, 6, 7, 3,
+        4, 5, 1, 1, 0, 4,
+        4, 0, 3, 3, 7, 4,
+        1, 5, 6, 6, 2, 1
+    };
+}
+
+void Engine::Graphics::Texture::createPlane() {
+    vertices = {
+        {{-1.0f, -1.0, 1.0f}, {0.7f, 0.7f, 0.7f}, {0.0, 0.0}},
+        {{ 1.0f, -1.0, 1.0f}, {0.7f, 0.7f, 0.7f}, {1.0, 0.0}},
+        {{ 1.0f,  1.0, 1.0f}, {0.7f, 0.7f, 0.7f}, {1.0, 1.0}},
+        {{-1.0f,  1.0, 1.0f}, {0.7f, 0.7f, 0.7f}, {0.0, 1.0}},
+    };
+
+    indices = {
+        0, 1, 2,
+        2, 3, 0
+    };
+}
+
+void Engine::Graphics::Texture::createSphere(float radius, int stacks, int sectors) {
+    float pi = 3.14159265358979323846f;
+
+    for (uint32_t i = 0; i <= stacks; i++) {
+        float phi = pi * float(i) / float(stacks);
+        float y = radius * cosf(phi);
+        float r = radius * sinf(phi);
+        for (uint32_t j = 0; j <= sectors; j++) {
+            float theta = 2 * pi * float(j) / float(sectors);
+            float x = radius * cosf(theta);
+            float z = radius * sinf(theta);
+
+            Vertex vertex{};
+            vertex.pos = {
+                radius * sinf(phi) * cosf(theta),
+                radius * cosf(phi),
+                radius * sinf(phi) * sinf(theta)
+            };
+
+            vertex.texCoord = {
+                float(j) / float(sectors),
+                float(i) / float(stacks)
+            };
+
+            vertex.color = { 0.7f, 0.7f, 0.7f };
+
+            vertices.push_back(vertex);
+        }
+    }
+
+    for (uint32_t i = 0; i < stacks; i++) {
+        for (uint32_t j = 0; j < sectors; j++) {
+            uint32_t first = i * (sectors + 1) + j;
+            uint32_t second = first + sectors + 1;
+
+            if(i != stacks - 1)
+            {
+                indices.push_back(first);
+                indices.push_back(second);
+                indices.push_back(first + 1);
+
+                indices.push_back(first + 1);
+                indices.push_back(second);
+                indices.push_back(second + 1);
+            }
+        }
+    }
+
+    uint32_t bottomStart = (stacks - 1) * (sectors + 1);
+    uint32_t bottomCenterIndex = (uint32_t)vertices.size();
+    Vertex vertex{};
+
+    vertex.pos = {
+        0, -radius, 0
+    };
+
+    vertex.texCoord = {
+        0.5, 1.0
+    };
+
+    vertex.color = {
+        0.7, 0.7, 0.7
+    };
+    
+    vertices.push_back(vertex);
+
+    for (uint32_t j = 0; j < sectors; j++) {
+        uint32_t first = bottomStart + j;
+        uint32_t second = bottomStart + ((j + 1) % sectors);
+        indices.push_back(first);
+        indices.push_back(bottomCenterIndex);
+        indices.push_back(second);
+    }
+}
+
+void Engine::Graphics::Texture::createSkybox()
 {
     cubeVertices = {
         {{-1.0f, -1.0f,  1.0f}},
