@@ -6,11 +6,11 @@
 
 struct Vertex {
 	glm::vec3 pos;
-	glm::vec3 color;
+	glm::vec3 normal;
 	glm::vec2 texCoord;
 
 	bool operator==(const Vertex& other) const {
-		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+		return pos == other.pos && normal == other.normal && texCoord == other.texCoord;
 	}
 
 	static VkVertexInputBindingDescription getBindingDescription() {
@@ -33,7 +33,7 @@ struct Vertex {
 		attributeDescription[1].binding = 0;
 		attributeDescription[1].location = 1;
 		attributeDescription[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescription[1].offset = offsetof(Vertex, color);
+		attributeDescription[1].offset = offsetof(Vertex, normal);
 
 		attributeDescription[2].binding = 0;
 		attributeDescription[2].location = 2;
@@ -47,11 +47,10 @@ struct Vertex {
 namespace std {
 	template<> struct hash<Vertex> {
 		size_t operator()(Vertex const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
 		}
 	};
 }
-
 
 struct CubeVertex {
 	glm::vec3 pos;
@@ -92,10 +91,18 @@ struct Materials {
 };
 
 namespace Engine::Graphics {
+	struct LightBuffer {
+		alignas(16) glm::vec3 pos;
+		alignas(16) glm::vec3 color;
+	};
+
 	struct UniformBufferObject {
 		glm::mat4 model;
 		glm::mat4 view;
 		glm::mat4 proj;
+		alignas(16) glm::vec3 color;
+		alignas(16) LightBuffer lights[99];
+		alignas(4) int numLights;
 	};
 
 	struct SkyboxUBO {
@@ -159,8 +166,7 @@ namespace Engine::Graphics {
 		void createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);
 		void createSyncObjects(VkDevice device);
-		void updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent);
-		void updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent, glm::mat4 model);
+		void updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent, glm::mat4 model, glm::vec3 color, std::vector<LightBuffer> lights);
 
 		void createCubemap(const std::vector<std::string>& faces, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuffer, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture);
 		void createCube();

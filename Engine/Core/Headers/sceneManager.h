@@ -57,6 +57,7 @@ struct PBRObjectTag{};
 struct SkyboxTag{};
 struct MatObjectTag{};
 struct PrimitiveTag{};
+struct LightingTag{};
 
 struct Model {
 	Engine::Graphics::Pipeline pipeline;
@@ -67,13 +68,14 @@ struct Model {
 	glm::vec3 position;
 	glm::vec3 rotation;
 	glm::vec3 scale = glm::vec3(1.0f);
-	float color[3] = { 0.7f, 0.7f, 0.7f };
+	glm::vec3 color = glm::vec3(0.7f);
 	int32_t pipelineIndex;
 	EntityType type;
 	PrimitiveType primitiveType = PrimitiveType::Cube;
 	std::unordered_map<PBRTextureType, std::string> texturePaths;
 	std::unordered_map<int, VkDescriptorSet> textureIDs;
 	bool showGizmo = false;
+	bool hasTexture = true;
 };
 
 struct Scene {
@@ -82,6 +84,7 @@ struct Scene {
 	std::string fragmentShader;
 	bool isVisible = true;
 	bool markedForDeletion = false;
+	std::string name = "";
 };
 
 namespace Engine::Core {
@@ -103,6 +106,7 @@ namespace Engine::Core {
 		template<> struct TagFromEntityType<EntityType::Skybox> { using type = SkyboxTag; };
 		template<> struct TagFromEntityType<EntityType::MatObject> { using type = MatObjectTag; };
 		template<> struct TagFromEntityType<EntityType::Primitive> { using type = PrimitiveTag; };
+		template<> struct TagFromEntityType<EntityType::Light> { using type = LightingTag; };
 
 		template<EntityType Entity>
 		using tag = typename TagFromEntityType<Entity>::type;
@@ -328,14 +332,15 @@ namespace Engine::Core {
 			Model m{};
 			m.primitiveType = primitiveType;
 			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, true);
+			m.hasTexture = false;
 
 			if (primitiveType == PrimitiveType::Cube) {
 				m.texture.createCube();
-				m.matrix = glm::mat4(1.0f);
+				m.matrix = glm::scale(glm::mat4(1.0f), glm::vec3(0.5));
 			}
 			else if (primitiveType == PrimitiveType::Plane) {
 				m.texture.createPlane();
-				m.matrix = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
+				m.matrix = glm::translate(glm::scale(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0)), glm::vec3(5.0, 5.0, 5.0)), glm::vec3(0.0, 0.0, -1.0));
 			}
 			else if (primitiveType == PrimitiveType::Sphere) {
 				m.texture.createSphere();
@@ -351,6 +356,34 @@ namespace Engine::Core {
 			m.descriptor.createDescriptorPool(device.getDevice());
 			m.descriptor.createDescriptorSets(device.getDevice(), m.texture, renderpass.getDescriptorSetLayout(), false, {}, false);
 			
+			scene.model = m;
+
+			scenes.push_back(scene);
+		}
+
+		template<typename VertexType>
+		void addEntityImplementation(LightingTag, const std::string vertexShaderPath, const std::string fragmentShaderPath, const std::string texturePath, const std::string modelPath, bool flipTexture) {
+			Scene scene;
+			scene.vertexShader = vertexShaderPath;
+			scene.fragmentShader = fragmentShaderPath;
+
+			Model m{};
+			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, true);
+
+			//change this to user object
+			m.texture.createCube();
+			m.matrix = glm::translate(glm::scale(glm::mat4(1.0f), glm::vec3(0.5)), glm::vec3(0.0, 5.0, 0.0));
+			m.type = EntityType::Light;
+			m.hasTexture = false;
+
+			m.texture.createVertexBuffer(device, commandbuffer, framebuffer);
+			m.texture.createIndexBuffer(device, commandbuffer, framebuffer);
+			m.indexCount = static_cast<uint32_t>(m.texture.getIndices().size());
+			m.texture.createUniformBuffers(device, framebuffer);
+
+			m.descriptor.createDescriptorPool(device.getDevice());
+			m.descriptor.createDescriptorSets(device.getDevice(), m.texture, renderpass.getDescriptorSetLayout(), false, {}, false);
+
 			scene.model = m;
 
 			scenes.push_back(scene);

@@ -73,6 +73,7 @@ void Engine::Core::Application::initVulkan()
 	//scenemanager.addEntity<Vertex, EntityType::Object>("shaders/spv/vert.spv", "shaders/spv/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
 	//scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
 	//scenemanager.addEntity<Vertex, EntityType::MatObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", "textures/backpack/backpack.mtl", "textures/backpack/backpack.obj", true);
+	scenemanager.addEntity<Vertex, EntityType::Light>("shaders/spv/lightVert.spv", "shaders/spv/lightFrag.spv", "", "", false);
 	scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/spv/primitiveVert.spv", "shaders/spv/primitiveFrag.spv", PrimitiveType::Plane, "", false);
 	commandbuffer.createCommandBuffers(device.getDevice());
 	texture.createSyncObjects(device.getDevice());
@@ -471,6 +472,10 @@ void Engine::Core::Application::mainLoop()
 							scenemanager.addEntity<Vertex, EntityType::Primitive>(entity.vertexPath, entity.fragmentPath, entity.primitiveType, "", entity.flipTexture);
 							entity.add = false;
 							break;
+						case EntityType::Light:
+							scenemanager.addEntity<Vertex, EntityType::Light>(entity.vertexPath, entity.fragmentPath, "", "", false);
+							entity.add = false;
+							break;
 						case EntityType::Skybox:
 							if (entity.skyboxPaths.size() != 6) {
 								ImGui::Text("Missing skybox side");
@@ -670,13 +675,30 @@ void Engine::Core::Application::drawFrame()
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 		throw std::runtime_error("failed to acquire swap chain image");
 
+	glm::vec3 lightPos = glm::vec3(0.0f);
+	glm::vec3 lightColor = glm::vec3(0.7f);
+
+	std::vector<Engine::Graphics::LightBuffer> lights;
+
+	for (auto& scene : scenemanager.getScenes()) {
+		auto& m = scene.model;
+		Engine::Graphics::LightBuffer light;
+
+		if (m.type == EntityType::Light) {
+			light.pos = glm::vec3(m.matrix[3]);
+			light.color = m.color;
+
+			lights.push_back(light);
+		}
+	}
+
 	for (auto& scene : scenemanager.getScenes()) {
 		auto& m = scene.model;
 		if (m.type == EntityType::Skybox) {
 			m.texture.updateSkyboxUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent());
 		}
-		else if (m.type == EntityType::Object || m.type == EntityType::PBRObject || m.type == EntityType::MatObject || m.type == EntityType::Primitive) {
-			m.texture.updateUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent(), m.matrix);
+		else {
+			m.texture.updateUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent(), m.matrix, m.color, lights);
 		}
 	}
 	

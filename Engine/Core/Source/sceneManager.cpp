@@ -12,9 +12,26 @@ void Engine::Core::SceneManager::updateScene() {
 
 	ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
 
+	std::unordered_map<EntityType, int> entityCount = {
+		{ EntityType::Object, 0 },
+		{ EntityType::UI, 0 },
+		{ EntityType::Light, 0 },
+		{ EntityType::Terrain, 0 },
+		{ EntityType::Particle, 0 },
+		{ EntityType::PBRObject, 0 },
+		{ EntityType::MatObject, 0 },
+		{ EntityType::Primitive, 0 },
+	};
+
 	for (int i = 0; i < scenes.size(); i++) {
+		if (scenes[i].model.type != EntityType::Skybox) {
+			entityCount[scenes[i].model.type] += 1;
+		}
 		if (scenes[i].markedForDeletion) {
 			removeEntity(scenes[i], i);
+		}
+		if (scenes[i].name.empty() && scenes[i].model.type != EntityType::Skybox) {
+			scenes[i].name = static_cast<std::string>(entityString(scenes[i].model.type)) + " " + std::to_string(entityCount[scenes[i].model.type]);
 		}
 	}
 
@@ -22,10 +39,19 @@ void Engine::Core::SceneManager::updateScene() {
 		if (scenes[i].model.type != EntityType::Skybox) {
 			ImGui::PushID(i);
 
+			ImGui::Text("%s", scenes[i].name.c_str());
 			ImGui::Text("Entity Type: %s", entityString(scenes[i].model.type));
 
+			if (scenes[i].model.type == EntityType::Primitive) {
+				ImGui::SameLine();
+				ImGui::Text("%s", primitiveString(scenes[i].model.primitiveType));
+			}
+
+			ImGui::NewLine();
+			ImGui::ColorPicker3("Color", glm::value_ptr(scenes[i].model.color));
+
 			int textureCount = static_cast<int>(scenes[i].model.texture.getTextureCount());
-			if (scenes[i].model.type != EntityType::Primitive) {
+			if (scenes[i].model.hasTexture) {
 				if (textureCount == -1) {
 					if (scenes[i].model.textureIDs.count(0) == 0) {
 						VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(), scenes[i].model.texture.getTextureImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -49,16 +75,10 @@ void Engine::Core::SceneManager::updateScene() {
 				}
 			}
 
-			if (scenes[i].model.type == EntityType::Primitive) {
-				ImGui::SameLine();
-				ImGui::Text("%s", primitiveString(scenes[i].model.primitiveType));
-				//ImGui::ColorPicker3("Color", scenes[i].model.color);
-			}
-
 			glm::mat4& matrix = scenes[i].model.matrix;
 
 			static ImGuizmo::OPERATION currentOp = ImGuizmo::TRANSLATE;
-			static ImGuizmo::MODE currentMode = ImGuizmo::LOCAL;
+			static ImGuizmo::MODE currentMode = ImGuizmo::WORLD;
 			ImGui::NewLine();
 			ImGui::Checkbox("Show Gizmo", &scenes[i].model.showGizmo);
 
@@ -131,20 +151,22 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 
 	vkDestroyDescriptorPool(device.getDevice(), m.descriptor.getDescriptorPool(), nullptr);
 
-	if (textureCount == -1) {
-		vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(), nullptr);
-		vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(), nullptr);
+	if(m.hasTexture) {
+		if (textureCount == -1) {
+			vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(), nullptr);
+			vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(), nullptr);
 
-		vkDestroyImage(device.getDevice(), m.texture.getTextureImage(), nullptr);
-		vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(), nullptr);
-	}
-	else {
-		for (int i = 0; i < textureCount; i++) {
-			vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(i), nullptr);
-			vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(i), nullptr);
+			vkDestroyImage(device.getDevice(), m.texture.getTextureImage(), nullptr);
+			vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(), nullptr);
+		}
+		else {
+			for (int i = 0; i < textureCount; i++) {
+				vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(i), nullptr);
+				vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(i), nullptr);
 
-			vkDestroyImage(device.getDevice(), m.texture.getTextureImage(i), nullptr);
-			vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(i), nullptr);
+				vkDestroyImage(device.getDevice(), m.texture.getTextureImage(i), nullptr);
+				vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(i), nullptr);
+			}
 		}
 	}
 

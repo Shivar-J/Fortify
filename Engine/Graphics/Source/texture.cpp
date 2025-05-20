@@ -129,7 +129,16 @@ void Engine::Graphics::Texture::loadModel(const std::string modelPath)
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
             };
 
-            vertex.color = { 1.0f, 1.0f, 1.0f };
+            if (index.normal_index > 0) {
+                vertex.normal = {
+                    attrib.normals[3 * index.normal_index + 0],
+                    attrib.normals[3 * index.normal_index + 1],
+                    attrib.normals[3 * index.normal_index + 2]
+                };
+            }
+            else {
+                vertex.normal = { 0.0, 1.0, 0.0 };
+            }
 
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
@@ -187,7 +196,16 @@ void Engine::Graphics::Texture::loadModel(const std::string modelPath, const std
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
             };
 
-            vertex.color = { 1.0f, 1.0f, 1.0f };
+            if (index.normal_index > 0) {
+                vertex.normal = {
+                    attrib.normals[3 * index.normal_index + 0],
+                    attrib.normals[3 * index.normal_index + 1],
+                    attrib.normals[3 * index.normal_index + 2]
+                };
+            }
+            else {
+                vertex.normal = { 0.0, 1.0, 0.0 };
+            }
 
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
@@ -277,25 +295,20 @@ void Engine::Graphics::Texture::createSyncObjects(VkDevice device)
     }
 }
 
-void Engine::Graphics::Texture::updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent)
-{
-    camera.AspectRatio = swapChainExtent.width / (float)swapChainExtent.height;
-    UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    ubo.view = camera.GetViewMatrix();
-    ubo.proj = camera.GetProjectionMatrix();
-
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
-}
-
-void Engine::Graphics::Texture::updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent, glm::mat4 model)
+void Engine::Graphics::Texture::updateUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent, glm::mat4 model, glm::vec3 color, std::vector<LightBuffer> lights)
 {
     camera.AspectRatio = swapChainExtent.width / (float)swapChainExtent.height;
     UniformBufferObject ubo{};
     ubo.model = model;
     ubo.view = camera.GetViewMatrix();
     ubo.proj = camera.GetProjectionMatrix();
+    ubo.color = color;
+    ubo.numLights = std::min(static_cast<int>(lights.size()), 99);
 
+    for (int i = 0; i < ubo.numLights; i++) {
+        ubo.lights[i] = lights[i];
+    }
+         
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 
@@ -349,14 +362,14 @@ void Engine::Graphics::Texture::createCubemap(const std::vector<std::string>& fa
 void Engine::Graphics::Texture::createCube()
 {
     vertices = {
-        {{-1.0f, -1.0f,  1.0f}, {0.7f, 0.7f, 0.7f}, {0.0f, 0.0f}},
-        {{ 1.0f, -1.0f,  1.0f}, {0.7f, 0.7f, 0.7f}, {1.0f, 0.0f}},
-        {{ 1.0f,  1.0f,  1.0f}, {0.7f, 0.7f, 0.7f}, {1.0f, 1.0f}},
-        {{-1.0f,  1.0f,  1.0f}, {0.7f, 0.7f, 0.7f}, {0.0f, 1.0f}},
-        {{-1.0f, -1.0f, -1.0f}, {0.7f, 0.7f, 0.7f}, {0.0f, 0.0f}},
-        {{ 1.0f, -1.0f, -1.0f}, {0.7f, 0.7f, 0.7f}, {1.0f, 0.0f}},
-        {{ 1.0f,  1.0f, -1.0f}, {0.7f, 0.7f, 0.7f}, {1.0f, 1.0f}},
-        {{-1.0f,  1.0f, -1.0f}, {0.7f, 0.7f, 0.7f}, {0.0f, 1.0f}}
+        {{-1.0f, -1.0f,  1.0f}, {}, {0.0f, 0.0f}},
+        {{ 1.0f, -1.0f,  1.0f}, {}, {1.0f, 0.0f}},
+        {{ 1.0f,  1.0f,  1.0f}, {}, {1.0f, 1.0f}},
+        {{-1.0f,  1.0f,  1.0f}, {}, {0.0f, 1.0f}},
+        {{-1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}},
+        {{ 1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}},
+        {{ 1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}},
+        {{-1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}
     };
 
     indices = {
@@ -367,20 +380,64 @@ void Engine::Graphics::Texture::createCube()
         4, 0, 3, 3, 7, 4,
         1, 5, 6, 6, 2, 1
     };
+
+    for (auto& v : vertices) {
+        v.normal = { 0.0, 0.0, 0.0 };
+    }
+
+    for (uint32_t i = 0; i < indices.size(); i += 3) {
+        uint32_t i0 = indices[i];
+        uint32_t i1 = indices[i + 1];
+        uint32_t i2 = indices[i + 2];
+
+        glm::vec3 edge1 = vertices[i1].pos - vertices[i0].pos;
+        glm::vec3 edge2 = vertices[i2].pos - vertices[i0].pos;
+        glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+
+        vertices[i0].normal += normal;
+        vertices[i1].normal += normal;
+        vertices[i2].normal += normal;
+    }
+
+    for (auto& v : vertices) {
+        v.normal = glm::normalize(v.normal);
+    }
 }
 
 void Engine::Graphics::Texture::createPlane() {
     vertices = {
-        {{-1.0f, -1.0, 1.0f}, {0.7f, 0.7f, 0.7f}, {0.0, 0.0}},
-        {{ 1.0f, -1.0, 1.0f}, {0.7f, 0.7f, 0.7f}, {1.0, 0.0}},
-        {{ 1.0f,  1.0, 1.0f}, {0.7f, 0.7f, 0.7f}, {1.0, 1.0}},
-        {{-1.0f,  1.0, 1.0f}, {0.7f, 0.7f, 0.7f}, {0.0, 1.0}},
+        {{-1.0f, -1.0, 1.0f}, {}, {0.0, 0.0}},
+        {{ 1.0f, -1.0, 1.0f}, {}, {1.0, 0.0}},
+        {{ 1.0f,  1.0, 1.0f}, {}, {1.0, 1.0}},
+        {{-1.0f,  1.0, 1.0f}, {}, {0.0, 1.0}},
     };
 
     indices = {
         0, 1, 2,
         2, 3, 0
     };
+
+    for (auto& v : vertices) {
+        v.normal = { 0.0, 0.0, 0.0 };
+    }
+
+    for (uint32_t i = 0; i < indices.size(); i += 3) {
+        uint32_t i0 = indices[i];
+        uint32_t i1 = indices[i + 1];
+        uint32_t i2 = indices[i + 2];
+
+        glm::vec3 edge1 = vertices[i1].pos - vertices[i0].pos;
+        glm::vec3 edge2 = vertices[i2].pos - vertices[i0].pos;
+        glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+
+        vertices[i0].normal += normal;
+        vertices[i1].normal += normal;
+        vertices[i2].normal += normal;
+    }
+
+    for (auto& v : vertices) {
+        v.normal = glm::normalize(v.normal);
+    }
 }
 
 void Engine::Graphics::Texture::createSphere(float radius, int stacks, int sectors) {
@@ -396,18 +453,19 @@ void Engine::Graphics::Texture::createSphere(float radius, int stacks, int secto
             float z = radius * sinf(theta);
 
             Vertex vertex{};
-            vertex.pos = {
+            glm::vec3 pos = {
                 radius * sinf(phi) * cosf(theta),
                 radius * cosf(phi),
                 radius * sinf(phi) * sinf(theta)
             };
 
+            vertex.pos = pos;
+            vertex.normal = glm::normalize(pos);
+
             vertex.texCoord = {
                 float(j) / float(sectors),
                 float(i) / float(stacks)
             };
-
-            vertex.color = { 0.7f, 0.7f, 0.7f };
 
             vertices.push_back(vertex);
         }
@@ -443,8 +501,8 @@ void Engine::Graphics::Texture::createSphere(float radius, int stacks, int secto
         0.5, 1.0
     };
 
-    vertex.color = {
-        0.7, 0.7, 0.7
+    vertex.normal = {
+        0, -1, 0
     };
     
     vertices.push_back(vertex);
