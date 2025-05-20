@@ -6,7 +6,9 @@
 lib
 textures
 imgui.ini
-debug_start.bat
+shaders/compileSkyboxShader.bat
+debugStart.bat
+releaseStart.bat
 
 Fortify.sln
 Fortify.vcxproj

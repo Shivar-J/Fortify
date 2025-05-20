@@ -41,6 +41,10 @@ void main() {
 		diffuse += diff * ubo.lights[i].color;
 	}
 
-	vec3 result = (ambient + diffuse) * fragColor;
-	outColor = vec4(result, 1.0);
+	if (ubo.numLights == 0) {
+		outColor = vec4(fragColor, 1.0);
+	} else {
+		vec3 result = (ambient + diffuse) * fragColor;
+		outColor = vec4(result, 1.0);
+	}
 }

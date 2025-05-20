@@ -156,7 +156,7 @@ void Engine::Core::Application::mainLoop()
 
 		processInput(window);
 
-		if (fpsCounter >= 1.0) {
+		if (fpsCounter >= 10.0) {
 			double fps = frameCount / fpsCounter;
 
 			char title[256];

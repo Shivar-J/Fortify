@@ -27,11 +27,11 @@ void Engine::Core::SceneManager::updateScene() {
 		if (scenes[i].model.type != EntityType::Skybox) {
 			entityCount[scenes[i].model.type] += 1;
 		}
-		if (scenes[i].markedForDeletion) {
-			removeEntity(scenes[i], i);
-		}
 		if (scenes[i].name.empty() && scenes[i].model.type != EntityType::Skybox) {
 			scenes[i].name = static_cast<std::string>(entityString(scenes[i].model.type)) + " " + std::to_string(entityCount[scenes[i].model.type]);
+		}
+		if (scenes[i].markedForDeletion) {
+			removeEntity(scenes[i], i);
 		}
 	}
 
@@ -129,8 +129,10 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 	auto& m = scene.model;
 	int textureCount = m.texture.getTextureCount();
 
-	for (auto& texturePair : m.textureIDs) {
-		ImGui_ImplVulkan_RemoveTexture(texturePair.second);
+	if (m.hasTexture) {
+		for (auto& texturePair : m.textureIDs) {
+			ImGui_ImplVulkan_RemoveTexture(texturePair.second);
+		}
 	}
 
 	m.textureIDs.clear();
