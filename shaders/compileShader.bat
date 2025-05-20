@@ -13,6 +13,8 @@ del "%PROJECT_DIR%spv\primitiveFrag.spv"
 del "%PROJECT_DIR%spv\primitiveVert.spv"
 del "%PROJECT_DIR%spv\lightFrag.spv"
 del "%PROJECT_DIR%spv\lightVert.spv"
+del "%PROJECT_DIR%spv\skyboxFrag.spv"
+del "%PROJECT_DIR%spv\skyboxVert.spv"
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%shader.vert" -o "%PROJECT_DIR%spv\vert.spv" || (echo failed to compile "shader.vert" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%shader.frag" -o "%PROJECT_DIR%spv\frag.spv" || (echo failed to compile "shader.frag" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%textureMapVert.vert" -o "%PROJECT_DIR%spv\textureMapVert.spv" || (echo failed to compile "textureMapVert.vert" && exit)
@@ -21,6 +23,8 @@ C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%primitive.vert" -o "%PROJECT_
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%primitive.frag" -o "%PROJECT_DIR%spv\primitiveFrag.spv" || (echo failed to compile "primitive.frag" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%light.vert" -o "%PROJECT_DIR%spv\lightVert.spv" || (echo failed to compile "light.vert" at PROJECT_DIR && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%light.frag" -o "%PROJECT_DIR%spv\lightFrag.spv" || (echo failed to compile "light.frag" && exit)
+C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%skyboxVert.vert" -o "%PROJECT_DIR%spv\skyboxVert.spv" || (echo failed to compile "skyboxVert.vert" at PROJECT_DIR && exit)
+C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%skyboxFrag.frag" -o "%PROJECT_DIR%spv\skyboxFrag.spv" || (echo failed to compile "skyboxFrag.frag" && exit)
 
 echo Shaders compiled
 pause
