@@ -35,6 +35,83 @@
 
 #include "device.h"
 
+
+struct Vertex {
+	glm::vec3 pos;
+	glm::vec3 normal;
+	glm::vec2 texCoord;
+
+	bool operator==(const Vertex& other) const {
+		return pos == other.pos && normal == other.normal && texCoord == other.texCoord;
+	}
+
+	static VkVertexInputBindingDescription getBindingDescription() {
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = sizeof(Vertex);
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		return bindingDescription;
+	}
+
+	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescription() {
+		std::array<VkVertexInputAttributeDescription, 3> attributeDescription{};
+
+		attributeDescription[0].binding = 0;
+		attributeDescription[0].location = 0;
+		attributeDescription[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescription[0].offset = offsetof(Vertex, pos);
+
+		attributeDescription[1].binding = 0;
+		attributeDescription[1].location = 1;
+		attributeDescription[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescription[1].offset = offsetof(Vertex, normal);
+
+		attributeDescription[2].binding = 0;
+		attributeDescription[2].location = 2;
+		attributeDescription[2].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescription[2].offset = offsetof(Vertex, texCoord);
+
+		return attributeDescription;
+	}
+};
+
+namespace std {
+	template<> struct hash<Vertex> {
+		size_t operator()(Vertex const& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.normal) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
+	};
+}
+
+struct CubeVertex {
+	glm::vec3 pos;
+
+	bool operator==(const CubeVertex& other) const {
+		return pos == other.pos;
+	}
+
+	static VkVertexInputBindingDescription getBindingDescription() {
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = sizeof(CubeVertex);
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		return bindingDescription;
+	}
+
+	static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescription() {
+		std::array<VkVertexInputAttributeDescription, 1> attributeDescription{};
+
+		attributeDescription[0].binding = 0;
+		attributeDescription[0].location = 0;
+		attributeDescription[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescription[0].offset = offsetof(CubeVertex, pos);
+
+		return attributeDescription;
+	}
+};
+
 namespace Engine::Settings {
 	inline uint32_t WIDTH = 1280;
 	inline uint32_t HEIGHT = 720;
@@ -48,7 +125,17 @@ namespace Engine::Settings {
 	};
 
 	inline const std::vector<const char*> deviceExtensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+
+		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+		VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+		VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+		VK_KHR_DEVICE_GROUP_EXTENSION_NAME,
 	};
 
 #ifdef NDEBUG
@@ -64,5 +151,6 @@ namespace Engine::Settings {
 namespace Engine::Utility {
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice);
 	bool hasStencilComponent(VkFormat format);
+	std::vector<const char*> getShaderPaths(const char*& path);
 }
 #endif

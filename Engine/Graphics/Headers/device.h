@@ -25,6 +25,10 @@ namespace Engine::Graphics {
 		VkQueue graphicsQueue;
 		VkQueue presentQueue;
 
+		VkPhysicalDeviceDescriptorIndexingFeaturesEXT enabledDescriptorIndexingFeatures{};
+		VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferDeviceAddressFeatures{};
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingPipelineFeatures{};
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
 	public:
 		Device() = default;
 		~Device();

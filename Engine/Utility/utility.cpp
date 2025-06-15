@@ -57,6 +57,17 @@ bool Engine::Utility::hasStencilComponent(VkFormat format)
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;;
 }
 
-VkPhysicalDevice getPhysicalDeviceFromDevice(Engine::Graphics::Device device) {
-	return device.getPhysicalDevice();
+std::vector<const char*> Engine::Utility::getShaderPaths(const char*& path)
+{
+	std::vector<const char*> shaderPaths;
+
+	shaderPaths.push_back("None");
+
+	for (const auto& dir_entry : std::filesystem::recursive_directory_iterator(path)) {
+		if (dir_entry.path().extension() == ".spv") {
+			shaderPaths.push_back(dir_entry.path().string().c_str());
+		}
+	}
+
+	return shaderPaths;
 }

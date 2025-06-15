@@ -110,7 +110,7 @@ void Engine::Graphics::FrameBuffer::createFramebuffers(VkDevice device, Engine::
 	}
 }
 
-void Engine::Graphics::FrameBuffer::createBuffer(Engine::Graphics::Device device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+void Engine::Graphics::FrameBuffer::createBuffer(Engine::Graphics::Device device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, void* data)
 {
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -125,13 +125,36 @@ void Engine::Graphics::FrameBuffer::createBuffer(Engine::Graphics::Device device
 	VkMemoryRequirements memRequirements;
 	vkGetBufferMemoryRequirements(device.getDevice(), buffer, &memRequirements);
 
+	VkMemoryAllocateFlagsInfo memFlagsInfo{};
+	memFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+	memFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
 	allocInfo.memoryTypeIndex = Engine::Utility::findMemoryType(memRequirements.memoryTypeBits, properties, device.getPhysicalDevice());
+	allocInfo.pNext = &memFlagsInfo;
 
 	if (vkAllocateMemory(device.getDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate vertex buffer memory!");
+	}
+
+	if (data != nullptr) {
+		void* mapped;
+		vkMapMemory(device.getDevice(), bufferMemory, 0, size, 0, &mapped);
+		memcpy(mapped, data, size);
+
+		if ((properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+			VkMappedMemoryRange mappedRange{};
+			mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+			mappedRange.memory = bufferMemory;
+			mappedRange.offset = 0;
+			mappedRange.size = size;
+
+			vkFlushMappedMemoryRanges(device.getDevice(), 1, &mappedRange);
+		}
+
+		vkUnmapMemory(device.getDevice(), bufferMemory);
 	}
 
 	vkBindBufferMemory(device.getDevice(), buffer, bufferMemory, 0);

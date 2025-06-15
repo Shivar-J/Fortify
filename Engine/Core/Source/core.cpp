@@ -21,7 +21,7 @@ void Engine::Core::Application::initWindow()
 	char title[256];
 	title[255] = '\0';
 
-	std::snprintf(title, 255, "%s - [FPS: %6.2f]", "Fortify", 0.0f);
+	std::snprintf(title, 255, "%s", "Fortify");
 
 	window = glfwCreateWindow(Engine::Settings::WIDTH, Engine::Settings::HEIGHT, title, nullptr, nullptr);
 	//glfwSetWindowUserPointer(window, this);
@@ -40,17 +40,70 @@ void Engine::Core::Application::initVulkan()
 	device.pickPhysicalDevice(instance);
 	sampler.setSamples(device.getPhysicalDevice());
 	device.createLogicalDevice(instance.getSurface());
+
+	fpCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCreateAccelerationStructureKHR"));
+	fpDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkDestroyAccelerationStructureKHR"));
+	fpGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetAccelerationStructureBuildSizesKHR"));
+	fpCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCmdBuildAccelerationStructuresKHR"));
+	fpGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetAccelerationStructureDeviceAddressKHR"));
+	fpCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCreateRayTracingPipelinesKHR"));
+	fpGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetRayTracingShaderGroupHandlesKHR"));
+	fpCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCmdTraceRaysKHR"));
+	fpCmdTraceRaysIndirectKHR = reinterpret_cast<PFN_vkCmdTraceRaysIndirectKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCmdTraceRaysIndirectKHR"));
+	fpCmdBeginDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device.getDevice(), "vkCmdBeginDebugUtilsLabelEXT"));
+	fpCmdEndDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device.getDevice(), "vkCmdEndDebugUtilsLabelEXT"));
+	fpGetBufferDeviceAddressKHR = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetBufferDeviceAddressKHR"));
+	fpBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkBuildAccelerationStructureKHR"));
+
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
+	rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+
+	VkPhysicalDeviceProperties2 deviceProperties{};
+	deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	deviceProperties.pNext = &rayTracingPipelineProperties;
+	vkGetPhysicalDeviceProperties2(device.getPhysicalDevice(), &deviceProperties);
+
+	raytrace.rayTracingPipelineProperties = rayTracingPipelineProperties;
+
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
+	accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+
+	VkPhysicalDeviceFeatures2 deviceFeatures2{};
+	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	deviceFeatures2.pNext = &accelerationStructureFeatures;
+	vkGetPhysicalDeviceFeatures2(device.getPhysicalDevice(), &deviceFeatures2);
+
+	raytrace.accelerationStructureFeatures = accelerationStructureFeatures;
+
 	swapchain.createSwapChain(window, instance, device);
 	swapchain.createImageViews(device.getDevice());
+
+	VkExtent3D storageImageExtent = {
+		swapchain.getSwapchainExtent().width,
+		swapchain.getSwapchainExtent().height,
+		1
+	};
+
 	renderpass.createRenderPass(device, sampler.getSamples(), swapchain);
 	renderpass.setupLayoutBindings(device.getDevice());
 
-	//add recreate function for swapchain changes
 	commandbuffer.createCommandPool(device, instance.getSurface());
 	framebuffer.createColorResources(device, swapchain, sampler.getSamples());
 	framebuffer.createDepthResources(device, swapchain, sampler.getSamples(), commandbuffer);
 	framebuffer.createFramebuffers(device.getDevice(), swapchain, renderpass.getRenderPass());
-	
+	commandbuffer.createCommandBuffers(device.getDevice());
+
+	raytrace.storageImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), swapchain.getSwapchainImageFormat(), storageImageExtent);
+	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), swapchain.getSwapchainImageFormat(), storageImageExtent);
+
+	createModel();
+	buildAccelerationStructure();
+
+	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv");
+	raytrace.createShaderBindingTables(device);
+	raytrace.createUniformBuffer(device);
+	raytrace.createDescriptorSets(device);
+
 	std::vector<std::string> skyboxPaths = {
 		"textures/skybox/right.jpg",
 		"textures/skybox/left.jpg",
@@ -74,8 +127,7 @@ void Engine::Core::Application::initVulkan()
 	//scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
 	//scenemanager.addEntity<Vertex, EntityType::MatObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", "textures/backpack/backpack.mtl", "textures/backpack/backpack.obj", true);
 	scenemanager.addEntity<Vertex, EntityType::Light>("shaders/spv/lightVert.spv", "shaders/spv/lightFrag.spv", "", "", false);
-	scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/spv/primitiveVert.spv", "shaders/spv/primitiveFrag.spv", PrimitiveType::Plane, "", false);
-	commandbuffer.createCommandBuffers(device.getDevice());
+	//scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/spv/primitiveVert.spv", "shaders/spv/primitiveFrag.spv", PrimitiveType::Plane, "", false);
 	texture.createSyncObjects(device.getDevice());
 }
 
@@ -142,6 +194,11 @@ void Engine::Core::Application::mainLoop()
 	bool selectTexture = false;
 	bool selectModel = false;
 	bool selectMat = false;
+	bool useRaytracer = false;
+	bool setShaderPath = false;
+
+	const char* shaderPath = "";
+	std::vector<const char*> shaderPaths;
 
 	ImGui::FileBrowser file;
 	file.SetTitle("File Browser");
@@ -156,165 +213,217 @@ void Engine::Core::Application::mainLoop()
 
 		processInput(window);
 
-		if (fpsCounter >= 10.0) {
-			double fps = frameCount / fpsCounter;
-
-			char title[256];
-			title[255] = '\0';
-
-			std::snprintf(title, 255, "%s - [FPS: %3.2f (%3.2f ms/frame)]", "Fortify", fps, 1000.0f/ fps);
-
-			glfwSetWindowTitle(window, title);
-
-			prevFPS = currFPS;
-
-			frameCount = 0;
-		}
-
 		glfwPollEvents();
 
-		if (Engine::Settings::enableValidationLayers) {
-			ImGui_ImplVulkan_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
 
-			if (!isFocused) {
-				io.WantCaptureMouse = true;
-				io.WantCaptureKeyboard = true;
-				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		if (!isFocused) {
+			io.WantCaptureMouse = true;
+			io.WantCaptureKeyboard = true;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+		else {
+			io.WantCaptureKeyboard = false;
+			io.WantCaptureMouse = false;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+		}
+
+		ImGui::Begin("Fortify");
+		ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
+		ImGui::Checkbox("Enable Raytracing", &useRaytracer);
+			
+		if (ImGui::Button("Set Shader Path")) {
+			setShaderPath = true;
+			file.Open();
+		}
+
+		if (setShaderPath) {
+			file.Display();
+			if (file.HasSelected()) {
+				std::string strPath = file.GetDirectory().string();
+				shaderPath = strPath.c_str();
+				std::cout << shaderPath << std::endl;
+				file.ClearSelected();
+				shaderPaths = Engine::Utility::getShaderPaths(shaderPath);
+				scenemanager.setShaderPaths(shaderPaths);
+				setShaderPath = false;
 			}
-			else {
-				io.WantCaptureKeyboard = false;
-				io.WantCaptureMouse = false;
-				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		}
 
-			}
+		scenemanager.updateScene();
 
-			ImGui::Begin("Fortify");
-			ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+		if (ImGui::Button("Add Entity")) {
+			entity.add = true;
+		}
 
-			scenemanager.updateScene();
+		if (entity.add) {
+			ImGui::OpenPopup("Add Entity");
 
-			if (ImGui::Button("Add Entity")) {
-				entity.add = true;
-			}
+			ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+			ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 
-			if (entity.add) {
-				ImGui::OpenPopup("Add Entity");
+			if (ImGui::BeginPopupModal("Add Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+				ImGui::SetItemDefaultFocus();
 
-				ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-				ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+				const char* entityItems[] = {
+					scenemanager.entityString(EntityType::Object),
+					scenemanager.entityString(EntityType::Skybox),
+					scenemanager.entityString(EntityType::UI),
+					scenemanager.entityString(EntityType::Light),
+					scenemanager.entityString(EntityType::Terrain),
+					scenemanager.entityString(EntityType::Particle),
+					scenemanager.entityString(EntityType::PBRObject),
+					scenemanager.entityString(EntityType::MatObject),
+					scenemanager.entityString(EntityType::Primitive)
+				};
 
-				if (ImGui::BeginPopupModal("Add Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-					ImGui::SetItemDefaultFocus();
+				int currentItem = static_cast<int>(entity.type);
 
-					const char* entityItems[] = {
-						scenemanager.entityString(EntityType::Object),
-						scenemanager.entityString(EntityType::Skybox),
-						scenemanager.entityString(EntityType::UI),
-						scenemanager.entityString(EntityType::Light),
-						scenemanager.entityString(EntityType::Terrain),
-						scenemanager.entityString(EntityType::Particle),
-						scenemanager.entityString(EntityType::PBRObject),
-						scenemanager.entityString(EntityType::MatObject),
-						scenemanager.entityString(EntityType::Primitive)
+				if (ImGui::Combo("Entity Type", &currentItem, entityItems, IM_ARRAYSIZE(entityItems))) {
+					entity.type = static_cast<EntityType>(currentItem);
+				}
+
+				if (ImGui::Button("Vertex Shader")) {
+					selectVertex = true;
+					file.Open();
+				}
+
+				if (selectVertex) {
+					file.Display();
+					if (file.HasSelected()) {
+						entity.vertexPath = file.GetSelected().string();
+						file.ClearSelected();
+						selectVertex = false;
+					}
+				}
+
+				ImGui::SameLine();
+
+				ImGui::Text("%s", entity.vertexPath.c_str());
+
+				if (ImGui::Button("Fragment Shader")) {
+					selectFragment = true;
+					file.Open();
+				}
+
+				if (selectFragment) {
+					file.Display();
+					if (file.HasSelected()) {
+						entity.fragmentPath = file.GetSelected().string();
+						file.ClearSelected();
+						selectFragment = false;
+					}
+				}
+
+				ImGui::SameLine();
+
+				ImGui::Text("%s", entity.fragmentPath.c_str());
+
+				if (entity.type == EntityType::Object) {
+					if (ImGui::Button("Texture Path")) {
+						selectTexture = true;
+						file.Open();
+					}
+
+					if (selectTexture) {
+						file.Display();
+						if (file.HasSelected()) {
+							entity.texturePath = file.GetSelected().string();
+							file.ClearSelected();
+							selectTexture = false;
+						}
+					}
+
+					ImGui::SameLine();
+					ImGui::Text("%s", entity.texturePath.c_str());
+
+					if (ImGui::Button("Model Path")) {
+						selectModel = true;
+						file.Open();
+					}
+
+					if (selectModel) {
+						file.Display();
+						if (file.HasSelected()) {
+							entity.modelPath = file.GetSelected().string();
+							file.ClearSelected();
+							selectModel = false;
+						}
+					}
+
+					ImGui::SameLine();
+
+					ImGui::Text("%s", entity.modelPath.c_str());
+
+					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+				}
+				else if (entity.type == EntityType::PBRObject) {
+					const char* textureType[] = {
+						scenemanager.textureString(PBRTextureType::Albedo),
+						scenemanager.textureString(PBRTextureType::Normal),
+						scenemanager.textureString(PBRTextureType::Roughness),
+						scenemanager.textureString(PBRTextureType::Metalness),
+						scenemanager.textureString(PBRTextureType::AmbientOcclusion),
+						scenemanager.textureString(PBRTextureType::Specular),
 					};
 
-					int currentItem = static_cast<int>(entity.type);
+					int currentItem = static_cast<int>(entity.textureType) - 1;
 
-					if (ImGui::Combo("Entity Type", &currentItem, entityItems, IM_ARRAYSIZE(entityItems))) {
-						entity.type = static_cast<EntityType>(currentItem);
+					if (ImGui::Combo("Texture Type", &currentItem, textureType, IM_ARRAYSIZE(textureType))) {
+						entity.textureType = static_cast<PBRTextureType>(currentItem + 1);
 					}
 
-					if (ImGui::Button("Vertex Shader")) {
-						selectVertex = true;
+					if (ImGui::Button("Add Texture")) {
+						selectTexture = true;
 						file.Open();
 					}
 
-					if (selectVertex) {
+					if (selectTexture) {
 						file.Display();
 						if (file.HasSelected()) {
-							entity.vertexPath = file.GetSelected().string();
+							entity.texturePaths.insert({ entity.textureType , file.GetSelected().string() });
 							file.ClearSelected();
-							selectVertex = false;
+							selectTexture = false;
 						}
 					}
 
 					ImGui::SameLine();
 
-					ImGui::Text("%s", entity.vertexPath.c_str());
+					if (ImGui::Button("Remove Texture")) {
+						entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
+					}
 
-					if (ImGui::Button("Fragment Shader")) {
-						selectFragment = true;
+					for (auto& texturePair : entity.texturePaths) {
+						ImGui::Text("%s %s", scenemanager.textureString(texturePair.first), texturePair.second.c_str());
+					}
+
+					if (ImGui::Button("Model Path")) {
+						selectModel = true;
 						file.Open();
 					}
 
-					if (selectFragment) {
+					if (selectModel) {
 						file.Display();
 						if (file.HasSelected()) {
-							entity.fragmentPath = file.GetSelected().string();
+							entity.modelPath = file.GetSelected().string();
 							file.ClearSelected();
-							selectFragment = false;
+							selectModel = false;
 						}
 					}
 
 					ImGui::SameLine();
 
-					ImGui::Text("%s", entity.fragmentPath.c_str());
+					ImGui::Text("%s", entity.modelPath.c_str());
 
-					if (entity.type == EntityType::Object) {
-						if (ImGui::Button("Texture Path")) {
-							selectTexture = true;
-							file.Open();
-						}
-
-						if (selectTexture) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.texturePath = file.GetSelected().string();
-								file.ClearSelected();
-								selectTexture = false;
-							}
-						}
-
-						ImGui::SameLine();
-						ImGui::Text("%s", entity.texturePath.c_str());
-
-						if (ImGui::Button("Model Path")) {
-							selectModel = true;
-							file.Open();
-						}
-
-						if (selectModel) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.modelPath = file.GetSelected().string();
-								file.ClearSelected();
-								selectModel = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						ImGui::Text("%s", entity.modelPath.c_str());
-
-						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-					}
-					else if (entity.type == EntityType::PBRObject) {
-						const char* textureType[] = {
-							scenemanager.textureString(PBRTextureType::Albedo),
-							scenemanager.textureString(PBRTextureType::Normal),
-							scenemanager.textureString(PBRTextureType::Roughness),
-							scenemanager.textureString(PBRTextureType::Metalness),
-							scenemanager.textureString(PBRTextureType::AmbientOcclusion),
-							scenemanager.textureString(PBRTextureType::Specular),
-						};
-
-						int currentItem = static_cast<int>(entity.textureType) - 1;
-
-						if (ImGui::Combo("Texture Type", &currentItem, textureType, IM_ARRAYSIZE(textureType))) {
-							entity.textureType = static_cast<PBRTextureType>(currentItem + 1);
-						}
+					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+				}
+				else if (entity.type == EntityType::Skybox) {
+					if (!scenemanager.hasSkybox()) {
+						ImGui::Text("Skybox paths include order matters!");
 
 						if (ImGui::Button("Add Texture")) {
 							selectTexture = true;
@@ -324,7 +433,7 @@ void Engine::Core::Application::mainLoop()
 						if (selectTexture) {
 							file.Display();
 							if (file.HasSelected()) {
-								entity.texturePaths.insert({ entity.textureType , file.GetSelected().string() });
+								entity.skyboxPaths.push_back(file.GetSelected().string());
 								file.ClearSelected();
 								selectTexture = false;
 							}
@@ -336,168 +445,123 @@ void Engine::Core::Application::mainLoop()
 							entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
 						}
 
-						for (auto& texturePair : entity.texturePaths) {
-							ImGui::Text("%s %s", scenemanager.textureString(texturePair.first), texturePair.second.c_str());
-						}
-
-						if (ImGui::Button("Model Path")) {
-							selectModel = true;
-							file.Open();
-						}
-
-						if (selectModel) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.modelPath = file.GetSelected().string();
-								file.ClearSelected();
-								selectModel = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						ImGui::Text("%s", entity.modelPath.c_str());
-
-						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-					}
-					else if (entity.type == EntityType::Skybox) {
-						if (!scenemanager.hasSkybox()) {
-							ImGui::Text("Skybox paths include order matters!");
-
-							if (ImGui::Button("Add Texture")) {
-								selectTexture = true;
-								file.Open();
-							}
-
-							if (selectTexture) {
-								file.Display();
-								if (file.HasSelected()) {
-									entity.skyboxPaths.push_back(file.GetSelected().string());
-									file.ClearSelected();
-									selectTexture = false;
-								}
-							}
-
-							ImGui::SameLine();
-
-							if (ImGui::Button("Remove Texture")) {
-								entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
-							}
-
-							for (auto& skybox : entity.skyboxPaths) {
-								ImGui::Text("%s", skybox.c_str());
-							}
-						}
-
-						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-					}
-					else if (entity.type == EntityType::MatObject) {
-						if (ImGui::Button("Model Path")) {
-							selectModel = true;
-							file.Open();
-						}
-
-						if (selectModel) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.modelPath = file.GetSelected().string();
-								file.ClearSelected();
-								selectModel = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						ImGui::Text("%s", entity.modelPath.c_str());
-
-						if (ImGui::Button("Material Path")) {
-							selectMat = true;
-							file.Open();
-						}
-
-						if (selectMat) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.materialPath = file.GetSelected().string();
-								file.ClearSelected();
-								selectMat = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						ImGui::Text("%s", entity.materialPath.c_str());
-
-						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-					}
-					else if (entity.type == EntityType::Primitive) {
-						const char* primitiveType[] = {
-							scenemanager.primitiveString(PrimitiveType::Cube),
-							scenemanager.primitiveString(PrimitiveType::Sphere),
-							scenemanager.primitiveString(PrimitiveType::Plane),
-						};
-
-						int currentItem = static_cast<int>(entity.primitiveType);
-
-						if (ImGui::Combo("Primitive Type", &currentItem, primitiveType, IM_ARRAYSIZE(primitiveType))) {
-							entity.primitiveType = static_cast<PrimitiveType>(currentItem);
+						for (auto& skybox : entity.skyboxPaths) {
+							ImGui::Text("%s", skybox.c_str());
 						}
 					}
 
-					if (ImGui::Button("Close")) {
-						ImGui::CloseCurrentPopup();
-						entity.add = false;
+					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+				}
+				else if (entity.type == EntityType::MatObject) {
+					if (ImGui::Button("Model Path")) {
+						selectModel = true;
+						file.Open();
+					}
+
+					if (selectModel) {
+						file.Display();
+						if (file.HasSelected()) {
+							entity.modelPath = file.GetSelected().string();
+							file.ClearSelected();
+							selectModel = false;
+						}
 					}
 
 					ImGui::SameLine();
 
-					if (ImGui::Button("Add")) {
-						ImGui::CloseCurrentPopup();
-						EntityType type = static_cast<EntityType>(entity.type);
+					ImGui::Text("%s", entity.modelPath.c_str());
 
-						switch (type) {
-						case EntityType::Object:
-							scenemanager.addEntity<Vertex, EntityType::Object>(entity.vertexPath, entity.fragmentPath, entity.texturePath, entity.modelPath, entity.flipTexture);
-							entity.add = false;
-							break;
-						case EntityType::PBRObject:
-							scenemanager.addEntity<Vertex, EntityType::PBRObject>(entity.vertexPath, entity.fragmentPath, entity.texturePaths, entity.modelPath, entity.flipTexture);
-							entity.add = false;
-							break;
-						case EntityType::MatObject:
-							scenemanager.addEntity<Vertex, EntityType::MatObject>(entity.vertexPath, entity.fragmentPath, entity.materialPath, entity.modelPath, entity.flipTexture);
-							entity.add = false;
-							break;
-						case EntityType::Primitive:
-							scenemanager.addEntity<Vertex, EntityType::Primitive>(entity.vertexPath, entity.fragmentPath, entity.primitiveType, "", entity.flipTexture);
-							entity.add = false;
-							break;
-						case EntityType::Light:
-							scenemanager.addEntity<Vertex, EntityType::Light>(entity.vertexPath, entity.fragmentPath, "", "", false);
-							entity.add = false;
-							break;
-						case EntityType::Skybox:
-							if (entity.skyboxPaths.size() != 6) {
-								ImGui::Text("Missing skybox side");
-								break;
-							}
-							else {
-								scenemanager.addEntity<CubeVertex, EntityType::Skybox>(entity.vertexPath, entity.fragmentPath, entity.skyboxPaths, "", entity.flipTexture);
-								entity.add = false;
-								break;
-							}
+					if (ImGui::Button("Material Path")) {
+						selectMat = true;
+						file.Open();
+					}
+
+					if (selectMat) {
+						file.Display();
+						if (file.HasSelected()) {
+							entity.materialPath = file.GetSelected().string();
+							file.ClearSelected();
+							selectMat = false;
 						}
 					}
-					ImGui::EndPopup();
+
+					ImGui::SameLine();
+
+					ImGui::Text("%s", entity.materialPath.c_str());
+
+					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
 				}
+				else if (entity.type == EntityType::Primitive) {
+					const char* primitiveType[] = {
+						scenemanager.primitiveString(PrimitiveType::Cube),
+						scenemanager.primitiveString(PrimitiveType::Sphere),
+						scenemanager.primitiveString(PrimitiveType::Plane),
+					};
+
+					int currentItem = static_cast<int>(entity.primitiveType);
+
+					if (ImGui::Combo("Primitive Type", &currentItem, primitiveType, IM_ARRAYSIZE(primitiveType))) {
+						entity.primitiveType = static_cast<PrimitiveType>(currentItem);
+					}
+				}
+
+				if (ImGui::Button("Close")) {
+					ImGui::CloseCurrentPopup();
+					entity.add = false;
+				}
+
+				ImGui::SameLine();
+
+				if (ImGui::Button("Add")) {
+					ImGui::CloseCurrentPopup();
+					EntityType type = static_cast<EntityType>(entity.type);
+
+					switch (type) {
+					case EntityType::Object:
+						scenemanager.addEntity<Vertex, EntityType::Object>(entity.vertexPath, entity.fragmentPath, entity.texturePath, entity.modelPath, entity.flipTexture);
+						entity.add = false;
+						break;
+					case EntityType::PBRObject:
+						scenemanager.addEntity<Vertex, EntityType::PBRObject>(entity.vertexPath, entity.fragmentPath, entity.texturePaths, entity.modelPath, entity.flipTexture);
+						entity.add = false;
+						break;
+					case EntityType::MatObject:
+						scenemanager.addEntity<Vertex, EntityType::MatObject>(entity.vertexPath, entity.fragmentPath, entity.materialPath, entity.modelPath, entity.flipTexture);
+						entity.add = false;
+						break;
+					case EntityType::Primitive:
+						scenemanager.addEntity<Vertex, EntityType::Primitive>(entity.vertexPath, entity.fragmentPath, entity.primitiveType, "", entity.flipTexture);
+						entity.add = false;
+						break;
+					case EntityType::Light:
+						scenemanager.addEntity<Vertex, EntityType::Light>(entity.vertexPath, entity.fragmentPath, "", "", false);
+						entity.add = false;
+						break;
+					case EntityType::Skybox:
+						if (entity.skyboxPaths.size() != 6) {
+							ImGui::Text("Missing skybox side");
+							break;
+						}
+						else {
+							scenemanager.addEntity<CubeVertex, EntityType::Skybox>(entity.vertexPath, entity.fragmentPath, entity.skyboxPaths, "", entity.flipTexture);
+							entity.add = false;
+							break;
+						}
+					}
+				}
+				ImGui::EndPopup();
 			}
-
-			ImGui::End();
-
-			ImGui::Render();
 		}
 
-		drawFrame();
+		ImGui::End();
+
+		ImGui::Render();
+		if (useRaytracer) {
+			raytraceFrame();
+		}
+		else {
+			drawFrame();
+		}
 	}
 
 	vkDeviceWaitIdle(device.getDevice());
@@ -764,6 +828,95 @@ void Engine::Core::Application::drawFrame()
 	currentFrame = (currentFrame + 1) % Engine::Settings::MAX_FRAMES_IN_FLIGHT;
 }
 
+void Engine::Core::Application::raytraceFrame()
+{
+	vkDeviceWaitIdle(device.getDevice());
+
+	raytrace.uboData.view = camera.GetViewMatrix();
+	raytrace.uboData.proj = camera.GetProjectionMatrix();
+
+	raytrace.updateUBO(device);
+
+	VkResult fenceStatus = vkWaitForFences(device.getDevice(), 1, &texture.getInFlightFences()[currentFrame], VK_TRUE, UINT64_MAX);
+	if (fenceStatus != VK_SUCCESS) {
+		std::cerr << "failed to wait for fence: " << fenceStatus << std::endl;
+	}
+
+	uint32_t imageIndex;
+	VkResult result = vkAcquireNextImageKHR(device.getDevice(), swapchain.getSwapchain(), UINT64_MAX, texture.getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+		recreateSwapchain();
+		return;
+	}
+	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		throw std::runtime_error("failed to acquire swap chain image");
+	}
+
+	VkResult fencesReset = vkResetFences(device.getDevice(), 1, &texture.getInFlightFences()[currentFrame]);
+
+	if (fencesReset != VK_SUCCESS) {
+		throw std::runtime_error("failed to reset fences");
+	}
+
+	VkCommandBuffer commandBuffer = commandbuffer.getCommandBuffers()[currentFrame];
+	VkResult commandBufferReset = vkResetCommandBuffer(commandBuffer, 0);
+	if (commandBufferReset != VK_SUCCESS) {
+		throw std::runtime_error("failed to reset command buffers");
+	}
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	raytrace.traceRays(device.getDevice(), commandBuffer, swapchain.getSwapchainExtent(), swapchain.getSwapchainImages()[imageIndex], imageIndex);
+
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkSemaphore waitSemaphore[] = { texture.getImageAvailableSemaphores()[currentFrame] };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR };
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = waitSemaphore;
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	VkSemaphore signalSemaphore[] = { texture.getRenderFinishedSemaphores()[currentFrame] };
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphore;
+
+	VkResult res = vkQueueSubmit(device.getGraphicsQueue(), 1, &submitInfo, texture.getInFlightFences()[currentFrame]);
+	if (res != VK_SUCCESS) {
+		std::cerr << "vkQueueSubmit returned " << res << " (0x" << std::hex << res << std::dec << ")\n";
+		throw std::runtime_error("failed to submit ray tracing command buffer");
+	}
+
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = signalSemaphore;
+
+	VkSwapchainKHR swapChains[] = { swapchain.getSwapchain() };
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = swapChains;
+	presentInfo.pImageIndices = &imageIndex;
+
+	result = vkQueuePresentKHR(device.getPresentQueue(), &presentInfo);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+		framebufferResized = false;
+		recreateSwapchain();
+	}
+	else if (result != VK_SUCCESS) {
+		throw std::runtime_error("failed to present swap chain image");
+	}
+
+	currentFrame = (currentFrame + 1) % Engine::Settings::MAX_FRAMES_IN_FLIGHT;
+}
+
 void Engine::Core::Application::recreateSwapchain()
 {
 	int width = 0, height = 0;
@@ -849,4 +1002,87 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
 		throw std::runtime_error("failed to record command buffer!");
 	}
+}
+
+void Engine::Core::Application::createModel()
+{
+	ModelGeom testModel;
+	testModel.vertices = {
+		{{-1.0f, -1.0f,  1.0f}, {}, {0.0f, 0.0f}},
+		{{ 1.0f, -1.0f,  1.0f}, {}, {1.0f, 0.0f}},
+		{{ 1.0f,  1.0f,  1.0f}, {}, {1.0f, 1.0f}},
+		{{-1.0f,  1.0f,  1.0f}, {}, {0.0f, 1.0f}},
+		{{-1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}},
+		{{ 1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}},
+		{{ 1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}},
+		{{-1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}
+	};
+
+	testModel.indices = {
+		0, 1, 2, 2, 3, 0,
+		5, 4, 7, 7, 6, 5,
+		3, 2, 6, 6, 7, 3,
+		4, 5, 1, 1, 0, 4,
+		4, 0, 3, 3, 7, 4,
+		1, 5, 6, 6, 2, 1
+	};
+
+	for (auto& v : testModel.vertices) {
+		v.normal = { 0.0, 0.0, 0.0 };
+	}
+
+	for (uint32_t i = 0; i < testModel.indices.size(); i += 3) {
+		uint32_t i0 = testModel.indices[i];
+		uint32_t i1 = testModel.indices[i + 1];
+		uint32_t i2 = testModel.indices[i + 2];
+
+		glm::vec3 edge1 = testModel.vertices[i1].pos - testModel.vertices[i0].pos;
+		glm::vec3 edge2 = testModel.vertices[i2].pos - testModel.vertices[i0].pos;
+		glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
+
+		testModel.vertices[i0].normal += normal;
+		testModel.vertices[i1].normal += normal;
+		testModel.vertices[i2].normal += normal;
+	}
+
+	for (auto& v : testModel.vertices) {
+		v.normal = glm::normalize(v.normal);
+	}
+
+	VkDeviceSize vertexBufferSize = sizeof(testModel.vertices[0]) * testModel.vertices.size();
+	framebuffer.createBuffer(device, vertexBufferSize,
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		testModel.vertexBuffer, testModel.vertexBufferMemory, testModel.vertices.data());
+
+	VkDeviceSize indexBufferSize = sizeof(testModel.indices[0]) * testModel.indices.size();
+	framebuffer.createBuffer(device, indexBufferSize,
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		testModel.indexBuffer, testModel.indexBufferMemory, testModel.indices.data());
+
+	raytrace.models.push_back(testModel);
+}
+
+void Engine::Core::Application::buildAccelerationStructure()
+{
+	VkCommandBuffer commandBuffer = commandbuffer.beginSingleTimeCommands(device.getDevice());
+
+	std::cout << raytrace.models.size() << std::endl;
+
+	for (auto& model : raytrace.models) {
+		raytrace.createBottomLevelAccelerationStructure(device, framebuffer, commandbuffer, model);
+	}
+
+	std::cout << "Passed BLAS" << std::endl;
+
+	raytrace.createTopLevelAccelerationStructure(device, framebuffer, commandbuffer);
+
+	std::cout << "Passed TLAS" << std::endl;
+
+	commandbuffer.endSingleTimeCommands(commandBuffer, device.getGraphicsQueue(), device.getDevice());
 }

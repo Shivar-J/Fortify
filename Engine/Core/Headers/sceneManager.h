@@ -396,6 +396,8 @@ namespace Engine::Core {
 		const char* textureString(PBRTextureType type);
 		const char* primitiveString(PrimitiveType type);
 		bool hasSkybox();
+		void setShaderPaths(std::vector<const char*> paths);
+		std::vector<const char*> getShaderPaths() const { return shaderPaths; }
 
 		bool checkExtension(const std::string path, const std::string ext);
 
@@ -410,6 +412,7 @@ namespace Engine::Core {
 		Engine::Graphics::FrameBuffer& framebuffer;
 		Engine::Graphics::Swapchain& swapchain;
 		Engine::Core::Camera& camera;
+		std::vector<const char*> shaderPaths;
 	};
 }
 

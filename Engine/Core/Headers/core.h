@@ -1,6 +1,9 @@
 #ifndef CORE_H
 #define CORE_H
+
 #include "utility.h"
+#include "vulkanPointers.hpp"
+#include "raytracing.h"
 #include "sceneManager.h"
 #include "frameBuffer.h"
 #include "commandBuffer.h"
@@ -28,6 +31,7 @@ namespace Engine::Core {
 		Engine::Graphics::Texture texture;
 		Engine::Graphics::DescriptorSets descriptor;
 		Engine::Core::SceneManager scenemanager;
+		Engine::Graphics::Raytracing raytrace;
 
 	public:
 		Application() :
@@ -40,6 +44,7 @@ namespace Engine::Core {
 		void mainLoop();
 		void cleanup();
 		void drawFrame();
+		void raytraceFrame();
 
 		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 		void processInput(GLFWwindow* window);
@@ -48,6 +53,9 @@ namespace Engine::Core {
 
 		void recreateSwapchain();
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
+		void createModel();
+		void buildAccelerationStructure();
 
 		GLFWwindow* getWindow() const { return window; }
 	public:
@@ -61,6 +69,7 @@ namespace Engine::Core {
 		inline static bool isFocused = true;
 
 		inline static Engine::Core::Camera camera;
+		//inline static VkClearColorValue defaultClearColor = { {0.7, 0.7, 0.7, 1.0} };
 
 	private:
 		GLFWwindow* window;

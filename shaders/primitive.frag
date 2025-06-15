@@ -27,18 +27,23 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
 	float ambientStrength = 0.1;
+	float linear = 0.09;
+	float quad = 0.032;
+
 	vec3 norm = normalize(-fragNormal);
 
 	vec3 ambient = vec3(0.0);
 	vec3 diffuse = vec3(0.0);
 
 	for (int i = 0; i < ubo.numLights; i++) {
-		ambient += ambientStrength * ubo.lights[i].color;
+		float dist = length(ubo.lights[i].pos - fragPos);
+		float attenuation = 1.0 / (1.0 + linear * dist + quad * (dist * dist));
+		ambient += ambientStrength * ubo.lights[i].color * attenuation;
 
 		vec3 lightDir = normalize(ubo.lights[i].pos - fragPos);
-		float diff = dot(norm, lightDir);
+		float diff = max(dot(norm, lightDir), 0.0);
 
-		diffuse += diff * ubo.lights[i].color;
+		diffuse += diff * ubo.lights[i].color * attenuation;
 	}
 
 	if (ubo.numLights == 0) {

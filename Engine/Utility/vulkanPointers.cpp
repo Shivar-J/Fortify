@@ -1,0 +1,18 @@
+#include "vulkanPointers.hpp"
+
+PFN_vkCreateAccelerationStructureKHR fpCreateAccelerationStructureKHR = nullptr;
+PFN_vkDestroyAccelerationStructureKHR fpDestroyAccelerationStructureKHR = nullptr;
+PFN_vkGetAccelerationStructureBuildSizesKHR fpGetAccelerationStructureBuildSizesKHR = nullptr;
+PFN_vkCmdBuildAccelerationStructuresKHR fpCmdBuildAccelerationStructuresKHR = nullptr;
+PFN_vkGetAccelerationStructureDeviceAddressKHR fpGetAccelerationStructureDeviceAddressKHR = nullptr;
+
+PFN_vkCreateRayTracingPipelinesKHR fpCreateRayTracingPipelinesKHR = nullptr;
+PFN_vkGetRayTracingShaderGroupHandlesKHR fpGetRayTracingShaderGroupHandlesKHR = nullptr;
+PFN_vkCmdTraceRaysKHR fpCmdTraceRaysKHR = nullptr;
+PFN_vkCmdTraceRaysIndirectKHR fpCmdTraceRaysIndirectKHR = nullptr;
+
+PFN_vkBuildAccelerationStructuresKHR fpBuildAccelerationStructuresKHR = nullptr;
+PFN_vkGetBufferDeviceAddressKHR fpGetBufferDeviceAddressKHR = nullptr;
+
+PFN_vkCmdBeginDebugUtilsLabelEXT fpCmdBeginDebugUtilsLabelEXT = nullptr;
+PFN_vkCmdEndDebugUtilsLabelEXT fpCmdEndDebugUtilsLabelEXT = nullptr;

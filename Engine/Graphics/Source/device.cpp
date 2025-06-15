@@ -111,17 +111,33 @@ void Engine::Graphics::Device::createLogicalDevice(VkSurfaceKHR surface)
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
-	VkPhysicalDeviceFeatures deviceFeatures{};
-	deviceFeatures.samplerAnisotropy = VK_TRUE;
-	deviceFeatures.sampleRateShading = VK_TRUE;
+	enabledBufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+	enabledBufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
+
+	enabledRayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+	enabledRayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+	enabledRayTracingPipelineFeatures.pNext = &enabledBufferDeviceAddressFeatures;
+
+	enabledAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+	enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
+	enabledAccelerationStructureFeatures.pNext = &enabledRayTracingPipelineFeatures;
+
+	enabledDescriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
+	enabledDescriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+	enabledDescriptorIndexingFeatures.pNext = &enabledAccelerationStructureFeatures;
+
+	VkPhysicalDeviceFeatures2 deviceFeatures{};
+	deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	deviceFeatures.pNext = &enabledDescriptorIndexingFeatures;
 
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	createInfo.pNext = &deviceFeatures;
 
 	createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 	createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-	createInfo.pEnabledFeatures = &deviceFeatures;
+	createInfo.pEnabledFeatures = nullptr;
 
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(Engine::Settings::deviceExtensions.size());
 	createInfo.ppEnabledExtensionNames = Engine::Settings::deviceExtensions.data();

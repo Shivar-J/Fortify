@@ -226,6 +226,11 @@ bool Engine::Core::SceneManager::hasSkybox() {
 	return false;
 }
 
+void Engine::Core::SceneManager::setShaderPaths(std::vector<const char*> paths)
+{
+	shaderPaths = paths;
+}
+
 bool Engine::Core::SceneManager::checkExtension(const std::string path, const std::string ext)
 {
 	return path.size() >= ext.size() && path.compare(path.size() - ext.size(), ext.size(), ext) == 0;

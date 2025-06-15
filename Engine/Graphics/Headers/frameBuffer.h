@@ -28,7 +28,7 @@ namespace Engine::Graphics {
 		VkFormat findDepthFormat(VkPhysicalDevice physicalDevice);
 		VkFormat findSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 		void createFramebuffers(VkDevice device, Engine::Graphics::Swapchain& swapchain, VkRenderPass renderPass);
-		void createBuffer(Engine::Graphics::Device device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+		void createBuffer(Engine::Graphics::Device device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, void* data = nullptr);
 
 		VkImage getColorImage() const { return colorImage; }
 		VkImageView getColorImageView() const { return colorImageView; }
@@ -37,6 +37,7 @@ namespace Engine::Graphics {
 		VkImage getDepthImage() const { return depthImage; }
 		VkImageView getDepthImageView() const { return depthImageView; }
 		VkDeviceMemory getDepthImageMemory() const { return depthImageMemory; }
+
 	};
 }
 #endif

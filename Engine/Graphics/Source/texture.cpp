@@ -230,7 +230,7 @@ void Engine::Graphics::Texture::createVertexBuffer(Engine::Graphics::Device devi
     memcpy(data, vertices.data(), (size_t)bufferSize);
     vkUnmapMemory(device.getDevice(), stagingBufferMemory);
 
-    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
     commandBuf.copyBuffer(device, stagingBuffer, vertexBuffer, bufferSize);
 
     vkDestroyBuffer(device.getDevice(), stagingBuffer, nullptr);
@@ -250,7 +250,7 @@ void Engine::Graphics::Texture::createIndexBuffer(Engine::Graphics::Device devic
     memcpy(data, indices.data(), (size_t)bufferSize);
     vkUnmapMemory(device.getDevice(), stagingBufferMemory);
 
-    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
 
     commandBuf.copyBuffer(device, stagingBuffer, indexBuffer, bufferSize);
 
