@@ -2,8 +2,22 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_scalar_block_layout : enable
 
-layout(location = 0) rayPayloadInEXT vec3 payload;
+struct RayPayload {
+    vec3 color;
+    vec3 attenuation;
+    uint depth;
+};
+layout(location = 0) rayPayloadInEXT RayPayload payload;
 hitAttributeEXT vec2 attribs;
+
+layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
+    mat4 view;
+    mat4 proj;
+    uint vertexSize;
+    uint sampleCount;
+    uint samplesPerFrame;
+    uint rayBounces;
+} ubo;
 
 struct Vertex {
     vec3 position;
@@ -11,64 +25,40 @@ struct Vertex {
     vec2 texCoord;
 };
 
-layout(set = 0, binding = 4, std430) buffer Vertices {
+layout(set = 0, binding = 4, scalar) buffer Vertices {
     Vertex vertices[];
 };
 
-layout(set = 0, binding = 5, std430) buffer Indices {
+layout(set = 0, binding = 5, scalar) buffer Indices {
     uint indices[];
 };
 
 void main() {
-    uint baseIdx = 3 * gl_PrimitiveID;
-    uint i0 = indices[baseIdx];
-    uint i1 = indices[baseIdx + 1];
-    uint i2 = indices[baseIdx + 2];
-    
-    Vertex v0 = vertices[i0];
-    Vertex v1 = vertices[i1];
-    Vertex v2 = vertices[i2];
-    
-    vec3 edge1 = v1.position - v0.position;
-    vec3 edge2 = v2.position - v0.position;
-    vec3 faceNormal = normalize(cross(edge1, edge2));
-    
-    vec3 normal;
-    if (length(v0.normal) > 0.1 && length(v1.normal) > 0.1 && length(v2.normal) > 0.1) {
-        normal = normalize(v0.normal * (1.0 - attribs.x - attribs.y) + 
-                 v1.normal * attribs.x + 
-                 v2.normal * attribs.y);
-    } else {
-        normal = faceNormal;
-    }
-    
-    mat3 objectToWorld = mat3(gl_ObjectToWorldEXT);
-    mat3 normalMatrix = transpose(inverse(objectToWorld));
-    normal = normalize(normalMatrix * normal);
-    
-    vec3 viewDir = -gl_WorldRayDirectionEXT;
-    if (dot(normal, viewDir) < 0.0) {
-        normal = -normal;
-    }
-    
-    vec3 hitPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-    
-    vec3 lightPos = gl_WorldRayOriginEXT;
-    vec3 toLight = lightPos - hitPos;
-    float dist = length(toLight);
-    vec3 lightDir = toLight / dist;
-    
-    float diff = max(dot(normal, -lightDir), 0.0);
-    float intensity = 100.0;
-    float attenuation = intensity / (dist * dist + 0.1);
-    vec3 diffuse = vec3(1.0) * diff * attenuation;
-    
-    vec3 ambient = vec3(0.75);
-    
-    vec3 baseColor = vec3(0.7, 0.7, 0.7);
-    
-    payload = baseColor * (ambient + diffuse);
-    
-    // For normal visualization (uncomment to debug):
-    // payload = normal * 0.5 + 0.5;
+    uint primID = gl_PrimitiveID;
+
+    uint i0 = indices[primID * 3 + 0];
+    uint i1 = indices[primID * 3 + 1];
+    uint i2 = indices[primID * 3 + 2];
+
+    vec3 p0 = vertices[i0].position;
+    vec3 p1 = vertices[i1].position;
+    vec3 p2 = vertices[i2].position;    
+
+    vec3 n0 = vertices[i0].normal;
+    vec3 n1 = vertices[i1].normal;
+    vec3 n2 = vertices[i2].normal;
+
+    float u = attribs.x;
+    float v = attribs.y;
+    float w = 1.0 - u - v;
+
+    vec3 normal = normalize(w * n0 + u * n1 + v * n2);
+    vec3 worldPos = w * p0 + u * p1 + v * p2;
+
+    vec3 cameraPos = vec3(inverse(ubo.view)[3]);
+
+    vec3 lightDir = normalize(cameraPos - worldPos);
+    float diffuse = max(dot(normal, lightDir), 0.0);
+
+    payload.color = vec3(diffuse);
 }

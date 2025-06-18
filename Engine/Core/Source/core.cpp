@@ -1008,23 +1008,57 @@ void Engine::Core::Application::createModel()
 {
 	ModelGeom testModel;
 	testModel.vertices = {
+		// Front face (Z+)
 		{{-1.0f, -1.0f,  1.0f}, {}, {0.0f, 0.0f}},
 		{{ 1.0f, -1.0f,  1.0f}, {}, {1.0f, 0.0f}},
 		{{ 1.0f,  1.0f,  1.0f}, {}, {1.0f, 1.0f}},
 		{{-1.0f,  1.0f,  1.0f}, {}, {0.0f, 1.0f}},
-		{{-1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}},
-		{{ 1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}},
-		{{ 1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}},
-		{{-1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}
+
+		// Back face (Z-)
+		{{ 1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}}, // Bottom-right
+		{{-1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}}, // Bottom-left
+		{{-1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}}, // Top-left
+		{{ 1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}, // Top-right
+
+		// Top face (Y+)
+		{{-1.0f,  1.0f,  1.0f}, {}, {0.0f, 0.0f}}, // Front-top-left
+		{{ 1.0f,  1.0f,  1.0f}, {}, {1.0f, 0.0f}}, // Front-top-right
+		{{ 1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}}, // Back-top-right
+		{{-1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}, // Back-top-left
+
+		// Bottom face (Y-)
+		{{-1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}}, // Back-bottom-left
+		{{ 1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}}, // Back-bottom-right
+		{{ 1.0f, -1.0f,  1.0f}, {}, {1.0f, 1.0f}}, // Front-bottom-right
+		{{-1.0f, -1.0f,  1.0f}, {}, {0.0f, 1.0f}}, // Front-bottom-left
+
+		// Left face (X-)
+		{{-1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}}, // Back-bottom-left
+		{{-1.0f, -1.0f,  1.0f}, {}, {1.0f, 0.0f}}, // Front-bottom-left
+		{{-1.0f,  1.0f,  1.0f}, {}, {1.0f, 1.0f}}, // Front-top-left
+		{{-1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}, // Back-top-left
+
+		// Right face (X+)
+		{{ 1.0f, -1.0f,  1.0f}, {}, {0.0f, 0.0f}}, // Front-bottom-right
+		{{ 1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}}, // Back-bottom-right
+		{{ 1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}}, // Back-top-right
+		{{ 1.0f,  1.0f,  1.0f}, {}, {0.0f, 1.0f}}  // Front-top-right
 	};
 
+
 	testModel.indices = {
-		0, 1, 2, 2, 3, 0,
-		5, 4, 7, 7, 6, 5,
-		3, 2, 6, 6, 7, 3,
-		4, 5, 1, 1, 0, 4,
-		4, 0, 3, 3, 7, 4,
-		1, 5, 6, 6, 2, 1
+		// Front
+		0, 1, 2,  2, 3, 0,
+		// Back
+		4, 5, 6,  6, 7, 4,
+		// Top
+		8, 9, 10, 10, 11, 8,
+		// Bottom
+		12, 13, 14, 14, 15, 12,
+		// Left
+		16, 17, 18, 18, 19, 16,
+		// Right
+		20, 21, 22, 22, 23, 20
 	};
 
 	for (auto& v : testModel.vertices) {
@@ -1048,6 +1082,7 @@ void Engine::Core::Application::createModel()
 	for (auto& v : testModel.vertices) {
 		v.normal = glm::normalize(v.normal);
 	}
+
 
 	VkDeviceSize vertexBufferSize = sizeof(testModel.vertices[0]) * testModel.vertices.size();
 	framebuffer.createBuffer(device, vertexBufferSize,

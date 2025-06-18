@@ -32,6 +32,7 @@
 #include <cstdio>
 #include <unordered_map>
 #include <filesystem>
+#include <numeric>
 
 #include "device.h"
 

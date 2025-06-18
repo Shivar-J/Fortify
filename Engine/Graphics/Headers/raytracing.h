@@ -34,9 +34,9 @@ struct RaytracingUniformBufferObject {
     glm::mat4 view;
     glm::mat4 proj;
     uint32_t vertexSize;
-    uint32_t sampleCount = 0;
-    uint32_t samplesPerFrame = 4;
-    uint32_t rayBounces = 8;
+    uint32_t sampleCount = 1;
+    uint32_t samplesPerFrame = 1;
+    uint32_t rayBounces = 2;
 };
 
 struct ModelGeom {

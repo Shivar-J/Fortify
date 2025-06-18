@@ -4,6 +4,7 @@
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
 layout(set = 0, binding = 1, rgba32f) uniform image2D outputImage;
+layout(set = 0, binding = 2, rgba32f) uniform image2D accumulationImage;
 layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
     mat4 view;
     mat4 proj;
@@ -13,7 +14,14 @@ layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
     uint rayBounces;
 } ubo;
 
-layout(location = 0) rayPayloadEXT vec3 payload;
+
+struct RayPayload {
+    vec3 color;
+    vec3 attenuation;
+    uint depth;
+};
+
+layout(location = 0) rayPayloadEXT RayPayload payload;
 
 void main() {
     ivec2 pixel = ivec2(gl_LaunchIDEXT.xy);
@@ -23,24 +31,25 @@ void main() {
 
     mat4 invProj = inverse(ubo.proj);
     mat4 invView = inverse(ubo.view);
-    vec3 rayOrigin = vec3(invView[3]);
-    
     vec4 rayClip = vec4(ndc, -1.0, 1.0);
     vec4 rayView = invProj * rayClip;
     rayView = vec4(rayView.xy, -1.0, 0.0);
-    vec3 rayDirection = normalize((invView * rayView).xyz);
+
+    vec3 rayOrigin = vec3(invView[3]);
+    vec3 rayDir = normalize((invView * rayView).xyz);
 
     traceRayEXT(
         topLevelAS,
-        gl_RayFlagsOpaqueEXT,
+        gl_RayFlagsTerminateOnFirstHitEXT,
         0xFF,
         0, 0, 0,
         rayOrigin,
         0.001,
-        rayDirection,
+        rayDir,
         10000.0,
         0
     );
 
-    imageStore(outputImage, pixel, vec4(payload, 1.0));
+    imageStore(outputImage, pixel, vec4(payload.color, 1.0));
+    imageStore(accumulationImage, pixel, vec4(payload.color, 1.0));
 }
