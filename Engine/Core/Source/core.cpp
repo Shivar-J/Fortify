@@ -55,26 +55,6 @@ void Engine::Core::Application::initVulkan()
 	fpGetBufferDeviceAddressKHR = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetBufferDeviceAddressKHR"));
 	fpBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkBuildAccelerationStructureKHR"));
 
-	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
-	rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-
-	VkPhysicalDeviceProperties2 deviceProperties{};
-	deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-	deviceProperties.pNext = &rayTracingPipelineProperties;
-	vkGetPhysicalDeviceProperties2(device.getPhysicalDevice(), &deviceProperties);
-
-	raytrace.rayTracingPipelineProperties = rayTracingPipelineProperties;
-
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
-	accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-
-	VkPhysicalDeviceFeatures2 deviceFeatures2{};
-	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-	deviceFeatures2.pNext = &accelerationStructureFeatures;
-	vkGetPhysicalDeviceFeatures2(device.getPhysicalDevice(), &deviceFeatures2);
-
-	raytrace.accelerationStructureFeatures = accelerationStructureFeatures;
-
 	swapchain.createSwapChain(window, instance, device);
 	swapchain.createImageViews(device.getDevice());
 
@@ -93,11 +73,14 @@ void Engine::Core::Application::initVulkan()
 	framebuffer.createFramebuffers(device.getDevice(), swapchain, renderpass.getRenderPass());
 	commandbuffer.createCommandBuffers(device.getDevice());
 
-	raytrace.storageImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), swapchain.getSwapchainImageFormat(), storageImageExtent);
-	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), swapchain.getSwapchainImageFormat(), storageImageExtent);
+	raytrace.initRaytracing(device);
+
+	raytrace.storageImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
+	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 
 	createModel();
-	buildAccelerationStructure();
+	createModel(3);
+	raytrace.buildAccelerationStructure(device, commandbuffer, framebuffer);
 
 	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv");
 	raytrace.createShaderBindingTables(device);
@@ -119,7 +102,6 @@ void Engine::Core::Application::initVulkan()
 		{ PBRTextureType::AmbientOcclusion, "textures/backpack/ao.jpg" },
 		{ PBRTextureType::Roughness, "textures/backpack/roughness.jpg" },
 		{ PBRTextureType::Specular, "textures/backpack/specular.jpg" },
-
 	};
 
 	scenemanager.addEntity<CubeVertex, EntityType::Skybox>("shaders/spv/skyboxVert.spv", "shaders/spv/skyboxFrag.spv", skyboxPaths, "", true);
@@ -556,6 +538,7 @@ void Engine::Core::Application::mainLoop()
 		ImGui::End();
 
 		ImGui::Render();
+
 		if (useRaytracer) {
 			raytraceFrame();
 		}
@@ -570,6 +553,8 @@ void Engine::Core::Application::mainLoop()
 void Engine::Core::Application::cleanup()
 {
 	vkDeviceWaitIdle(device.getDevice());
+
+	raytrace.cleanup(device.getDevice());
 
 	if (Engine::Settings::enableValidationLayers) {
 		ImGui_ImplVulkan_Shutdown();
@@ -832,6 +817,10 @@ void Engine::Core::Application::raytraceFrame()
 {
 	vkDeviceWaitIdle(device.getDevice());
 
+	if (raytrace.uboData.view != camera.GetViewMatrix()) {
+		raytrace.uboData.sampleCount = 1;
+	}
+
 	raytrace.uboData.view = camera.GetViewMatrix();
 	raytrace.uboData.proj = camera.GetProjectionMatrix();
 
@@ -1004,60 +993,49 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 	}
 }
 
-void Engine::Core::Application::createModel()
+void Engine::Core::Application::createModel(int x)
 {
 	ModelGeom testModel;
 	testModel.vertices = {
-		// Front face (Z+)
-		{{-1.0f, -1.0f,  1.0f}, {}, {0.0f, 0.0f}},
-		{{ 1.0f, -1.0f,  1.0f}, {}, {1.0f, 0.0f}},
-		{{ 1.0f,  1.0f,  1.0f}, {}, {1.0f, 1.0f}},
-		{{-1.0f,  1.0f,  1.0f}, {}, {0.0f, 1.0f}},
+		{{-1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 0.0f}},
+		{{ 1.0f + x,  4.0f,  1.0f}, {}, {1.0f, 0.0f}},
+		{{ 1.0f + x,  6.0f,  1.0f}, {}, {1.0f, 1.0f}},
+		{{-1.0f + x,  6.0f,  1.0f}, {}, {0.0f, 1.0f}},
 
-		// Back face (Z-)
-		{{ 1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}}, // Bottom-right
-		{{-1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}}, // Bottom-left
-		{{-1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}}, // Top-left
-		{{ 1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}, // Top-right
+		{{ 1.0f + x,  4.0f, -1.0f}, {}, {0.0f, 0.0f}},
+		{{-1.0f + x,  4.0f, -1.0f}, {}, {1.0f, 0.0f}},
+		{{-1.0f + x,  6.0f, -1.0f}, {}, {1.0f, 1.0f}},
+		{{ 1.0f + x,  6.0f, -1.0f}, {}, {0.0f, 1.0f}},
 
-		// Top face (Y+)
-		{{-1.0f,  1.0f,  1.0f}, {}, {0.0f, 0.0f}}, // Front-top-left
-		{{ 1.0f,  1.0f,  1.0f}, {}, {1.0f, 0.0f}}, // Front-top-right
-		{{ 1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}}, // Back-top-right
-		{{-1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}, // Back-top-left
+		{{-1.0f + x,  6.0f,  1.0f}, {}, {0.0f, 0.0f}},
+		{{ 1.0f + x,  6.0f,  1.0f}, {}, {1.0f, 0.0f}},
+		{{ 1.0f + x,  6.0f, -1.0f}, {}, {1.0f, 1.0f}},
+		{{-1.0f + x,  6.0f, -1.0f}, {}, {0.0f, 1.0f}},
 
-		// Bottom face (Y-)
-		{{-1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}}, // Back-bottom-left
-		{{ 1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}}, // Back-bottom-right
-		{{ 1.0f, -1.0f,  1.0f}, {}, {1.0f, 1.0f}}, // Front-bottom-right
-		{{-1.0f, -1.0f,  1.0f}, {}, {0.0f, 1.0f}}, // Front-bottom-left
+		{{-1.0f + x,  4.0f, -1.0f}, {}, {0.0f, 0.0f}},
+		{{ 1.0f + x,  4.0f, -1.0f}, {}, {1.0f, 0.0f}},
+		{{ 1.0f + x,  4.0f,  1.0f}, {}, {1.0f, 1.0f}},
+		{{-1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 1.0f}},
 
-		// Left face (X-)
-		{{-1.0f, -1.0f, -1.0f}, {}, {0.0f, 0.0f}}, // Back-bottom-left
-		{{-1.0f, -1.0f,  1.0f}, {}, {1.0f, 0.0f}}, // Front-bottom-left
-		{{-1.0f,  1.0f,  1.0f}, {}, {1.0f, 1.0f}}, // Front-top-left
-		{{-1.0f,  1.0f, -1.0f}, {}, {0.0f, 1.0f}}, // Back-top-left
+		{{-1.0f + x,  4.0f, -1.0f}, {}, {0.0f, 0.0f}},
+		{{-1.0f + x,  4.0f,  1.0f}, {}, {1.0f, 0.0f}},
+		{{-1.0f + x,  6.0f,  1.0f}, {}, {1.0f, 1.0f}},
+		{{-1.0f + x,  6.0f, -1.0f}, {}, {0.0f, 1.0f}},
 
-		// Right face (X+)
-		{{ 1.0f, -1.0f,  1.0f}, {}, {0.0f, 0.0f}}, // Front-bottom-right
-		{{ 1.0f, -1.0f, -1.0f}, {}, {1.0f, 0.0f}}, // Back-bottom-right
-		{{ 1.0f,  1.0f, -1.0f}, {}, {1.0f, 1.0f}}, // Back-top-right
-		{{ 1.0f,  1.0f,  1.0f}, {}, {0.0f, 1.0f}}  // Front-top-right
+		{{ 1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 0.0f}},
+		{{ 1.0f + x,  4.0f, -1.0f}, {}, {1.0f, 0.0f}},
+		{{ 1.0f + x,  6.0f, -1.0f}, {}, {1.0f, 1.0f}},
+		{{ 1.0f + x,  6.0f,  1.0f}, {}, {0.0f, 1.0f}}
 	};
 
 
+
 	testModel.indices = {
-		// Front
 		0, 1, 2,  2, 3, 0,
-		// Back
 		4, 5, 6,  6, 7, 4,
-		// Top
 		8, 9, 10, 10, 11, 8,
-		// Bottom
 		12, 13, 14, 14, 15, 12,
-		// Left
 		16, 17, 18, 18, 19, 16,
-		// Right
 		20, 21, 22, 22, 23, 20
 	};
 
@@ -1101,23 +1079,4 @@ void Engine::Core::Application::createModel()
 		testModel.indexBuffer, testModel.indexBufferMemory, testModel.indices.data());
 
 	raytrace.models.push_back(testModel);
-}
-
-void Engine::Core::Application::buildAccelerationStructure()
-{
-	VkCommandBuffer commandBuffer = commandbuffer.beginSingleTimeCommands(device.getDevice());
-
-	std::cout << raytrace.models.size() << std::endl;
-
-	for (auto& model : raytrace.models) {
-		raytrace.createBottomLevelAccelerationStructure(device, framebuffer, commandbuffer, model);
-	}
-
-	std::cout << "Passed BLAS" << std::endl;
-
-	raytrace.createTopLevelAccelerationStructure(device, framebuffer, commandbuffer);
-
-	std::cout << "Passed TLAS" << std::endl;
-
-	commandbuffer.endSingleTimeCommands(commandBuffer, device.getGraphicsQueue(), device.getDevice());
 }

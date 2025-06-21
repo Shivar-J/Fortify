@@ -54,8 +54,7 @@ namespace Engine::Core {
 		void recreateSwapchain();
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
-		void createModel();
-		void buildAccelerationStructure();
+		void createModel(int x = 0);
 
 		GLFWwindow* getWindow() const { return window; }
 	public:
@@ -69,11 +68,10 @@ namespace Engine::Core {
 		inline static bool isFocused = true;
 
 		inline static Engine::Core::Camera camera;
-		//inline static VkClearColorValue defaultClearColor = { {0.7, 0.7, 0.7, 1.0} };
 
 	private:
-		GLFWwindow* window;
-		VkDescriptorPool imguiPool;
+		GLFWwindow* window = nullptr;
+		VkDescriptorPool imguiPool = VK_NULL_HANDLE;
 	};
 }
 #endif

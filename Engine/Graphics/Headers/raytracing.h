@@ -28,6 +28,7 @@ struct StorageImage {
     VkFormat format;
 
     void create(Engine::Graphics::Device device, VkQueue queue, VkCommandPool commandPool, VkFormat format, VkExtent3D extent);
+    void destroy(VkDevice device);
 };
 
 struct RaytracingUniformBufferObject {
@@ -36,7 +37,7 @@ struct RaytracingUniformBufferObject {
     uint32_t vertexSize;
     uint32_t sampleCount = 1;
     uint32_t samplesPerFrame = 1;
-    uint32_t rayBounces = 2;
+    uint32_t rayBounces = 5;
 };
 
 struct ModelGeom {
@@ -95,9 +96,11 @@ namespace Engine::Graphics {
         std::vector<char> readFile(const std::string& filename);
         VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code);
 
+        void initRaytracing(Engine::Graphics::Device device);
         auto createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index);
         void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, ModelGeom model);
         void createTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer);
+        void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);
         void createDescriptorSets(Engine::Graphics::Device device);
         void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath);
@@ -106,6 +109,8 @@ namespace Engine::Graphics {
     
         void createUniformBuffer(Engine::Graphics::Device device);
         void updateUBO(Engine::Graphics::Device device);
+
+        void cleanup(VkDevice device);
     };
 }
 

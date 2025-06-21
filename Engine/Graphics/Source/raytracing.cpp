@@ -160,6 +160,22 @@ void StorageImage::create(Engine::Graphics::Device device, VkQueue queue, VkComm
 
 }
 
+void StorageImage::destroy(VkDevice device)
+{
+	if (view != VK_NULL_HANDLE) {
+		vkDestroyImageView(device, view, nullptr);
+		view = VK_NULL_HANDLE;
+	}
+	if (image != VK_NULL_HANDLE) {
+		vkDestroyImage(device, image, nullptr);
+		image = VK_NULL_HANDLE;
+	}
+	if (memory != VK_NULL_HANDLE) {
+		vkFreeMemory(device, memory, nullptr);
+		memory = VK_NULL_HANDLE;
+	}
+}
+
 VkDeviceAddress Engine::Graphics::Raytracing::getBufferDeviceAddress(VkDevice device, VkBuffer buffer)
 {
 	VkBufferDeviceAddressInfoKHR bufferDeviceAddress{};
@@ -198,6 +214,40 @@ VkShaderModule Engine::Graphics::Raytracing::createShaderModule(VkDevice device,
 		throw std::runtime_error("failed to create shader module");
 
 	return shaderModule;
+}
+
+void Engine::Graphics::Raytracing::initRaytracing(Engine::Graphics::Device device)
+{
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR initRayTracingPipelineProperties{};
+	initRayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+
+	VkFormatProperties2 formatProps = { VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2 };
+	vkGetPhysicalDeviceFormatProperties2(device.getPhysicalDevice(), VK_FORMAT_R8G8B8A8_UNORM, &formatProps);
+
+	if (!(formatProps.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)) {
+		VkFormat supportedFormats[] = { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SRGB };
+
+		for (auto format : supportedFormats) {
+			vkGetPhysicalDeviceFormatProperties2(device.getPhysicalDevice(), format, &formatProps);
+		}
+	}
+
+	VkPhysicalDeviceProperties2 deviceProperties{};
+	deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	deviceProperties.pNext = &initRayTracingPipelineProperties;
+	vkGetPhysicalDeviceProperties2(device.getPhysicalDevice(), &deviceProperties);
+
+	rayTracingPipelineProperties = initRayTracingPipelineProperties;
+
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR initAccelerationStructureFeatures{};
+	initAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+
+	VkPhysicalDeviceFeatures2 deviceFeatures2{};
+	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	deviceFeatures2.pNext = &initAccelerationStructureFeatures;
+	vkGetPhysicalDeviceFeatures2(device.getPhysicalDevice(), &deviceFeatures2);
+
+	accelerationStructureFeatures = initAccelerationStructureFeatures;
 }
 
 auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index)
@@ -368,9 +418,6 @@ void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::G
 	accelerationStructureBuildRangeInfo.firstVertex = 0;
 	accelerationStructureBuildRangeInfo.transformOffset = 0;
 
-	std::cout << "Instance buffer address: " << instanceDataDeviceAddress.deviceAddress << std::endl;
-	std::cout << "Scratch buffer address: " << scratchBuffer.deviceAddress << std::endl;
-	
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationBuildStructureRangeInfos = { &accelerationStructureBuildRangeInfo };
 
 	if (accelerationStructureFeatures.accelerationStructureHostCommands) {
@@ -397,6 +444,18 @@ void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::G
 		fpCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
 		commandBuffer.endSingleTimeCommands(cmdbuf, device.getGraphicsQueue(), device.getDevice());
 	}
+}
+
+void Engine::Graphics::Raytracing::buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer)
+{
+	VkCommandBuffer commandBuffer = commandbuffer.beginSingleTimeCommands(device.getDevice());
+
+	for (auto& model : models) {
+		createBottomLevelAccelerationStructure(device, framebuffer, commandbuffer, model);
+	}
+
+	createTopLevelAccelerationStructure(device, framebuffer, commandbuffer);
+	commandbuffer.endSingleTimeCommands(commandBuffer, device.getGraphicsQueue(), device.getDevice());
 }
 
 void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::Device device)
@@ -649,7 +708,7 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 	rayTracingPipelineCreateInfo.pStages = shaderStages.data();
 	rayTracingPipelineCreateInfo.groupCount = static_cast<uint32_t>(shaderGroups.size());
 	rayTracingPipelineCreateInfo.pGroups = shaderGroups.data();
-	rayTracingPipelineCreateInfo.maxPipelineRayRecursionDepth = 1;
+	rayTracingPipelineCreateInfo.maxPipelineRayRecursionDepth = 31;
 	rayTracingPipelineCreateInfo.layout = pipelineLayout;
 
 	fpCreateRayTracingPipelinesKHR(device.getDevice(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rayTracingPipelineCreateInfo, nullptr, &pipeline);
@@ -661,10 +720,9 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 
 void Engine::Graphics::Raytracing::createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent)
 {
-	storageImage.create(device, device.getGraphicsQueue(), commandPool, VK_FORMAT_R32G32B32_SFLOAT, { extent.width, extent.height, 1 });
-	accumulationImage.create(device, device.getGraphicsQueue(), commandPool, VK_FORMAT_R32G32B32_SFLOAT, { extent.width, extent.height, 1 });
+	storageImage.create(device, device.getGraphicsQueue(), commandPool, VK_FORMAT_R8G8B8A8_UNORM, { extent.width, extent.height, 1 });
+	accumulationImage.create(device, device.getGraphicsQueue(), commandPool, VK_FORMAT_R32G32B32A32_SFLOAT, { extent.width, extent.height, 1 });
 }
-
 
 void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer commandBuffer, VkExtent2D extent, VkImage swapchainImage, uint32_t currentImageIndex)
 {
@@ -693,10 +751,6 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout,
 		0, 1, &descriptorSet, 0, nullptr);
 
-	//std::cout << "Raygen SBT: " << raygenSBTRegion.deviceAddress << "\n";
-	//std::cout << "TLAS handle: " << TLAS.handle << "\n";
-	//std::cout << "Storage image: " << storageImage.image << "\n";
-
 	fpCmdTraceRaysKHR(
 		commandBuffer,
 		&raygenSBTRegion,
@@ -722,6 +776,15 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 	storageBarrier.image = storageImage.image;
 	storageBarrier.subresourceRange = subresourceRange;
 
+	VkImageMemoryBarrier accumBarrier{};
+	accumBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	accumBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+	accumBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	accumBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+	accumBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	accumBarrier.image = accumulationImage.image;
+	accumBarrier.subresourceRange = subresourceRange;
+
 	vkCmdPipelineBarrier(
 		commandBuffer,
 		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -730,6 +793,49 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 		0, nullptr,
 		0, nullptr,
 		1, &storageBarrier
+	);
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &accumBarrier
+	);
+
+	VkImageCopy copyRegion{};
+	copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+	copyRegion.srcOffset = { 0, 0, 0 };
+	copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+	copyRegion.dstOffset = { 0, 0, 0 };
+	copyRegion.extent = { extent.width, extent.height, 1 };
+
+	vkCmdCopyImage(
+		commandBuffer,
+		storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		accumulationImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1, &copyRegion
+	);
+
+	VkImageMemoryBarrier accumGeneral{};
+	accumGeneral.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	accumGeneral.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	accumGeneral.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	accumGeneral.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	accumGeneral.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+	accumGeneral.image = accumulationImage.image;
+	accumGeneral.subresourceRange = subresourceRange;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &accumGeneral
 	);
 
 	VkImageMemoryBarrier swapchainBarrier = {};
@@ -761,7 +867,7 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 
 	vkCmdBlitImage(
 		commandBuffer,
-		storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		accumulationImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1, &blitRegion,
 		VK_FILTER_LINEAR
@@ -785,25 +891,6 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 		0, nullptr,
 		1, &presentBarrier
 	);
-
-	VkImageMemoryBarrier generalBarrier = {};
-	generalBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	generalBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	generalBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-	generalBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	generalBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	generalBarrier.image = storageImage.image;
-	generalBarrier.subresourceRange = subresourceRange;
-
-	vkCmdPipelineBarrier(
-		commandBuffer,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-		0,
-		0, nullptr,
-		0, nullptr,
-		1, &generalBarrier
-	);
 }
 
 void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device device)
@@ -813,7 +900,7 @@ void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device 
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = bufferSize;
-	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	if (vkCreateBuffer(device.getDevice(), &bufferInfo, nullptr, &uniformBuffer) != VK_SUCCESS) {
@@ -843,5 +930,42 @@ void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device 
 void Engine::Graphics::Raytracing::updateUBO(Engine::Graphics::Device device)
 {
 	uboData.sampleCount++;
+
 	memcpy(uboMapped, &uboData, sizeof(uboData));
+}
+
+void Engine::Graphics::Raytracing::cleanup(VkDevice device)
+{
+	vkDestroyBuffer(device, uniformBuffer, nullptr);
+	vkFreeMemory(device, uniformBufferMemory, nullptr);
+
+	vkDestroyBuffer(device, raygenSBTBuffer, nullptr);
+	vkFreeMemory(device, raygenSBTMemory, nullptr);
+	vkDestroyBuffer(device, missSBTBuffer, nullptr);
+	vkFreeMemory(device, missSBTMemory, nullptr);
+	vkDestroyBuffer(device, hitSBTBuffer, nullptr);
+	vkFreeMemory(device, hitSBTMemory, nullptr);
+
+	if (TLAS.handle) {
+		fpDestroyAccelerationStructureKHR(device, TLAS.handle, nullptr);
+		vkDestroyBuffer(device, TLAS.buffer, nullptr);
+		vkFreeMemory(device, TLAS.memory, nullptr);
+	}
+
+	for (auto& blas : BLAS) {
+		if (blas.handle) {
+			fpDestroyAccelerationStructureKHR(device, blas.handle, nullptr);
+			vkDestroyBuffer(device, blas.buffer, nullptr);
+			vkFreeMemory(device, blas.memory, nullptr);
+		}
+	}
+
+	storageImage.destroy(device);
+	accumulationImage.destroy(device);
+
+	vkDestroyPipeline(device, pipeline, nullptr);
+	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+
+	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 }

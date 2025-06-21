@@ -18,5 +18,8 @@ int main() {
 
 		return EXIT_FAILURE;
 	}
+
+	system("pause");
+
 	return EXIT_SUCCESS;
 }

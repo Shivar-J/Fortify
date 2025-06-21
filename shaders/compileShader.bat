@@ -24,9 +24,9 @@ C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%textureMapVert.vert" -o "%PRO
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%textureMapFrag.frag" -o "%PROJECT_DIR%spv\textureMapFrag.spv" || (echo failed to compile "textureMapFrag.frag" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%primitive.vert" -o "%PROJECT_DIR%spv\primitiveVert.spv" || (echo failed to compile "primitive.vert" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%primitive.frag" -o "%PROJECT_DIR%spv\primitiveFrag.spv" || (echo failed to compile "primitive.frag" && exit)
-C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%light.vert" -o "%PROJECT_DIR%spv\lightVert.spv" || (echo failed to compile "light.vert" at PROJECT_DIR && exit)
+C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%light.vert" -o "%PROJECT_DIR%spv\lightVert.spv" || (echo failed to compile "light.vert" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%light.frag" -o "%PROJECT_DIR%spv\lightFrag.spv" || (echo failed to compile "light.frag" && exit)
-C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%skyboxVert.vert" -o "%PROJECT_DIR%spv\skyboxVert.spv" || (echo failed to compile "skyboxVert.vert" at PROJECT_DIR && exit)
+C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%skyboxVert.vert" -o "%PROJECT_DIR%spv\skyboxVert.spv" || (echo failed to compile "skyboxVert.vert" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%skyboxFrag.frag" -o "%PROJECT_DIR%spv\skyboxFrag.spv" || (echo failed to compile "skyboxFrag.frag" && exit)
 
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rgen" -o "%PROJECT_DIR%spv\raytraceRaygen.spv" || (echo failed to compile "raytrace.rgen" && exit)
