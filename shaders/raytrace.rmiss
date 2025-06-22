@@ -10,10 +10,10 @@ struct RayPayload {
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
+layout(location = 0, binding = 6) uniform samplerCube skybox;
+
 void main() {
     vec3 rayDir = normalize(gl_WorldRayDirectionEXT);
-    float t = 0.5 * (rayDir.y + 1.0);
-    vec3 skyColor = mix(vec3(0.5, 0.7, 1.0), vec3(0.1, 0.1, 0.3), t);
 
-    payload.color = skyColor;
+    payload.color = texture(skybox, rayDir).rgb;
 }

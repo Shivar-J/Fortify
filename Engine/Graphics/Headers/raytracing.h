@@ -40,7 +40,7 @@ struct RaytracingUniformBufferObject {
     uint32_t rayBounces = 5;
 };
 
-struct ModelGeom {
+struct RayModel {
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     VkBuffer vertexBuffer;
@@ -89,7 +89,7 @@ namespace Engine::Graphics {
         RaytracingUniformBufferObject uboData;
         void* uboMapped = nullptr;
 
-        std::vector<ModelGeom> models;
+        std::vector<RayModel> models;
 
 	public:
         VkDeviceAddress getBufferDeviceAddress(VkDevice device, VkBuffer buffer);
@@ -98,11 +98,11 @@ namespace Engine::Graphics {
 
         void initRaytracing(Engine::Graphics::Device device);
         auto createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index);
-        void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, ModelGeom model);
+        void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, RayModel model);
         void createTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer);
         void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);
-        void createDescriptorSets(Engine::Graphics::Device device);
+        void createDescriptorSets(Engine::Graphics::Device device, Engine::Graphics::Texture skyboxTexture);
         void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath);
         void createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent);
         void traceRays(VkDevice device, VkCommandBuffer commandBuffer, VkExtent2D extent, VkImage swapchainImage, uint32_t currentImageIndex);

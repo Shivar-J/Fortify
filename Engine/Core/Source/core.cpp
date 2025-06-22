@@ -82,11 +82,6 @@ void Engine::Core::Application::initVulkan()
 	createModel(3);
 	raytrace.buildAccelerationStructure(device, commandbuffer, framebuffer);
 
-	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv");
-	raytrace.createShaderBindingTables(device);
-	raytrace.createUniformBuffer(device);
-	raytrace.createDescriptorSets(device);
-
 	std::vector<std::string> skyboxPaths = {
 		"textures/skybox/right.jpg",
 		"textures/skybox/left.jpg",
@@ -95,6 +90,11 @@ void Engine::Core::Application::initVulkan()
 		"textures/skybox/front.jpg",
 		"textures/skybox/back.jpg"
 	};
+
+	Engine::Graphics::Texture skyboxTexture;
+	skyboxTexture.createCubemap(skyboxPaths, device, commandbuffer, framebuffer, sampler, false);
+	skyboxTexture.createTextureImageView(swapchain, device.getDevice(), true);
+	skyboxTexture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), true);
 
 	std::unordered_map<PBRTextureType, std::string> pbrTextures = {
 		{ PBRTextureType::Albedo, "textures/backpack/diffuse.jpg" },
@@ -110,6 +110,12 @@ void Engine::Core::Application::initVulkan()
 	//scenemanager.addEntity<Vertex, EntityType::MatObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", "textures/backpack/backpack.mtl", "textures/backpack/backpack.obj", true);
 	scenemanager.addEntity<Vertex, EntityType::Light>("shaders/spv/lightVert.spv", "shaders/spv/lightFrag.spv", "", "", false);
 	//scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/spv/primitiveVert.spv", "shaders/spv/primitiveFrag.spv", PrimitiveType::Plane, "", false);
+	
+	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv");
+	raytrace.createShaderBindingTables(device);
+	raytrace.createUniformBuffer(device);
+	raytrace.createDescriptorSets(device, skyboxTexture);
+
 	texture.createSyncObjects(device.getDevice());
 }
 
@@ -995,7 +1001,7 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 
 void Engine::Core::Application::createModel(int x)
 {
-	ModelGeom testModel;
+	RayModel testModel;
 	testModel.vertices = {
 		{{-1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 0.0f}},
 		{{ 1.0f + x,  4.0f,  1.0f}, {}, {1.0f, 0.0f}},

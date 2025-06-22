@@ -276,7 +276,7 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	return blasInstance;
 }
 
-void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, ModelGeom model)
+void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, RayModel model)
 {
 	VkTransformMatrixKHR transformMatrix = {
 		1.0f, 0.0f, 0.0f, 0.0f,
@@ -444,6 +444,9 @@ void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::G
 		fpCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
 		commandBuffer.endSingleTimeCommands(cmdbuf, device.getGraphicsQueue(), device.getDevice());
 	}
+
+	vkDestroyBuffer(device.getDevice(), scratchBuffer.handle, nullptr);
+	vkFreeMemory(device.getDevice(), scratchBuffer.memory, nullptr);
 }
 
 void Engine::Graphics::Raytracing::buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer)
@@ -500,13 +503,14 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 	createSBTBuffer(hitSBTBuffer, hitSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 2, handleSizeAligned);
 }
 
-void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device)
+void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, Engine::Graphics::Texture skyboxTexture)
 {
 	std::vector<VkDescriptorPoolSize> poolSizes = {
 		{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 * static_cast<uint32_t>(models.size())},
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
 	};
 
 	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
@@ -617,6 +621,21 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		writeDescriptorSets.push_back(iBufferWrite);
 	}
 
+	VkDescriptorImageInfo skyboxInfo{};
+	skyboxInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	skyboxInfo.imageView = skyboxTexture.getTextureImageView();
+	skyboxInfo.sampler = skyboxTexture.getTextureSampler();
+
+	VkWriteDescriptorSet skyboxWrite{};
+	skyboxWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	skyboxWrite.dstSet = descriptorSet;
+	skyboxWrite.dstBinding = 6;
+	skyboxWrite.dstArrayElement = 0;
+	skyboxWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	skyboxWrite.descriptorCount = 1;
+	skyboxWrite.pImageInfo = &skyboxInfo;
+	writeDescriptorSets.push_back(skyboxWrite);
+
 	vkUpdateDescriptorSets(
 		device.getDevice(),
 		static_cast<uint32_t>(writeDescriptorSets.size()),
@@ -636,13 +655,14 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 	VkShaderModule missShaderModule = createShaderModule(device.getDevice(), missShaderCode);
 	VkShaderModule closestHitShaderModule = createShaderModule(device.getDevice(), closestHitShaderCode);
 
-	std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {  
-        {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},  
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},  
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},  
-        {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},  
-        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},  
+	std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+		{0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+		{1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
+		{2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
+		{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
 		{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr },
 	};
 
 	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
@@ -946,18 +966,14 @@ void Engine::Graphics::Raytracing::cleanup(VkDevice device)
 	vkDestroyBuffer(device, hitSBTBuffer, nullptr);
 	vkFreeMemory(device, hitSBTMemory, nullptr);
 
-	if (TLAS.handle) {
-		fpDestroyAccelerationStructureKHR(device, TLAS.handle, nullptr);
-		vkDestroyBuffer(device, TLAS.buffer, nullptr);
-		vkFreeMemory(device, TLAS.memory, nullptr);
-	}
+	fpDestroyAccelerationStructureKHR(device, TLAS.handle, nullptr);
+	vkDestroyBuffer(device, TLAS.buffer, nullptr);
+	vkFreeMemory(device, TLAS.memory, nullptr);
 
 	for (auto& blas : BLAS) {
-		if (blas.handle) {
-			fpDestroyAccelerationStructureKHR(device, blas.handle, nullptr);
-			vkDestroyBuffer(device, blas.buffer, nullptr);
-			vkFreeMemory(device, blas.memory, nullptr);
-		}
+		fpDestroyAccelerationStructureKHR(device, blas.handle, nullptr);
+		vkDestroyBuffer(device, blas.buffer, nullptr);
+		vkFreeMemory(device, blas.memory, nullptr);
 	}
 
 	storageImage.destroy(device);
