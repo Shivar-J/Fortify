@@ -72,6 +72,7 @@ namespace Engine::Core {
 	private:
 		GLFWwindow* window = nullptr;
 		VkDescriptorPool imguiPool = VK_NULL_HANDLE;
+		VkRenderPass imguiRenderPass = VK_NULL_HANDLE;
 	};
 }
 #endif

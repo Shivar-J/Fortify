@@ -37,23 +37,13 @@ layout(set = 0, binding = 5) buffer Indices {
     uint indices[];
 };
 
-uint rand_pcg(inout uint rngState) {
-    uint state = rngState;
-    rngState = rngState * 747796405u + 2891336453u;
-    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    return (word >> 22u) ^ word;
+float rand(inout uint state) {
+    state = (1664525u * state + 1013904223u);
+    return float(state & 0x00FFFFFF) / float(0x01000000);
 }
 
-float rand(inout uint rngState) {
-    return float(rand_pcg(rngState)) / 4294967295.0;
-}
-
-vec3 randomDirection(inout uint rngState) {
-    float z = rand(rngState) * 2.0 - 1.0;
-    float a = rand(rngState) * 6.283185307; // 2*pi
-    float r = sqrt(1.0 - z*z);
-    return vec3(r * cos(a), r * sin(a), z);
-}
+const float IOR = 1.5;
+const vec3 glassTint = vec3(0.95, 0.98, 1.0);
 
 void main() {
     uint primID = gl_PrimitiveID;
@@ -66,80 +56,68 @@ void main() {
     Vertex v1 = vertices[i1];
     Vertex v2 = vertices[i2];
 
-    float u = attribs.x;
-    float v = attribs.y;
-    float w = 1.0 - u - v;
-
-    vec3 normal = normalize(w * v0.normal + u * v1.normal + v * v2.normal);
-    vec3 worldPos = w * v0.position + u * v1.position + v * v2.position;
-
-    const float ior = 1.5;
-    vec3 glassColor = vec3(0.95, 0.98, 1.0);
-
-    vec3 rayDir = normalize(gl_WorldRayDirectionEXT);
-
-    RayPayload savedPayload = payload;
-
-    if (payload.depth < ubo.rayBounces) {
-        vec3 reflectionDir = reflect(rayDir, normal);
-
-        float eta = 1.0 / ior;
-        vec3 refractionDir = refract(rayDir, normal, eta);
-
-        float fresnel = 0.0;
-        if (length(refractionDir) < 0.001) {
-            fresnel = 1.0;
-            refractionDir = reflectionDir;
-        } else {
-            float cosTheta = abs(dot(-rayDir, normal));
-            float r0 = pow((1.0 - ior) / (1.0 + ior), 2.0);
-            fresnel = r0 + (1.0 - r0) * pow(1.0 - cosTheta, 5.0);
-        }
-
-        payload.color = vec3(0);
-        payload.attenuation = savedPayload.attenuation * glassColor;
-        payload.depth = savedPayload.depth + 1;
-
-        traceRayEXT(
-            topLevelAS,
-            gl_RayFlagsNoneEXT,
-            0xFF,
-            0, 0, 0,
-            worldPos + normal * 0.001,
-            0.001,
-            reflectionDir,
-            10000.0,
-            0
-        );
-
-        vec3 reflectionColor = payload.color;
-
-        payload = savedPayload;
-        payload.color = vec3(0);
-        payload.attenuation = savedPayload.attenuation * glassColor;
-        payload.depth = savedPayload.depth + 1;
-
-        traceRayEXT(
-            topLevelAS,
-            gl_RayFlagsNoneEXT,
-            0xFF,
-            0, 0, 0,
-            worldPos - normal * 0.001,
-            0.001,
-            refractionDir,
-            10000.0,
-            0
-        );
-
-        vec3 refractionColor = payload.color;
-
-        vec3 glassResult = mix(refractionColor, reflectionColor, fresnel);
-
-        payload = savedPayload;
-        payload.color = glassResult;
-        payload.attenuation = savedPayload.attenuation;
-        payload.depth = savedPayload.depth;
+    vec3 bary = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+    vec3 P = bary.x * v0.position + bary.y * v1.position + bary.z * v2.position;
+    vec3 N = normalize(bary.x * v0.normal + bary.y * v1.normal + bary.z * v2.normal);
+    
+    vec3 V = -gl_WorldRayDirectionEXT;
+    float NdotV = dot(N, V);
+    
+    float eta, cosI;
+    if (NdotV < 0.0) {
+        N = -N;
+        NdotV = -NdotV;
+        eta = IOR;
     } else {
-        payload.color = vec3(0);
+        eta = 1.0 / IOR;
     }
+    
+    vec3 R = reflect(-V, N);
+    
+    vec3 T = vec3(0.0);
+    float fresnel = 1.0;
+    bool tir = false;
+    
+    float sinT2 = eta * eta * (1.0 - NdotV * NdotV);
+    if (sinT2 <= 1.0) {
+        cosI = sqrt(1.0 - sinT2);
+        T = refract(-V, N, eta);
+        
+        float R0 = pow((1.0 - eta) / (1.0 + eta), 2.0);
+        fresnel = R0 + (1.0 - R0) * pow(1.0 - NdotV, 5.0);
+    } else {
+        tir = true;
+    }
+    
+    float r = rand(payload.rngState);
+    vec3 newDir;
+    
+    if (tir || r < fresnel) {
+        newDir = R;
+    } else {
+        newDir = T;
+        payload.attenuation *= glassTint;
+    }
+    
+    vec3 newOrigin = P + sign(dot(newDir, N)) * N * 0.001;
+    
+    if (payload.depth >= ubo.rayBounces) {
+        payload.color = vec3(0.0);
+        return;
+    }
+    
+    payload.depth++;
+    traceRayEXT(
+        topLevelAS,
+        gl_RayFlagsNoneEXT,
+        0xFF,
+        0,
+        0,
+        0,
+        newOrigin,
+        0.01,
+        newDir,
+        1e9,
+        0
+    );
 }
