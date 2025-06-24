@@ -4,6 +4,8 @@ Fortify is a 3D renderer created using Vulkan API. Fortify allows the user to ad
 
 ![](https://github.com/Shivar-J/Fortify/blob/master/Demo/Fortify_y3ZFekqkRY.png)
 
+![](https://github.com/Shivar-J/Fortify/blob/master/Demo/Fortify_OJCcHD0WJe.png)
+
 ![](https://github.com/Shivar-J/Fortify/blob/master/Demo/Fortify_7kyjYASFsi.gif)
 
 ![](https://github.com/Shivar-J/Fortify/blob/master/Demo/Fortify_O1QArscRnS.png)
