@@ -89,7 +89,7 @@ namespace Engine::Graphics {
         RaytracingUniformBufferObject uboData;
         void* uboMapped = nullptr;
 
-        std::vector<RayModel> models;
+        std::vector<MeshObject> models;
 
 	public:
         VkDeviceAddress getBufferDeviceAddress(VkDevice device, VkBuffer buffer);
@@ -98,7 +98,7 @@ namespace Engine::Graphics {
 
         void initRaytracing(Engine::Graphics::Device device);
         auto createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index);
-        void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, RayModel model);
+        void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, MeshObject model);
         void createTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer);
         void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);

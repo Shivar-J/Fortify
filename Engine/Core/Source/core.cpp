@@ -78,8 +78,9 @@ void Engine::Core::Application::initVulkan()
 	raytrace.storageImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 
-	createModel();
-	createModel(3);
+	MeshObject obj = texture.loadModelRT("textures/viking_room/viking_room.obj", device, framebuffer);
+	raytrace.models.push_back(obj);
+
 	raytrace.buildAccelerationStructure(device, commandbuffer, framebuffer);
 
 	std::vector<std::string> skyboxPaths = {
@@ -1065,8 +1066,8 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 
 void Engine::Core::Application::createModel(int x)
 {
-	RayModel testModel;
-	testModel.vertices = {
+	MeshObject testModel;
+	testModel.v = {
 		{{-1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 0.0f}},
 		{{ 1.0f + x,  4.0f,  1.0f}, {}, {1.0f, 0.0f}},
 		{{ 1.0f + x,  6.0f,  1.0f}, {}, {1.0f, 1.0f}},
@@ -1098,9 +1099,7 @@ void Engine::Core::Application::createModel(int x)
 		{{ 1.0f + x,  6.0f,  1.0f}, {}, {0.0f, 1.0f}}
 	};
 
-
-
-	testModel.indices = {
+	testModel.i = {
 		0, 1, 2,  2, 3, 0,
 		4, 5, 6,  6, 7, 4,
 		8, 9, 10, 10, 11, 8,
@@ -1109,44 +1108,43 @@ void Engine::Core::Application::createModel(int x)
 		20, 21, 22, 22, 23, 20
 	};
 
-	for (auto& v : testModel.vertices) {
+	for (auto& v : testModel.v) {
 		v.normal = { 0.0, 0.0, 0.0 };
 	}
 
-	for (uint32_t i = 0; i < testModel.indices.size(); i += 3) {
-		uint32_t i0 = testModel.indices[i];
-		uint32_t i1 = testModel.indices[i + 1];
-		uint32_t i2 = testModel.indices[i + 2];
+	for (uint32_t i = 0; i < testModel.i.size(); i += 3) {
+		uint32_t i0 = testModel.i[i];
+		uint32_t i1 = testModel.i[i + 1];
+		uint32_t i2 = testModel.i[i + 2];
 
-		glm::vec3 edge1 = testModel.vertices[i1].pos - testModel.vertices[i0].pos;
-		glm::vec3 edge2 = testModel.vertices[i2].pos - testModel.vertices[i0].pos;
+		glm::vec3 edge1 = testModel.v[i1].pos - testModel.v[i0].pos;
+		glm::vec3 edge2 = testModel.v[i2].pos - testModel.v[i0].pos;
 		glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
 
-		testModel.vertices[i0].normal += normal;
-		testModel.vertices[i1].normal += normal;
-		testModel.vertices[i2].normal += normal;
+		testModel.v[i0].normal += normal;
+		testModel.v[i1].normal += normal;
+		testModel.v[i2].normal += normal;
 	}
 
-	for (auto& v : testModel.vertices) {
+	for (auto& v : testModel.v) {
 		v.normal = glm::normalize(v.normal);
 	}
 
-
-	VkDeviceSize vertexBufferSize = sizeof(testModel.vertices[0]) * testModel.vertices.size();
+	VkDeviceSize vertexBufferSize = sizeof(testModel.v[0]) * testModel.v.size();
 	framebuffer.createBuffer(device, vertexBufferSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		testModel.vertexBuffer, testModel.vertexBufferMemory, testModel.vertices.data());
+		testModel.vb, testModel.vbm, testModel.v.data());
 
-	VkDeviceSize indexBufferSize = sizeof(testModel.indices[0]) * testModel.indices.size();
+	VkDeviceSize indexBufferSize = sizeof(testModel.i[0]) * testModel.i.size();
 	framebuffer.createBuffer(device, indexBufferSize,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		testModel.indexBuffer, testModel.indexBufferMemory, testModel.indices.data());
+		testModel.ib, testModel.ibm, testModel.i.data());
 
 	raytrace.models.push_back(testModel);
 }

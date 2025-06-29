@@ -113,6 +113,29 @@ struct CubeVertex {
 	}
 };
 
+struct Materials {
+	std::string name;
+	std::string diffusePath;
+	std::string normalPath;
+	std::string roughnessPath;
+	std::string metalnessPath;
+	std::string aoPath;
+	std::string specularPath;
+};
+
+struct MeshObject {
+	std::vector<Vertex> v;
+	std::vector<uint32_t> i;
+	std::vector<Materials> m;
+
+	VkBuffer vb;
+	VkDeviceMemory vbm;
+	VkBuffer ib;
+	VkDeviceMemory ibm;
+	VkBuffer mb;
+	VkDeviceMemory mbm;
+};
+
 namespace Engine::Settings {
 	inline uint32_t WIDTH = 1280;
 	inline uint32_t HEIGHT = 720;

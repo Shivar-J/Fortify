@@ -217,6 +217,179 @@ void Engine::Graphics::Texture::loadModel(const std::string modelPath, const std
     }
 }
 
+MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb)
+{
+    MeshObject t;
+
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    std::string baseDir = std::filesystem::path(modelPath).parent_path().string();
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str())) {
+        throw std::runtime_error(warn + err);
+    }
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+    for (const auto& shape : shapes) {
+        int face = 0;
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex{};
+
+            vertex.pos = {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            };
+
+            vertex.texCoord = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+            };
+
+            if (index.normal_index > 0) {
+                vertex.normal = {
+                    attrib.normals[3 * index.normal_index + 0],
+                    attrib.normals[3 * index.normal_index + 1],
+                    attrib.normals[3 * index.normal_index + 2]
+                };
+            }
+            else {
+                vertex.normal = { 0.0, 1.0, 0.0 };
+            }
+
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(t.v.size());
+                t.v.push_back(vertex);
+            }
+
+            t.i.push_back(uniqueVertices[vertex]);
+        }
+    }
+
+    std::cout << "tag" << std::endl;
+
+    VkDeviceSize vertexBufferSize = sizeof(t.v[0]) * t.v.size();
+    fb.createBuffer(device, vertexBufferSize,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        t.vb, t.vbm, t.v.data());
+
+    std::cout << "tag" << std::endl;
+
+    VkDeviceSize indexBufferSize = sizeof(t.i[0]) * t.i.size();
+    fb.createBuffer(device, indexBufferSize,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        t.ib, t.ibm, t.i.data());
+
+    std::cout << "tag" << std::endl;
+
+    return t;
+}
+
+MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, const std::string materialPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb)
+{
+    MeshObject t;
+
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    std::string baseDir = std::filesystem::path(materialPath).parent_path().string();
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str(), baseDir.c_str())) {
+        throw std::runtime_error(warn + err);
+    }
+
+    for (const auto& mat : materials) {
+        Materials material;
+
+        material.name = mat.name;
+        material.diffusePath = mat.diffuse_texname;
+        material.normalPath = mat.normal_texname;
+        material.roughnessPath = mat.roughness_texname;
+        material.metalnessPath = mat.metallic_texname;
+        material.aoPath = mat.ambient_texname;
+        material.specularPath = mat.specular_texname;
+
+        t.m.push_back(material);
+    }
+
+
+    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+    for (const auto& shape : shapes) {
+        int face = 0;
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex{};
+
+            vertex.pos = {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            };
+
+            vertex.texCoord = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+            };
+
+            if (index.normal_index > 0) {
+                vertex.normal = {
+                    attrib.normals[3 * index.normal_index + 0],
+                    attrib.normals[3 * index.normal_index + 1],
+                    attrib.normals[3 * index.normal_index + 2]
+                };
+            }
+            else {
+                vertex.normal = { 0.0, 1.0, 0.0 };
+            }
+
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(t.v.size());
+                t.v.push_back(vertex);
+            }
+
+            t.i.push_back(uniqueVertices[vertex]);
+        }
+    }
+
+    VkDeviceSize vertexBufferSize = sizeof(t.v[0]) * t.v.size();
+    fb.createBuffer(device, vertexBufferSize,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        t.vb, t.vbm, t.v.data());
+
+    VkDeviceSize indexBufferSize = sizeof(t.i[0]) * t.i.size();
+    fb.createBuffer(device, indexBufferSize,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        t.ib, t.ibm, t.i.data());
+
+    VkDeviceSize matBufferSize = sizeof(t.m[0]) * t.m.size();
+    fb.createBuffer(device, matBufferSize,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        t.mb, t.mbm, t.m.data());
+
+    return t;
+}
+
 void Engine::Graphics::Texture::createVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb)
 {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();

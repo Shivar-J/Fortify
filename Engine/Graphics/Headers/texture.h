@@ -4,16 +4,6 @@
 #include "utility.h"
 #include "camera.h"
 
-struct Materials {
-	std::string name;
-	std::string diffusePath;
-	std::string normalPath;
-	std::string roughnessPath;
-	std::string metalnessPath;
-	std::string aoPath;
-	std::string specularPath;
-};
-
 namespace Engine::Graphics {
 	struct LightBuffer {
 		alignas(16) glm::vec3 pos;
@@ -86,6 +76,8 @@ namespace Engine::Graphics {
 		void createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, bool isPBR = false);
 		void loadModel(const std::string modelPath);
 		void loadModel(const std::string modelPath, const std::string materialPath);
+		MeshObject loadModelRT(const std::string modelPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);
+		MeshObject loadModelRT(const std::string modelPath, const std::string materialPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);
 		void createVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);

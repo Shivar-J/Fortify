@@ -276,7 +276,7 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	return blasInstance;
 }
 
-void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, RayModel model)
+void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, MeshObject model)
 {
 	VkTransformMatrixKHR transformMatrix = {
 		1.0f, 0.0f, 0.0f, 0.0f,
@@ -288,7 +288,7 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 
 	framebuffer.createBuffer(device, sizeof(VkTransformMatrixKHR), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, transformMatrixBuffer, transformMatrixBufferMemory, &transformMatrix);
 		
-	uint32_t numTriangles = static_cast<uint32_t>(model.indices.size()) / 3;
+	uint32_t numTriangles = static_cast<uint32_t>(model.i.size()) / 3;
 
 	VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
 	accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -296,11 +296,11 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
 	accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 	accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.vertexBuffer);
-	accelerationStructureGeometry.geometry.triangles.maxVertex = model.vertices.size();
+	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.vb);
+	accelerationStructureGeometry.geometry.triangles.maxVertex = model.v.size();
 	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.indexBuffer);
+	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.ib);
 	accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = getBufferDeviceAddress(device.getDevice(), transformMatrixBuffer);
 	accelerationStructureGeometry.geometry.triangles.transformData.hostAddress = nullptr;
 
@@ -587,8 +587,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> vBufferInfos;
 	for (auto& model : models) {
-		if (model.vertexBuffer != VK_NULL_HANDLE) {
-			vBufferInfos.push_back({ model.vertexBuffer, 0, VK_WHOLE_SIZE });
+		if (model.vb != VK_NULL_HANDLE) {
+			vBufferInfos.push_back({ model.vb, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -605,8 +605,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> iBufferInfos;
 	for (auto& model : models) {
-		if (model.indexBuffer != VK_NULL_HANDLE) {
-			iBufferInfos.push_back({ model.indexBuffer, 0, VK_WHOLE_SIZE });
+		if (model.ib != VK_NULL_HANDLE) {
+			iBufferInfos.push_back({ model.ib, 0, VK_WHOLE_SIZE });
 		}
 	}
 
