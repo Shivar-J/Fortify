@@ -121,6 +121,8 @@ void Engine::Core::Application::initVulkan()
 
 void Engine::Core::Application::initImGui()
 {
+	createImGuiRenderPass();
+
 	VkDescriptorPoolSize poolSizes[] = {
 		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10000 },
@@ -156,10 +158,10 @@ void Engine::Core::Application::initImGui()
 	initInfo.Device = device.getDevice();
 	initInfo.Queue = device.getGraphicsQueue();
 	initInfo.DescriptorPool = imguiPool;
-	initInfo.RenderPass = renderpass.getRenderPass();
+	initInfo.RenderPass = imguiRenderPass;
 	initInfo.MinImageCount = 3;
 	initInfo.ImageCount = 3;
-	initInfo.MSAASamples = sampler.getSamples();
+	initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
 	ImGui_ImplVulkan_Init(&initInfo);
 
@@ -167,6 +169,8 @@ void Engine::Core::Application::initImGui()
 	ImGui_ImplVulkan_CreateFontsTexture();
 	commandbuffer.endSingleTimeCommands(imguiCB, device.getGraphicsQueue(), device.getDevice());
 	ImGui_ImplVulkan_DestroyFontsTexture();
+
+	createImGuiFramebuffers();
 }
 
 void Engine::Core::Application::mainLoop()
@@ -866,6 +870,61 @@ void Engine::Core::Application::raytraceFrame()
 
 	raytrace.traceRays(device.getDevice(), commandBuffer, swapchain.getSwapchainExtent(), swapchain.getSwapchainImages()[imageIndex], imageIndex);
 
+	VkImageMemoryBarrier imguiBarrier{};
+	imguiBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imguiBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;  // From traceRays
+	imguiBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	imguiBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	imguiBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	imguiBarrier.image = swapchain.getSwapchainImages()[imageIndex];
+	imguiBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imguiBarrier.subresourceRange.levelCount = 1;
+	imguiBarrier.subresourceRange.layerCount = 1;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &imguiBarrier
+	);
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = imguiRenderPass;
+	renderPassInfo.framebuffer = imguiFramebuffers[imageIndex];
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = swapchain.getSwapchainExtent();
+	renderPassInfo.clearValueCount = 0;
+	renderPassInfo.pClearValues = nullptr;
+
+	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+	vkCmdEndRenderPass(commandBuffer);
+
+	VkImageMemoryBarrier presentBarrier{};
+	presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	presentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	presentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	presentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	presentBarrier.dstAccessMask = 0;
+	presentBarrier.image = swapchain.getSwapchainImages()[imageIndex];
+	presentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	presentBarrier.subresourceRange.levelCount = 1;
+	presentBarrier.subresourceRange.layerCount = 1;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &presentBarrier
+	);
+
 	vkEndCommandBuffer(commandBuffer);
 
 	VkSubmitInfo submitInfo{};
@@ -1085,4 +1144,58 @@ void Engine::Core::Application::createModel(int x)
 		testModel.indexBuffer, testModel.indexBufferMemory, testModel.indices.data());
 
 	raytrace.models.push_back(testModel);
+}
+
+void Engine::Core::Application::createImGuiRenderPass()
+{
+	VkAttachmentDescription attachment{};
+	attachment.format = swapchain.getSwapchainImageFormat();
+	attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorRef{};
+	colorRef.attachment = 0;
+	colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorRef;
+
+	VkRenderPassCreateInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &attachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+
+	if (vkCreateRenderPass(device.getDevice(), &renderPassInfo, nullptr, &imguiRenderPass) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create ImGui render pass");
+	}
+}
+
+void Engine::Core::Application::createImGuiFramebuffers()
+{
+	imguiFramebuffers.resize(swapchain.getSwapchainFramebuffers().size());
+	for (size_t i = 0; i < imguiFramebuffers.size(); i++) {
+		VkImageView attachments[] = { swapchain.getSwapchainImageViews()[i] };
+
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = imguiRenderPass;
+		framebufferInfo.attachmentCount = 1;
+		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.width = swapchain.getSwapchainExtent().width;
+		framebufferInfo.height = swapchain.getSwapchainExtent().height;
+		framebufferInfo.layers = 1;
+
+		if (vkCreateFramebuffer(device.getDevice(), &framebufferInfo, nullptr, &imguiFramebuffers[i]) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create ImGui framebuffer");
+		}
+	}
 }

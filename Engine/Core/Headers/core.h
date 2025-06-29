@@ -56,6 +56,9 @@ namespace Engine::Core {
 
 		void createModel(int x = 0);
 
+		void createImGuiRenderPass();
+		void createImGuiFramebuffers();
+
 		GLFWwindow* getWindow() const { return window; }
 	public:
 		bool framebufferResized = false;
@@ -73,6 +76,7 @@ namespace Engine::Core {
 		GLFWwindow* window = nullptr;
 		VkDescriptorPool imguiPool = VK_NULL_HANDLE;
 		VkRenderPass imguiRenderPass = VK_NULL_HANDLE;
+		std::vector<VkFramebuffer> imguiFramebuffers;
 	};
 }
 #endif

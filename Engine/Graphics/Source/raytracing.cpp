@@ -892,7 +892,7 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 		1, &blitRegion,
 		VK_FILTER_LINEAR
 	);
-
+	
 	VkImageMemoryBarrier presentBarrier = {};
 	presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	presentBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -911,6 +911,7 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 		0, nullptr,
 		1, &presentBarrier
 	);
+	
 }
 
 void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device device)
