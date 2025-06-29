@@ -566,6 +566,11 @@ void Engine::Core::Application::cleanup()
 
 	raytrace.cleanup(device.getDevice());
 
+	for (auto& fb : imguiFramebuffers) {
+		vkDestroyFramebuffer(device.getDevice(), fb, nullptr);
+	}
+	vkDestroyRenderPass(device.getDevice(), imguiRenderPass, nullptr);
+
 	if (Engine::Settings::enableValidationLayers) {
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
