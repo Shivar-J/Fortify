@@ -9,33 +9,11 @@
 #include "sampler.h"
 #include "string"
 #include "camera.h"
+#include "raytracing.h"
 
 #include "imgui.h"
 #include "ImGuizmo.h"
 #include "imfilebrowser.h"
-
-enum class EntityType {
-	Object,
-	Skybox,
-	UI,
-	Light,
-	Terrain,
-	Particle,
-	PBRObject,
-	MatObject,
-	Primitive
-};
-
-enum class ShaderType {
-	Vertex,
-	Fragment
-};
-
-enum class PrimitiveType {
-	Cube,
-	Sphere,
-	Plane,
-};
 
 struct Entity {
 	std::string vertexPath = "";
@@ -97,8 +75,9 @@ namespace Engine::Core {
 			Engine::Graphics::CommandBuffer& commandbuffer, 
 			Engine::Graphics::FrameBuffer& framebuffer, 
 			Engine::Graphics::Swapchain& swapchain,
-			Engine::Core::Camera& camera
-		) : device(device), sampler(sampler), renderpass(renderpass), commandbuffer(commandbuffer), framebuffer(framebuffer), swapchain(swapchain), camera(camera) {}
+			Engine::Core::Camera& camera,
+			Engine::Graphics::Raytracing& raytrace
+		) : device(device), sampler(sampler), renderpass(renderpass), commandbuffer(commandbuffer), framebuffer(framebuffer), swapchain(swapchain), camera(camera), raytrace(raytrace) {}
 
 		template<EntityType Entity> struct TagFromEntityType {};
 		template<> struct TagFromEntityType<EntityType::Object> { using type = ObjectTag; };
@@ -412,6 +391,7 @@ namespace Engine::Core {
 		Engine::Graphics::FrameBuffer& framebuffer;
 		Engine::Graphics::Swapchain& swapchain;
 		Engine::Core::Camera& camera;
+		Engine::Graphics::Raytracing& raytrace;
 		std::vector<const char*> shaderPaths;
 	};
 }

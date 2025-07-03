@@ -270,7 +270,6 @@ MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, E
         }
     }
 
-    std::cout << "tag" << std::endl;
 
     VkDeviceSize vertexBufferSize = sizeof(t.v[0]) * t.v.size();
     fb.createBuffer(device, vertexBufferSize,
@@ -280,7 +279,6 @@ MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, E
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         t.vb, t.vbm, t.v.data());
 
-    std::cout << "tag" << std::endl;
 
     VkDeviceSize indexBufferSize = sizeof(t.i[0]) * t.i.size();
     fb.createBuffer(device, indexBufferSize,
@@ -290,12 +288,11 @@ MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, E
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         t.ib, t.ibm, t.i.data());
 
-    std::cout << "tag" << std::endl;
 
     return t;
 }
 
-MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, const std::string materialPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb)
+MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, const std::string materialPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb, Engine::Graphics::CommandBuffer cb, Engine::Graphics::Sampler sampler, Engine::Graphics::Swapchain swapchain)
 {
     MeshObject t;
 
@@ -320,6 +317,23 @@ MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, c
         material.metalnessPath = mat.metallic_texname;
         material.aoPath = mat.ambient_texname;
         material.specularPath = mat.specular_texname;
+
+        if (!mat.diffuse_texname.empty()) {
+            vkDestroySampler(device.getDevice(), textureSampler, nullptr);
+            vkDestroyImageView(device.getDevice(), textureImageView, nullptr);
+
+            vkDestroyImage(device.getDevice(), textureImage, nullptr);
+            vkFreeMemory(device.getDevice(), textureImageMemory, nullptr);
+
+            createTextureImage(material.diffusePath, device, cb, fb, sampler, false);
+            createTextureImageView(swapchain, device.getDevice(), false);
+            createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+            material.diffuseImage = textureImage;
+            material.diffuseImageView = textureImageView;
+            material.diffuseSampler = textureSampler;
+            material.diffuseImageMemory = textureImageMemory;
+        }
 
         t.m.push_back(material);
     }

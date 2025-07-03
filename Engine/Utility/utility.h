@@ -36,7 +36,6 @@
 
 #include "device.h"
 
-
 struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 normal;
@@ -121,6 +120,71 @@ struct Materials {
 	std::string metalnessPath;
 	std::string aoPath;
 	std::string specularPath;
+
+	VkImage diffuseImage;
+	VkImageView diffuseImageView;
+	VkSampler diffuseSampler;
+	VkDeviceMemory diffuseImageMemory;
+
+	VkImage normalImage;
+	VkImageView normalImageView;
+	VkSampler normalSampler;
+	VkDeviceMemory normalImageMemory;
+
+	VkImage roughnessImage;
+	VkImageView roughnessImageView;
+	VkSampler roughnessSampler;
+	VkDeviceMemory roughnessImageMemory;
+
+	VkImage metalnessImage;
+	VkImageView metalnessImageView;
+	VkSampler metalnessSampler;
+	VkDeviceMemory metalnessImageMemory;
+
+	VkImage aoImage;
+	VkImageView aoImageView;
+	VkSampler aoSampler;
+	VkDeviceMemory aoImageMemory;
+
+	VkImage specularImage;
+	VkImageView specularImageView;
+	VkSampler specularSampler;
+	VkDeviceMemory specularImageMemory;
+};
+
+enum class PBRTextureType {
+	Albedo = 1,
+	Normal = 2,
+	Roughness = 3,
+	Metalness = 4,
+	AmbientOcclusion = 5,
+	Specular = 6,
+};
+
+enum class EntityType {
+	Object,
+	Skybox,
+	UI,
+	Light,
+	Terrain,
+	Particle,
+	PBRObject,
+	MatObject,
+	Primitive
+};
+
+enum class ShaderType {
+	Vertex,
+	Fragment,
+	rgen,
+	rchit,
+	rmiss
+};
+
+enum class PrimitiveType {
+	Cube,
+	Sphere,
+	Plane,
 };
 
 struct MeshObject {
@@ -128,12 +192,24 @@ struct MeshObject {
 	std::vector<uint32_t> i;
 	std::vector<Materials> m;
 
-	VkBuffer vb;
-	VkDeviceMemory vbm;
-	VkBuffer ib;
-	VkDeviceMemory ibm;
-	VkBuffer mb;
-	VkDeviceMemory mbm;
+	VkBuffer vb = VK_NULL_HANDLE;
+	VkDeviceMemory vbm = VK_NULL_HANDLE;
+	VkBuffer ib = VK_NULL_HANDLE;
+	VkDeviceMemory ibm = VK_NULL_HANDLE;
+	VkBuffer mb = VK_NULL_HANDLE;
+	VkDeviceMemory mbm = VK_NULL_HANDLE;
+};
+
+struct RTScene {
+	MeshObject obj;
+	std::string name = "";
+	bool markedForDeletion = false;
+	glm::mat4 matrix;
+	glm::vec3 scale = glm::vec3(1.0f);
+	glm::vec3 color = glm::vec3(0.75f);
+	std::unordered_map<PBRTextureType, std::string> texturePaths;
+	bool hasTexture = false;
+	bool showGizmo = false;
 };
 
 namespace Engine::Settings {
@@ -176,5 +252,7 @@ namespace Engine::Utility {
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice);
 	bool hasStencilComponent(VkFormat format);
 	std::vector<const char*> getShaderPaths(const char*& path);
+	VkTransformMatrixKHR convertMat4ToTransformMatrix(glm::mat4 mat);
+	glm::mat4 convertTransformMatrixToMat4(VkTransformMatrixKHR mat);
 }
 #endif

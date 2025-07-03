@@ -89,7 +89,10 @@ namespace Engine::Graphics {
         RaytracingUniformBufferObject uboData;
         void* uboMapped = nullptr;
 
-        std::vector<MeshObject> models;
+        VkBuffer instanceBuffer;
+        VkDeviceMemory instanceBufferMemory;
+
+        std::vector<RTScene> models;
 
 	public:
         VkDeviceAddress getBufferDeviceAddress(VkDevice device, VkBuffer buffer);
@@ -98,8 +101,10 @@ namespace Engine::Graphics {
 
         void initRaytracing(Engine::Graphics::Device device);
         auto createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index);
-        void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, MeshObject model);
+        void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, RTScene model);
         void createTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer);
+        void updateTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, bool rebuild = false);
+        
         void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);
         void createDescriptorSets(Engine::Graphics::Device device, Engine::Graphics::Texture skyboxTexture);

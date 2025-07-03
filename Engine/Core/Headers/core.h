@@ -13,29 +13,18 @@
 #include "sampler.h"
 #include "swapchain.h"
 #include "camera.h"
+#include "rtSceneManager.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
 namespace Engine::Core {
 	class Application {
-	private:
-		Engine::Graphics::Instance instance;
-		Engine::Graphics::Device device;
-		Engine::Graphics::Sampler sampler;
-		Engine::Graphics::Swapchain swapchain;
-		Engine::Graphics::RenderPass renderpass;
-		//std::vector<Engine::Graphics::Pipeline> pipelines;
-		Engine::Graphics::CommandBuffer commandbuffer;
-		Engine::Graphics::FrameBuffer framebuffer;
-		Engine::Graphics::Texture texture;
-		Engine::Graphics::DescriptorSets descriptor;
-		Engine::Core::SceneManager scenemanager;
-		Engine::Graphics::Raytracing raytrace;
-
 	public:
 		Application() :
-			scenemanager(device, sampler, renderpass, commandbuffer, framebuffer, swapchain, camera) {}
+			scenemanager(device, sampler, renderpass, commandbuffer, framebuffer, swapchain, camera, raytrace),
+			rtscenemanager(device, sampler, commandbuffer, framebuffer, swapchain, camera, texture, raytrace)
+			 {}
 
 		void run();
 		void initWindow();
@@ -77,6 +66,20 @@ namespace Engine::Core {
 		VkDescriptorPool imguiPool = VK_NULL_HANDLE;
 		VkRenderPass imguiRenderPass = VK_NULL_HANDLE;
 		std::vector<VkFramebuffer> imguiFramebuffers;
+		bool accumulateFrames = true;
+
+		Engine::Graphics::Instance instance;
+		Engine::Graphics::Device device;
+		Engine::Graphics::Sampler sampler;
+		Engine::Graphics::Swapchain swapchain;
+		Engine::Graphics::RenderPass renderpass;
+		Engine::Graphics::CommandBuffer commandbuffer;
+		Engine::Graphics::FrameBuffer framebuffer;
+		Engine::Graphics::Texture texture;
+		Engine::Graphics::DescriptorSets descriptor;
+		Engine::Core::SceneManager scenemanager;
+		Engine::Core::RT::SceneManager rtscenemanager;
+		Engine::Graphics::Raytracing raytrace;
 	};
 }
 #endif

@@ -77,7 +77,7 @@ namespace Engine::Graphics {
 		void loadModel(const std::string modelPath);
 		void loadModel(const std::string modelPath, const std::string materialPath);
 		MeshObject loadModelRT(const std::string modelPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);
-		MeshObject loadModelRT(const std::string modelPath, const std::string materialPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);
+		MeshObject loadModelRT(const std::string modelPath, const std::string materialPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb, Engine::Graphics::CommandBuffer cb, Engine::Graphics::Sampler sampler, Engine::Graphics::Swapchain swapchain);
 		void createVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);

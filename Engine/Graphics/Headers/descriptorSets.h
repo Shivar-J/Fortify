@@ -5,15 +5,6 @@
 #include "imgui.h"
 #include "imgui_impl_vulkan.h"
 
-enum class PBRTextureType {
-	Albedo = 1,
-	Normal = 2,
-	Roughness = 3,
-	Metalness = 4,
-	AmbientOcclusion = 5,
-	Specular = 6,
-};
-
 namespace Engine::Graphics {
 	class Texture;
 	class Device;

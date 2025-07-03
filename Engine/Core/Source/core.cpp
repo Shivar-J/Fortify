@@ -29,7 +29,7 @@ void Engine::Core::Application::initWindow()
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetKeyCallback(window, key_callback);
 
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 }
 
 void Engine::Core::Application::initVulkan()
@@ -78,8 +78,15 @@ void Engine::Core::Application::initVulkan()
 	raytrace.storageImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 
-	MeshObject obj = texture.loadModelRT("textures/viking_room/viking_room.obj", device, framebuffer);
-	raytrace.models.push_back(obj);
+	//rtscenemanager.add("textures/backpack/backpack.obj");
+	rtscenemanager.add("textures/viking_room/viking_room.obj");
+	rtscenemanager.add("textures/backpack/backpack.obj");
+
+	rtscenemanager.pushToAccelerationStructure(raytrace.models);
+
+	//MeshObject obj = texture.loadModelRT("textures/backpack/backpack.obj", device, framebuffer);
+	//MeshObject obj = texture.loadModelRT("textures/backpack/backpack.obj", "textures/backpack/backpack.mtl", device, framebuffer, commandbuffer, sampler, swapchain);
+	//raytrace.models.push_back(obj);
 
 	raytrace.buildAccelerationStructure(device, commandbuffer, framebuffer);
 
@@ -228,195 +235,153 @@ void Engine::Core::Application::mainLoop()
 		ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
 		ImGui::Checkbox("Enable Raytracing", &useRaytracer);
-			
-		if (ImGui::Button("Set Shader Path")) {
-			setShaderPath = true;
-			file.Open();
-		}
 
-		if (setShaderPath) {
-			file.Display();
-			if (file.HasSelected()) {
-				std::string strPath = file.GetDirectory().string();
-				shaderPath = strPath.c_str();
-				std::cout << shaderPath << std::endl;
-				file.ClearSelected();
-				shaderPaths = Engine::Utility::getShaderPaths(shaderPath);
-				scenemanager.setShaderPaths(shaderPaths);
-				setShaderPath = false;
+		if (useRaytracer) {
+			ImGui::Checkbox("Accumulate Frames", &accumulateFrames);
+			rtscenemanager.updateScene();
+		}
+		else {
+
+			if (ImGui::Button("Set Shader Path")) {
+				setShaderPath = true;
+				file.Open();
 			}
-		}
 
-		scenemanager.updateScene();
-
-		if (ImGui::Button("Add Entity")) {
-			entity.add = true;
-		}
-
-		if (entity.add) {
-			ImGui::OpenPopup("Add Entity");
-
-			ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-			ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-
-			if (ImGui::BeginPopupModal("Add Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-				ImGui::SetItemDefaultFocus();
-
-				const char* entityItems[] = {
-					scenemanager.entityString(EntityType::Object),
-					scenemanager.entityString(EntityType::Skybox),
-					scenemanager.entityString(EntityType::UI),
-					scenemanager.entityString(EntityType::Light),
-					scenemanager.entityString(EntityType::Terrain),
-					scenemanager.entityString(EntityType::Particle),
-					scenemanager.entityString(EntityType::PBRObject),
-					scenemanager.entityString(EntityType::MatObject),
-					scenemanager.entityString(EntityType::Primitive)
-				};
-
-				int currentItem = static_cast<int>(entity.type);
-
-				if (ImGui::Combo("Entity Type", &currentItem, entityItems, IM_ARRAYSIZE(entityItems))) {
-					entity.type = static_cast<EntityType>(currentItem);
+			if (setShaderPath) {
+				file.Display();
+				if (file.HasSelected()) {
+					std::string strPath = file.GetDirectory().string();
+					shaderPath = strPath.c_str();
+					std::cout << shaderPath << std::endl;
+					file.ClearSelected();
+					shaderPaths = Engine::Utility::getShaderPaths(shaderPath);
+					scenemanager.setShaderPaths(shaderPaths);
+					setShaderPath = false;
 				}
+			}
 
-				if (ImGui::Button("Vertex Shader")) {
-					selectVertex = true;
-					file.Open();
-				}
+			scenemanager.updateScene();
 
-				if (selectVertex) {
-					file.Display();
-					if (file.HasSelected()) {
-						entity.vertexPath = file.GetSelected().string();
-						file.ClearSelected();
-						selectVertex = false;
-					}
-				}
+			if (ImGui::Button("Add Entity")) {
+				entity.add = true;
+			}
 
-				ImGui::SameLine();
+			if (entity.add) {
+				ImGui::OpenPopup("Add Entity");
 
-				ImGui::Text("%s", entity.vertexPath.c_str());
+				ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+				ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 
-				if (ImGui::Button("Fragment Shader")) {
-					selectFragment = true;
-					file.Open();
-				}
+				if (ImGui::BeginPopupModal("Add Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+					ImGui::SetItemDefaultFocus();
 
-				if (selectFragment) {
-					file.Display();
-					if (file.HasSelected()) {
-						entity.fragmentPath = file.GetSelected().string();
-						file.ClearSelected();
-						selectFragment = false;
-					}
-				}
-
-				ImGui::SameLine();
-
-				ImGui::Text("%s", entity.fragmentPath.c_str());
-
-				if (entity.type == EntityType::Object) {
-					if (ImGui::Button("Texture Path")) {
-						selectTexture = true;
-						file.Open();
-					}
-
-					if (selectTexture) {
-						file.Display();
-						if (file.HasSelected()) {
-							entity.texturePath = file.GetSelected().string();
-							file.ClearSelected();
-							selectTexture = false;
-						}
-					}
-
-					ImGui::SameLine();
-					ImGui::Text("%s", entity.texturePath.c_str());
-
-					if (ImGui::Button("Model Path")) {
-						selectModel = true;
-						file.Open();
-					}
-
-					if (selectModel) {
-						file.Display();
-						if (file.HasSelected()) {
-							entity.modelPath = file.GetSelected().string();
-							file.ClearSelected();
-							selectModel = false;
-						}
-					}
-
-					ImGui::SameLine();
-
-					ImGui::Text("%s", entity.modelPath.c_str());
-
-					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-				}
-				else if (entity.type == EntityType::PBRObject) {
-					const char* textureType[] = {
-						scenemanager.textureString(PBRTextureType::Albedo),
-						scenemanager.textureString(PBRTextureType::Normal),
-						scenemanager.textureString(PBRTextureType::Roughness),
-						scenemanager.textureString(PBRTextureType::Metalness),
-						scenemanager.textureString(PBRTextureType::AmbientOcclusion),
-						scenemanager.textureString(PBRTextureType::Specular),
+					const char* entityItems[] = {
+						scenemanager.entityString(EntityType::Object),
+						scenemanager.entityString(EntityType::Skybox),
+						scenemanager.entityString(EntityType::UI),
+						scenemanager.entityString(EntityType::Light),
+						scenemanager.entityString(EntityType::Terrain),
+						scenemanager.entityString(EntityType::Particle),
+						scenemanager.entityString(EntityType::PBRObject),
+						scenemanager.entityString(EntityType::MatObject),
+						scenemanager.entityString(EntityType::Primitive)
 					};
 
-					int currentItem = static_cast<int>(entity.textureType) - 1;
+					int currentItem = static_cast<int>(entity.type);
 
-					if (ImGui::Combo("Texture Type", &currentItem, textureType, IM_ARRAYSIZE(textureType))) {
-						entity.textureType = static_cast<PBRTextureType>(currentItem + 1);
+					if (ImGui::Combo("Entity Type", &currentItem, entityItems, IM_ARRAYSIZE(entityItems))) {
+						entity.type = static_cast<EntityType>(currentItem);
 					}
 
-					if (ImGui::Button("Add Texture")) {
-						selectTexture = true;
+					if (ImGui::Button("Vertex Shader")) {
+						selectVertex = true;
 						file.Open();
 					}
 
-					if (selectTexture) {
+					if (selectVertex) {
 						file.Display();
 						if (file.HasSelected()) {
-							entity.texturePaths.insert({ entity.textureType , file.GetSelected().string() });
+							entity.vertexPath = file.GetSelected().string();
 							file.ClearSelected();
-							selectTexture = false;
+							selectVertex = false;
 						}
 					}
 
 					ImGui::SameLine();
 
-					if (ImGui::Button("Remove Texture")) {
-						entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
-					}
+					ImGui::Text("%s", entity.vertexPath.c_str());
 
-					for (auto& texturePair : entity.texturePaths) {
-						ImGui::Text("%s %s", scenemanager.textureString(texturePair.first), texturePair.second.c_str());
-					}
-
-					if (ImGui::Button("Model Path")) {
-						selectModel = true;
+					if (ImGui::Button("Fragment Shader")) {
+						selectFragment = true;
 						file.Open();
 					}
 
-					if (selectModel) {
+					if (selectFragment) {
 						file.Display();
 						if (file.HasSelected()) {
-							entity.modelPath = file.GetSelected().string();
+							entity.fragmentPath = file.GetSelected().string();
 							file.ClearSelected();
-							selectModel = false;
+							selectFragment = false;
 						}
 					}
 
 					ImGui::SameLine();
 
-					ImGui::Text("%s", entity.modelPath.c_str());
+					ImGui::Text("%s", entity.fragmentPath.c_str());
 
-					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-				}
-				else if (entity.type == EntityType::Skybox) {
-					if (!scenemanager.hasSkybox()) {
-						ImGui::Text("Skybox paths include order matters!");
+					if (entity.type == EntityType::Object) {
+						if (ImGui::Button("Texture Path")) {
+							selectTexture = true;
+							file.Open();
+						}
+
+						if (selectTexture) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.texturePath = file.GetSelected().string();
+								file.ClearSelected();
+								selectTexture = false;
+							}
+						}
+
+						ImGui::SameLine();
+						ImGui::Text("%s", entity.texturePath.c_str());
+
+						if (ImGui::Button("Model Path")) {
+							selectModel = true;
+							file.Open();
+						}
+
+						if (selectModel) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.modelPath = file.GetSelected().string();
+								file.ClearSelected();
+								selectModel = false;
+							}
+						}
+
+						ImGui::SameLine();
+
+						ImGui::Text("%s", entity.modelPath.c_str());
+
+						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+					}
+					else if (entity.type == EntityType::PBRObject) {
+						const char* textureType[] = {
+							scenemanager.textureString(PBRTextureType::Albedo),
+							scenemanager.textureString(PBRTextureType::Normal),
+							scenemanager.textureString(PBRTextureType::Roughness),
+							scenemanager.textureString(PBRTextureType::Metalness),
+							scenemanager.textureString(PBRTextureType::AmbientOcclusion),
+							scenemanager.textureString(PBRTextureType::Specular),
+						};
+
+						int currentItem = static_cast<int>(entity.textureType) - 1;
+
+						if (ImGui::Combo("Texture Type", &currentItem, textureType, IM_ARRAYSIZE(textureType))) {
+							entity.textureType = static_cast<PBRTextureType>(currentItem + 1);
+						}
 
 						if (ImGui::Button("Add Texture")) {
 							selectTexture = true;
@@ -426,7 +391,7 @@ void Engine::Core::Application::mainLoop()
 						if (selectTexture) {
 							file.Display();
 							if (file.HasSelected()) {
-								entity.skyboxPaths.push_back(file.GetSelected().string());
+								entity.texturePaths.insert({ entity.textureType , file.GetSelected().string() });
 								file.ClearSelected();
 								selectTexture = false;
 							}
@@ -438,111 +403,160 @@ void Engine::Core::Application::mainLoop()
 							entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
 						}
 
-						for (auto& skybox : entity.skyboxPaths) {
-							ImGui::Text("%s", skybox.c_str());
+						for (auto& texturePair : entity.texturePaths) {
+							ImGui::Text("%s %s", scenemanager.textureString(texturePair.first), texturePair.second.c_str());
+						}
+
+						if (ImGui::Button("Model Path")) {
+							selectModel = true;
+							file.Open();
+						}
+
+						if (selectModel) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.modelPath = file.GetSelected().string();
+								file.ClearSelected();
+								selectModel = false;
+							}
+						}
+
+						ImGui::SameLine();
+
+						ImGui::Text("%s", entity.modelPath.c_str());
+
+						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+					}
+					else if (entity.type == EntityType::Skybox) {
+						if (!scenemanager.hasSkybox()) {
+							ImGui::Text("Skybox paths include order matters!");
+
+							if (ImGui::Button("Add Texture")) {
+								selectTexture = true;
+								file.Open();
+							}
+
+							if (selectTexture) {
+								file.Display();
+								if (file.HasSelected()) {
+									entity.skyboxPaths.push_back(file.GetSelected().string());
+									file.ClearSelected();
+									selectTexture = false;
+								}
+							}
+
+							ImGui::SameLine();
+
+							if (ImGui::Button("Remove Texture")) {
+								entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
+							}
+
+							for (auto& skybox : entity.skyboxPaths) {
+								ImGui::Text("%s", skybox.c_str());
+							}
+						}
+
+						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+					}
+					else if (entity.type == EntityType::MatObject) {
+						if (ImGui::Button("Model Path")) {
+							selectModel = true;
+							file.Open();
+						}
+
+						if (selectModel) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.modelPath = file.GetSelected().string();
+								file.ClearSelected();
+								selectModel = false;
+							}
+						}
+
+						ImGui::SameLine();
+
+						ImGui::Text("%s", entity.modelPath.c_str());
+
+						if (ImGui::Button("Material Path")) {
+							selectMat = true;
+							file.Open();
+						}
+
+						if (selectMat) {
+							file.Display();
+							if (file.HasSelected()) {
+								entity.materialPath = file.GetSelected().string();
+								file.ClearSelected();
+								selectMat = false;
+							}
+						}
+
+						ImGui::SameLine();
+
+						ImGui::Text("%s", entity.materialPath.c_str());
+
+						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+					}
+					else if (entity.type == EntityType::Primitive) {
+						const char* primitiveType[] = {
+							scenemanager.primitiveString(PrimitiveType::Cube),
+							scenemanager.primitiveString(PrimitiveType::Sphere),
+							scenemanager.primitiveString(PrimitiveType::Plane),
+						};
+
+						int currentItem = static_cast<int>(entity.primitiveType);
+
+						if (ImGui::Combo("Primitive Type", &currentItem, primitiveType, IM_ARRAYSIZE(primitiveType))) {
+							entity.primitiveType = static_cast<PrimitiveType>(currentItem);
 						}
 					}
 
-					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-				}
-				else if (entity.type == EntityType::MatObject) {
-					if (ImGui::Button("Model Path")) {
-						selectModel = true;
-						file.Open();
-					}
-
-					if (selectModel) {
-						file.Display();
-						if (file.HasSelected()) {
-							entity.modelPath = file.GetSelected().string();
-							file.ClearSelected();
-							selectModel = false;
-						}
+					if (ImGui::Button("Close")) {
+						ImGui::CloseCurrentPopup();
+						entity.add = false;
 					}
 
 					ImGui::SameLine();
 
-					ImGui::Text("%s", entity.modelPath.c_str());
+					if (ImGui::Button("Add")) {
+						ImGui::CloseCurrentPopup();
+						EntityType type = static_cast<EntityType>(entity.type);
 
-					if (ImGui::Button("Material Path")) {
-						selectMat = true;
-						file.Open();
-					}
-
-					if (selectMat) {
-						file.Display();
-						if (file.HasSelected()) {
-							entity.materialPath = file.GetSelected().string();
-							file.ClearSelected();
-							selectMat = false;
-						}
-					}
-
-					ImGui::SameLine();
-
-					ImGui::Text("%s", entity.materialPath.c_str());
-
-					ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-				}
-				else if (entity.type == EntityType::Primitive) {
-					const char* primitiveType[] = {
-						scenemanager.primitiveString(PrimitiveType::Cube),
-						scenemanager.primitiveString(PrimitiveType::Sphere),
-						scenemanager.primitiveString(PrimitiveType::Plane),
-					};
-
-					int currentItem = static_cast<int>(entity.primitiveType);
-
-					if (ImGui::Combo("Primitive Type", &currentItem, primitiveType, IM_ARRAYSIZE(primitiveType))) {
-						entity.primitiveType = static_cast<PrimitiveType>(currentItem);
-					}
-				}
-
-				if (ImGui::Button("Close")) {
-					ImGui::CloseCurrentPopup();
-					entity.add = false;
-				}
-
-				ImGui::SameLine();
-
-				if (ImGui::Button("Add")) {
-					ImGui::CloseCurrentPopup();
-					EntityType type = static_cast<EntityType>(entity.type);
-
-					switch (type) {
-					case EntityType::Object:
-						scenemanager.addEntity<Vertex, EntityType::Object>(entity.vertexPath, entity.fragmentPath, entity.texturePath, entity.modelPath, entity.flipTexture);
-						entity.add = false;
-						break;
-					case EntityType::PBRObject:
-						scenemanager.addEntity<Vertex, EntityType::PBRObject>(entity.vertexPath, entity.fragmentPath, entity.texturePaths, entity.modelPath, entity.flipTexture);
-						entity.add = false;
-						break;
-					case EntityType::MatObject:
-						scenemanager.addEntity<Vertex, EntityType::MatObject>(entity.vertexPath, entity.fragmentPath, entity.materialPath, entity.modelPath, entity.flipTexture);
-						entity.add = false;
-						break;
-					case EntityType::Primitive:
-						scenemanager.addEntity<Vertex, EntityType::Primitive>(entity.vertexPath, entity.fragmentPath, entity.primitiveType, "", entity.flipTexture);
-						entity.add = false;
-						break;
-					case EntityType::Light:
-						scenemanager.addEntity<Vertex, EntityType::Light>(entity.vertexPath, entity.fragmentPath, "", "", false);
-						entity.add = false;
-						break;
-					case EntityType::Skybox:
-						if (entity.skyboxPaths.size() != 6) {
-							ImGui::Text("Missing skybox side");
-							break;
-						}
-						else {
-							scenemanager.addEntity<CubeVertex, EntityType::Skybox>(entity.vertexPath, entity.fragmentPath, entity.skyboxPaths, "", entity.flipTexture);
+						switch (type) {
+						case EntityType::Object:
+							scenemanager.addEntity<Vertex, EntityType::Object>(entity.vertexPath, entity.fragmentPath, entity.texturePath, entity.modelPath, entity.flipTexture);
 							entity.add = false;
 							break;
+						case EntityType::PBRObject:
+							scenemanager.addEntity<Vertex, EntityType::PBRObject>(entity.vertexPath, entity.fragmentPath, entity.texturePaths, entity.modelPath, entity.flipTexture);
+							entity.add = false;
+							break;
+						case EntityType::MatObject:
+							scenemanager.addEntity<Vertex, EntityType::MatObject>(entity.vertexPath, entity.fragmentPath, entity.materialPath, entity.modelPath, entity.flipTexture);
+							entity.add = false;
+							break;
+						case EntityType::Primitive:
+							scenemanager.addEntity<Vertex, EntityType::Primitive>(entity.vertexPath, entity.fragmentPath, entity.primitiveType, "", entity.flipTexture);
+							entity.add = false;
+							break;
+						case EntityType::Light:
+							scenemanager.addEntity<Vertex, EntityType::Light>(entity.vertexPath, entity.fragmentPath, "", "", false);
+							entity.add = false;
+							break;
+						case EntityType::Skybox:
+							if (entity.skyboxPaths.size() != 6) {
+								ImGui::Text("Missing skybox side");
+								break;
+							}
+							else {
+								scenemanager.addEntity<CubeVertex, EntityType::Skybox>(entity.vertexPath, entity.fragmentPath, entity.skyboxPaths, "", entity.flipTexture);
+								entity.add = false;
+								break;
+							}
 						}
 					}
+					ImGui::EndPopup();
 				}
-				ImGui::EndPopup();
 			}
 		}
 
@@ -833,8 +847,11 @@ void Engine::Core::Application::raytraceFrame()
 {
 	vkDeviceWaitIdle(device.getDevice());
 
-	if (raytrace.uboData.view != camera.GetViewMatrix()) {
+	if (raytrace.uboData.view != camera.GetViewMatrix() || !accumulateFrames) {
 		raytrace.uboData.sampleCount = 1;
+	}
+	else {
+		raytrace.uboData.sampleCount++;
 	}
 
 	raytrace.uboData.view = camera.GetViewMatrix();
@@ -878,7 +895,7 @@ void Engine::Core::Application::raytraceFrame()
 
 	VkImageMemoryBarrier imguiBarrier{};
 	imguiBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	imguiBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;  // From traceRays
+	imguiBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	imguiBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	imguiBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	imguiBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -1066,6 +1083,7 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 
 void Engine::Core::Application::createModel(int x)
 {
+	RTScene obj;
 	MeshObject testModel;
 	testModel.v = {
 		{{-1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 0.0f}},
@@ -1146,7 +1164,9 @@ void Engine::Core::Application::createModel(int x)
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		testModel.ib, testModel.ibm, testModel.i.data());
 
-	raytrace.models.push_back(testModel);
+	obj.matrix = glm::mat4(1.0f);
+	obj.obj = testModel;
+	raytrace.models.push_back(obj);
 }
 
 void Engine::Core::Application::createImGuiRenderPass()

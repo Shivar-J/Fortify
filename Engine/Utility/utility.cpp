@@ -71,3 +71,25 @@ std::vector<const char*> Engine::Utility::getShaderPaths(const char*& path)
 
 	return shaderPaths;
 }
+
+VkTransformMatrixKHR Engine::Utility::convertMat4ToTransformMatrix(glm::mat4 m) {
+	VkTransformMatrixKHR transform;
+	for (uint32_t col = 0; col < 3; ++col) {
+		for (uint32_t row = 0; row < 4; ++row) {
+			transform.matrix[col][row] = m[row][col];
+		}
+	}
+	return transform;
+}
+
+glm::mat4 Engine::Utility::convertTransformMatrixToMat4(VkTransformMatrixKHR mat)
+{
+	glm::mat4 res = {
+		mat.matrix[0][0], mat.matrix[0][1], mat.matrix[0][2], mat.matrix[0][3],
+		mat.matrix[1][0], mat.matrix[1][1], mat.matrix[1][2], mat.matrix[1][3],
+		mat.matrix[2][0], mat.matrix[2][1], mat.matrix[2][2], mat.matrix[2][3],
+		0.0f, 0.0f, 0.0f, 1.0f
+	};
+
+	return res;
+}

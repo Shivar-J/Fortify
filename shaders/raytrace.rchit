@@ -2,6 +2,12 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_scalar_block_layout : enable
 
+struct Vertex {
+    vec3 position;
+    vec3 normal;
+    vec2 texCoord;
+};
+
 struct RayPayload {
     vec3 color;
     vec3 attenuation;
@@ -23,18 +29,16 @@ layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
     uint rayBounces;
 } ubo;
 
-struct Vertex {
-    vec3 position;
-    vec3 normal;
-    vec2 texCoord;
-};
-
 layout(set = 0, binding = 4, scalar) buffer Vertices {
     Vertex vertices[];
 };
 
 layout(set = 0, binding = 5) buffer Indices {
     uint indices[];
+};
+
+layout(set = 0, binding = 8, std140) buffer InstanceTransforms {
+    mat4 transforms[];
 };
 
 float rand(inout uint state) {
@@ -47,66 +51,74 @@ const vec3 glassTint = vec3(0.95, 0.98, 1.0);
 
 void main() {
     uint primID = gl_PrimitiveID;
+    uint instID = gl_InstanceCustomIndexEXT;
+
+    mat4 transform = transforms[instID];
 
     uint i0 = indices[primID * 3 + 0];
     uint i1 = indices[primID * 3 + 1];
     uint i2 = indices[primID * 3 + 2];
 
-    Vertex v0 = vertices[i0];
-    Vertex v1 = vertices[i1];
-    Vertex v2 = vertices[i2];
+    vec4 worldPos0 = transform * vec4(vertices[i0].position, 1.0);
+    vec4 worldPos1 = transform * vec4(vertices[i1].position, 1.0);
+    vec4 worldPos2 = transform * vec4(vertices[i2].position, 1.0);
 
     vec3 bary = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
-    vec3 P = bary.x * v0.position + bary.y * v1.position + bary.z * v2.position;
-    vec3 N = normalize(bary.x * v0.normal + bary.y * v1.normal + bary.z * v2.normal);
+    vec3 worldPos = bary.x * worldPos0.xyz + bary.y * worldPos1.xyz + bary.z * worldPos2.xyz;
+    mat3 normalMatrix = transpose(inverse(mat3(transform)));
+
+    vec3 n0 = normalize(normalMatrix * vertices[i0].normal);
+    vec3 n1 = normalize(normalMatrix * vertices[i1].normal);
+    vec3 n2 = normalize(normalMatrix * vertices[i2].normal);
+
+    vec3 worldNormal = normalize(bary.x * n0 + bary.y * n1 + bary.z * n2);
+
+    vec3 viewDir = -gl_WorldRayDirectionEXT;
     
-    vec3 V = -gl_WorldRayDirectionEXT;
-    float NdotV = dot(N, V);
-    
+    float normalDotView = dot(worldNormal, viewDir);
+
     float eta, cosI;
-    if (NdotV < 0.0) {
-        N = -N;
-        NdotV = -NdotV;
+    
+    if(normalDotView < 0.0) {
+        worldNormal = -worldNormal;
+        normalDotView = -normalDotView;
         eta = IOR;
     } else {
         eta = 1.0 / IOR;
     }
-    
-    vec3 R = reflect(-V, N);
-    
+
+    vec3 reflection = reflect(-viewDir, worldNormal);
+
     vec3 T = vec3(0.0);
-    float fresnel = 1.0;
-    bool tir = false;
-    
-    float sinT2 = eta * eta * (1.0 - NdotV * NdotV);
-    if (sinT2 <= 1.0) {
+    float fresnel = 1.0f;
+    bool totalInternalReflection = false;
+
+    float sinT2 = eta * eta * (1.0 - normalDotView * normalDotView);
+
+    if(sinT2 <= 1.0) {
         cosI = sqrt(1.0 - sinT2);
-        T = refract(-V, N, eta);
-        
+        T = refract(-viewDir, worldNormal, eta);
+
         float R0 = pow((1.0 - eta) / (1.0 + eta), 2.0);
-        fresnel = R0 + (1.0 - R0) * pow(1.0 - NdotV, 5.0);
+        fresnel = R0 + (1.0 - R0) * pow(1.0 - normalDotView, 5.0);
     } else {
-        tir = true;
+        totalInternalReflection = true;
     }
-    
+
     float r = rand(payload.rngState);
     vec3 newDir;
-    
-    if (tir || r < fresnel) {
-        newDir = R;
+
+    if(totalInternalReflection || r < fresnel) {
+        newDir = reflection;
     } else {
         newDir = T;
         payload.attenuation *= glassTint;
     }
-    
-    vec3 newOrigin = P + sign(dot(newDir, N)) * N * 0.001;
-    
-    if (payload.depth >= ubo.rayBounces) {
-        payload.color = vec3(0.0);
-        return;
-    }
-    
+
+    vec3 newOrigin = worldPos + sign(dot(newDir, worldNormal)) * worldNormal * 0.001;
+
     payload.depth++;
+
     traceRayEXT(
         topLevelAS,
         gl_RayFlagsNoneEXT,

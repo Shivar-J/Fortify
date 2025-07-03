@@ -252,12 +252,6 @@ void Engine::Graphics::Raytracing::initRaytracing(Engine::Graphics::Device devic
 
 auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index)
 {
-	VkTransformMatrixKHR transformMatrix = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f
-	};
-
 	AccelerationStructure& blas = BLAS[index];
 
 	VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
@@ -267,7 +261,7 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	auto deviceAddress = fpGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &accelerationDeviceAddressInfo);
 
 	VkAccelerationStructureInstanceKHR blasInstance{};
-	blasInstance.transform = transformMatrix;
+	blasInstance.transform = Engine::Utility::convertMat4ToTransformMatrix(models[index].matrix);
 	blasInstance.instanceCustomIndex = index;
 	blasInstance.mask = 0xFF;
 	blasInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -276,19 +270,14 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	return blasInstance;
 }
 
-void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, MeshObject model)
+void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, RTScene model)
 {
-	VkTransformMatrixKHR transformMatrix = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f
-	};
 	VkBuffer transformMatrixBuffer;
 	VkDeviceMemory transformMatrixBufferMemory;
 
-	framebuffer.createBuffer(device, sizeof(VkTransformMatrixKHR), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, transformMatrixBuffer, transformMatrixBufferMemory, &transformMatrix);
+	framebuffer.createBuffer(device, sizeof(glm::mat4), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, transformMatrixBuffer, transformMatrixBufferMemory, &model.matrix);
 		
-	uint32_t numTriangles = static_cast<uint32_t>(model.i.size()) / 3;
+	uint32_t numTriangles = static_cast<uint32_t>(model.obj.i.size()) / 3;
 
 	VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
 	accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -296,12 +285,12 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
 	accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 	accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.vb);
-	accelerationStructureGeometry.geometry.triangles.maxVertex = model.v.size();
+	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.obj.vb);
+	accelerationStructureGeometry.geometry.triangles.maxVertex = model.obj.v.size();
 	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.ib);
-	accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = getBufferDeviceAddress(device.getDevice(), transformMatrixBuffer);
+	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.obj.ib);
+	accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = 0;
 	accelerationStructureGeometry.geometry.triangles.transformData.hostAddress = nullptr;
 
 	VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{};
@@ -352,20 +341,12 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 
 void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer)
 {
-	VkTransformMatrixKHR transformMatrix = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f
-	};
-
 	std::vector<VkAccelerationStructureInstanceKHR> blasInstances{};
 
 	for (unsigned int i = 0; i < BLAS.size(); i++) {
 		blasInstances.push_back(createBottomLevelAccelerationStructure(device, i));
 	}
 
-	VkBuffer instanceBuffer;
-	VkDeviceMemory instanceBufferMemory;
 	framebuffer.createBuffer(device, sizeof(VkAccelerationStructureInstanceKHR) * blasInstances.size(), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, instanceBuffer, instanceBufferMemory, blasInstances.data());
 
 	VkDeviceOrHostAddressConstKHR instanceDataDeviceAddress{};
@@ -405,7 +386,7 @@ void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::G
 	VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
 	accelerationBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
 	accelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-	accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+	accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 	accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 	accelerationBuildGeometryInfo.dstAccelerationStructure = TLAS.handle;
 	accelerationBuildGeometryInfo.geometryCount = 1;
@@ -444,6 +425,152 @@ void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::G
 		fpCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &accelerationBuildGeometryInfo, accelerationBuildStructureRangeInfos.data());
 		commandBuffer.endSingleTimeCommands(cmdbuf, device.getGraphicsQueue(), device.getDevice());
 	}
+
+	vkDestroyBuffer(device.getDevice(), scratchBuffer.handle, nullptr);
+	vkFreeMemory(device.getDevice(), scratchBuffer.memory, nullptr);
+}
+
+void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, bool rebuild)
+{
+	std::vector<VkAccelerationStructureInstanceKHR> blasInstances(BLAS.size());
+
+	for (uint32_t i = 0; i < BLAS.size(); ++i) {
+		VkAccelerationStructureDeviceAddressInfoKHR addrInfo{};
+		addrInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+		addrInfo.accelerationStructure = BLAS[i].handle;
+		uint64_t deviceAddress = fpGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &addrInfo);
+
+		std::cout << "Updating BLAS " << i << " with matrix:\n";
+		std::cout << glm::to_string(models[i].matrix) << "\n";
+
+		blasInstances[i].transform = Engine::Utility::convertMat4ToTransformMatrix(models[i].matrix);
+		blasInstances[i].instanceCustomIndex = i;
+		blasInstances[i].mask = 0xFF;
+		blasInstances[i].instanceShaderBindingTableRecordOffset = 0;
+		blasInstances[i].flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+		blasInstances[i].accelerationStructureReference = deviceAddress;
+	}
+
+	void* data;
+	vkMapMemory(device.getDevice(), instanceBufferMemory, 0, VK_WHOLE_SIZE, 0, &data);
+	memcpy(data, blasInstances.data(), blasInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
+	vkUnmapMemory(device.getDevice(), instanceBufferMemory);
+
+	VkDescriptorBufferInfo bufferInfo{};
+	bufferInfo.buffer = instanceBuffer;
+	bufferInfo.offset = 0;
+	bufferInfo.range = VK_WHOLE_SIZE;
+
+	VkWriteDescriptorSet descriptorWrite{};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = descriptorSet;
+	descriptorWrite.dstBinding = 8;
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.pBufferInfo = &bufferInfo;
+
+	vkUpdateDescriptorSets(device.getDevice(), 1, &descriptorWrite, 0, nullptr);
+
+	VkMappedMemoryRange memoryRange{};
+	memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+	memoryRange.memory = instanceBufferMemory;
+	memoryRange.size = VK_WHOLE_SIZE;
+	vkFlushMappedMemoryRanges(device.getDevice(), 1, &memoryRange);
+
+	vkUnmapMemory(device.getDevice(), instanceBufferMemory);
+
+	VkDeviceOrHostAddressConstKHR instanceDataDeviceAddress{};
+	instanceDataDeviceAddress.deviceAddress = getBufferDeviceAddress(device.getDevice(), instanceBuffer);
+
+	VkAccelerationStructureGeometryKHR geometry{};
+	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+	geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+	geometry.geometry.instances.data = instanceDataDeviceAddress;
+
+	VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+	buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
+	buildInfo.srcAccelerationStructure = TLAS.handle;
+	buildInfo.dstAccelerationStructure = TLAS.handle;
+	buildInfo.geometryCount = 1;
+	buildInfo.pGeometries = &geometry;
+
+	VkAccelerationStructureBuildSizesInfoKHR buildSizesInfo{};
+	buildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+	uint32_t primitiveCount = static_cast<uint32_t>(blasInstances.size());
+
+	fpGetAccelerationStructureBuildSizesKHR(
+		device.getDevice(),
+		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+		&buildInfo,
+		&primitiveCount,
+		&buildSizesInfo
+	);
+
+	ScratchBuffer scratchBuffer(device, rebuild ? buildSizesInfo.buildScratchSize : buildSizesInfo.updateScratchSize);
+	buildInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
+
+	VkAccelerationStructureBuildRangeInfoKHR rangeInfo{};
+	rangeInfo.primitiveCount = static_cast<uint32_t>(blasInstances.size());
+
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> rangeInfos = { &rangeInfo };
+
+	VkCommandBuffer cmdbuf = commandBuffer.beginSingleTimeCommands(device.getDevice());
+	VkMemoryBarrier hostWriteBarrier{};
+	hostWriteBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	hostWriteBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+	hostWriteBarrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+
+	vkCmdPipelineBarrier(
+		cmdbuf,
+		VK_PIPELINE_STAGE_HOST_BIT,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		0,
+		1, &hostWriteBarrier,
+		0, nullptr,
+		0, nullptr
+	);
+	
+	fpCmdBuildAccelerationStructuresKHR(cmdbuf, 1, &buildInfo, rangeInfos.data());
+	
+	VkMemoryBarrier asBarrier{};
+	asBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	asBarrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+	asBarrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR |
+		VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(
+		cmdbuf,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		0,
+		1, &asBarrier,
+		0, nullptr,
+		0, nullptr
+	);
+
+	commandBuffer.endSingleTimeCommands(cmdbuf, device.getGraphicsQueue(), device.getDevice());
+
+	VkWriteDescriptorSetAccelerationStructureKHR asWrite{};
+	asWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+	asWrite.accelerationStructureCount = 1;
+	asWrite.pAccelerationStructures = &TLAS.handle;
+
+	VkWriteDescriptorSet tlasDescriptorWrite{};
+	tlasDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	tlasDescriptorWrite.pNext = &asWrite;
+	tlasDescriptorWrite.dstSet = descriptorSet;
+	tlasDescriptorWrite.dstBinding = 0;
+	tlasDescriptorWrite.descriptorCount = 1;
+	tlasDescriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+
+	vkUpdateDescriptorSets(device.getDevice(), 1, &tlasDescriptorWrite, 0, nullptr);
 
 	vkDestroyBuffer(device.getDevice(), scratchBuffer.handle, nullptr);
 	vkFreeMemory(device.getDevice(), scratchBuffer.memory, nullptr);
@@ -509,7 +636,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 * static_cast<uint32_t>(models.size())},
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * static_cast<uint32_t>(models.size())},
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
 	};
 
@@ -587,8 +714,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> vBufferInfos;
 	for (auto& model : models) {
-		if (model.vb != VK_NULL_HANDLE) {
-			vBufferInfos.push_back({ model.vb, 0, VK_WHOLE_SIZE });
+		if (model.obj.vb != VK_NULL_HANDLE) {
+			vBufferInfos.push_back({ model.obj.vb, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -605,8 +732,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> iBufferInfos;
 	for (auto& model : models) {
-		if (model.ib != VK_NULL_HANDLE) {
-			iBufferInfos.push_back({ model.ib, 0, VK_WHOLE_SIZE });
+		if (model.obj.ib != VK_NULL_HANDLE) {
+			iBufferInfos.push_back({ model.obj.ib, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -636,6 +763,39 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	skyboxWrite.pImageInfo = &skyboxInfo;
 	writeDescriptorSets.push_back(skyboxWrite);
 
+	std::vector<VkDescriptorBufferInfo> mBufferInfos;
+	for (auto& model : models) {
+		if (model.obj.mb != VK_NULL_HANDLE) {
+			mBufferInfos.push_back({ model.obj.mb, 0, VK_WHOLE_SIZE });
+		}
+	}
+
+	if (!mBufferInfos.empty()) {
+		VkWriteDescriptorSet mBufferWrite{};
+		mBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		mBufferWrite.dstSet = descriptorSet;
+		mBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		mBufferWrite.dstBinding = 7;
+		mBufferWrite.descriptorCount = static_cast<uint32_t>(mBufferInfos.size());
+		mBufferWrite.pBufferInfo = mBufferInfos.data();
+		writeDescriptorSets.push_back(mBufferWrite);
+	}
+
+	VkDescriptorBufferInfo instanceTransformInfo{};
+	instanceTransformInfo.buffer = instanceBuffer;
+	instanceTransformInfo.offset = 0;
+	instanceTransformInfo.range = sizeof(glm::mat4) * models.size();
+
+	VkWriteDescriptorSet instanceTransformWrite{};
+	instanceTransformWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	instanceTransformWrite.dstSet = descriptorSet;
+	instanceTransformWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	instanceTransformWrite.dstBinding = 8;
+	instanceTransformWrite.descriptorCount = 1;
+	instanceTransformWrite.pBufferInfo = &instanceTransformInfo;
+
+	writeDescriptorSets.push_back(instanceTransformWrite);
+
 	vkUpdateDescriptorSets(
 		device.getDevice(),
 		static_cast<uint32_t>(writeDescriptorSets.size()),
@@ -663,6 +823,8 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
 		{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
 		{6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr },
+		{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
 	};
 
 	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
@@ -950,8 +1112,6 @@ void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device 
 
 void Engine::Graphics::Raytracing::updateUBO(Engine::Graphics::Device device)
 {
-	uboData.sampleCount++;
-
 	memcpy(uboMapped, &uboData, sizeof(uboData));
 }
 
