@@ -84,10 +84,6 @@ void Engine::Core::Application::initVulkan()
 
 	rtscenemanager.pushToAccelerationStructure(raytrace.models);
 
-	//MeshObject obj = texture.loadModelRT("textures/backpack/backpack.obj", device, framebuffer);
-	//MeshObject obj = texture.loadModelRT("textures/backpack/backpack.obj", "textures/backpack/backpack.mtl", device, framebuffer, commandbuffer, sampler, swapchain);
-	//raytrace.models.push_back(obj);
-
 	raytrace.buildAccelerationStructure(device, commandbuffer, framebuffer);
 
 	std::vector<std::string> skyboxPaths = {
@@ -196,6 +192,7 @@ void Engine::Core::Application::mainLoop()
 	bool selectMat = false;
 	bool useRaytracer = false;
 	bool setShaderPath = false;
+	bool toggleVsync = false;
 
 	const char* shaderPath = "";
 	std::vector<const char*> shaderPaths;
@@ -210,6 +207,8 @@ void Engine::Core::Application::mainLoop()
 		fpsCounter = currFPS - prevFPS;
 		prev = curr;
 		frameCount++;
+
+		float msPerFrame = deltaTime * 1000.0f;
 
 		processInput(window);
 
@@ -232,12 +231,35 @@ void Engine::Core::Application::mainLoop()
 		}
 
 		ImGui::Begin("Fortify");
-		ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
-		ImGui::Checkbox("Enable Raytracing", &useRaytracer);
+		if (ImGui::BeginTabBar("Settings")) {
+			if (ImGui::BeginTabItem("General")) {
+				ImGui::Text("%.3f ms/frame (%.1f FPS)", msPerFrame, io.Framerate);
+
+
+				if (ImGui::Checkbox("VSync", &toggleVsync)) {
+					recreateSwapchainFlag = !recreateSwapchainFlag;
+				}
+
+				ImGui::Checkbox("Enable Raytracing", &useRaytracer);
+
+				ImGui::EndTabItem();
+			}
+
+			if (useRaytracer) {
+				ImGui::Checkbox("Accumulate Frames", &accumulateFrames);
+
+				if (accumulateFrames) {
+					ImGui::SameLine();
+					ImGui::Text("%d", raytrace.uboData.sampleCount);
+				}
+			}
+			ImGui::EndTabBar();
+		}
+
+		ImGui::NewLine();
 
 		if (useRaytracer) {
-			ImGui::Checkbox("Accumulate Frames", &accumulateFrames);
 			rtscenemanager.updateScene();
 		}
 		else {
@@ -738,6 +760,13 @@ void Engine::Core::Application::drawFrame()
 {
 	vkDeviceWaitIdle(device.getDevice());
 
+	if (recreateSwapchainFlag) {
+		swapchain.presentImmediate = !swapchain.presentImmediate;
+		recreateSwapchain();
+		recreateSwapchainFlag = !recreateSwapchainFlag;
+		return;
+	}
+
 	VkResult fenceStatus = vkWaitForFences(device.getDevice(), 1, &texture.getInFlightFences()[currentFrame], VK_TRUE, UINT64_MAX);
 
 	if (fenceStatus != VK_SUCCESS) {
@@ -846,6 +875,13 @@ void Engine::Core::Application::drawFrame()
 void Engine::Core::Application::raytraceFrame()
 {
 	vkDeviceWaitIdle(device.getDevice());
+
+	if (recreateSwapchainFlag) {
+		swapchain.presentImmediate = !swapchain.presentImmediate;
+		recreateSwapchain();
+		recreateSwapchainFlag = !recreateSwapchainFlag;
+		return;
+	}
 
 	if (raytrace.uboData.view != camera.GetViewMatrix() || !accumulateFrames) {
 		raytrace.uboData.sampleCount = 1;
@@ -1013,6 +1049,9 @@ void Engine::Core::Application::recreateSwapchain()
 	framebuffer.createColorResources(device, swapchain, sampler.getSamples());
 	framebuffer.createDepthResources(device, swapchain, sampler.getSamples(), commandbuffer);
 	framebuffer.createFramebuffers(device.getDevice(), swapchain, renderpass.getRenderPass());
+
+	createImGuiRenderPass();
+	createImGuiFramebuffers();
 }
 
 void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {

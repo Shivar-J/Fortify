@@ -71,11 +71,14 @@ VkSurfaceFormatKHR Engine::Graphics::Swapchain::chooseSwapSurfaceFormat(const st
 
 VkPresentModeKHR Engine::Graphics::Swapchain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
 {
-	for (const auto& availablePresentMode : availablePresentModes) {
-		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-			return availablePresentMode;
+	for (const auto& mode : availablePresentModes) {
+		if (mode == VK_PRESENT_MODE_MAILBOX_KHR && presentImmediate == false)
+			return mode;
 	}
 
+	if (presentImmediate)
+		return VK_PRESENT_MODE_IMMEDIATE_KHR;
+	
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 

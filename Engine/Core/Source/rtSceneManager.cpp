@@ -9,14 +9,6 @@
 #include "texture.h"
 #include "raytracing.h"
 
-void Engine::Core::RT::SceneManager::add()
-{
-    RTScene scene;
-    scene.obj = texture.loadModelRT("textures/viking_room/viking_room.obj", device, framebuffer);
-
-    scenes.push_back(scene);
-}
-
 void Engine::Core::RT::SceneManager::add(const std::string& texturePath) {
     std::filesystem::path path = texturePath;
 

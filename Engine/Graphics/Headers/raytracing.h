@@ -40,15 +40,6 @@ struct RaytracingUniformBufferObject {
     uint32_t rayBounces = 5;
 };
 
-struct RayModel {
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
-};
-
 namespace Engine::Graphics {
 	class FrameBuffer;
 	class Device;

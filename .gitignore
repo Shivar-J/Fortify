@@ -9,6 +9,8 @@ imgui.ini
 shaders/compileSkyboxShader.bat
 debugStart.bat
 releaseStart.bat
+.vscode/
+*.ini
 
 Fortify.sln
 Fortify.vcxproj

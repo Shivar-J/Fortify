@@ -67,6 +67,7 @@ namespace Engine::Core {
 		VkRenderPass imguiRenderPass = VK_NULL_HANDLE;
 		std::vector<VkFramebuffer> imguiFramebuffers;
 		bool accumulateFrames = true;
+		bool recreateSwapchainFlag = false;
 
 		Engine::Graphics::Instance instance;
 		Engine::Graphics::Device device;

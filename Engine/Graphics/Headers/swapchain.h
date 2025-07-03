@@ -75,6 +75,8 @@ namespace Engine::Graphics {
 		std::vector<VkImageView> getSwapchainImageViews() const { return swapChainImageViews; }
 		std::vector<VkFramebuffer> getSwapchainFramebuffers() const { return swapChainFrameBuffers; }
 		std::vector<VkFramebuffer>& getSwapchainFramebuffers() { return swapChainFrameBuffers; }
+
+		bool presentImmediate = false;
 	};
 };
 

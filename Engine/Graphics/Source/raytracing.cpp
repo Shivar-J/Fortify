@@ -440,9 +440,6 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 		addrInfo.accelerationStructure = BLAS[i].handle;
 		uint64_t deviceAddress = fpGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &addrInfo);
 
-		std::cout << "Updating BLAS " << i << " with matrix:\n";
-		std::cout << glm::to_string(models[i].matrix) << "\n";
-
 		blasInstances[i].transform = Engine::Utility::convertMat4ToTransformMatrix(models[i].matrix);
 		blasInstances[i].instanceCustomIndex = i;
 		blasInstances[i].mask = 0xFF;
