@@ -482,7 +482,7 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 
 	VkAccelerationStructureGeometryKHR geometry{};
 	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+	geometry.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
 	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
 	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
 	geometry.geometry.instances.arrayOfPointers = VK_FALSE;
@@ -800,6 +800,46 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		0,
 		nullptr
 	);
+}
+
+void Engine::Graphics::Raytracing::updateDescriptorSets(Engine::Graphics::Device device)
+{
+	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
+
+	VkDescriptorImageInfo storageImageInfo{};
+	storageImageInfo.imageView = storageImage.view;
+	storageImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkDescriptorImageInfo accumImageInfo{};
+	accumImageInfo.imageView = accumulationImage.view;
+	accumImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet storageImageWrite{};
+	storageImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	storageImageWrite.dstSet = descriptorSet;
+	storageImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	storageImageWrite.dstBinding = 1;
+	storageImageWrite.pImageInfo = &storageImageInfo;
+	storageImageWrite.descriptorCount = 1;
+	writeDescriptorSets.push_back(storageImageWrite);
+
+	VkWriteDescriptorSet accumImageWrite{};
+	accumImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	accumImageWrite.dstSet = descriptorSet;
+	accumImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	accumImageWrite.dstBinding = 2;
+	accumImageWrite.pImageInfo = &accumImageInfo;
+	accumImageWrite.descriptorCount = 1;
+	writeDescriptorSets.push_back(accumImageWrite);
+
+	vkUpdateDescriptorSets(
+		device.getDevice(), 
+		static_cast<uint32_t>(writeDescriptorSets.size()), 
+		writeDescriptorSets.data(), 
+		0, 
+		nullptr
+	);
+
 }
 
 void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath)

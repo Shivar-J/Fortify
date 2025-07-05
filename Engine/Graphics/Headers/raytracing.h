@@ -99,6 +99,7 @@ namespace Engine::Graphics {
         void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);
         void createDescriptorSets(Engine::Graphics::Device device, Engine::Graphics::Texture skyboxTexture);
+        void updateDescriptorSets(Engine::Graphics::Device device);
         void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath);
         void createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent);
         void traceRays(VkDevice device, VkCommandBuffer commandBuffer, VkExtent2D extent, VkImage swapchainImage, uint32_t currentImageIndex);

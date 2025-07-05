@@ -1052,10 +1052,23 @@ void Engine::Core::Application::recreateSwapchain()
 
 	vkDeviceWaitIdle(device.getDevice());
 
+	raytrace.storageImage.destroy(device.getDevice());
+	raytrace.accumulationImage.destroy(device.getDevice());
+
 	swapchain.cleanupSwapChain(device, framebuffer);
 
 	swapchain.createSwapChain(window, instance, device);
 	swapchain.createImageViews(device.getDevice());
+
+	VkExtent3D storageImageExtent = {
+		swapchain.getSwapchainExtent().width,
+		swapchain.getSwapchainExtent().height,
+		1
+	};
+
+	raytrace.storageImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
+	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
+	raytrace.updateDescriptorSets(device);
 
 	framebuffer.createColorResources(device, swapchain, sampler.getSamples());
 	framebuffer.createDepthResources(device, swapchain, sampler.getSamples(), commandbuffer);
