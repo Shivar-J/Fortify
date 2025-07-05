@@ -10,7 +10,7 @@ namespace Engine::Graphics {
 	class Sampler
 	{
 	public:
-		VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_16_BIT;
+		VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	public:
 		Sampler() = default;

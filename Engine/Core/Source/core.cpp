@@ -4,9 +4,7 @@ void Engine::Core::Application::run()
 {
 	initWindow();
 	initVulkan();
-	if (Engine::Settings::enableValidationLayers) {
-		initImGui();
-	}
+	initImGui();
 	mainLoop();
 	cleanup();
 }
@@ -16,7 +14,7 @@ void Engine::Core::Application::initWindow()
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 	char title[256];
 	title[255] = '\0';
@@ -24,8 +22,7 @@ void Engine::Core::Application::initWindow()
 	std::snprintf(title, 255, "%s", "Fortify");
 
 	window = glfwCreateWindow(Engine::Settings::WIDTH, Engine::Settings::HEIGHT, title, nullptr, nullptr);
-	//glfwSetWindowUserPointer(window, this);
-	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+	glfwSetWindowUserPointer(window, this);
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetKeyCallback(window, key_callback);
 
@@ -78,7 +75,7 @@ void Engine::Core::Application::initVulkan()
 	raytrace.storageImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 
-	//rtscenemanager.add("textures/backpack/backpack.obj");
+	rtscenemanager.add("textures/backpack/backpack.obj");
 	rtscenemanager.add("textures/viking_room/viking_room.obj");
 	rtscenemanager.add("textures/backpack/backpack.obj");
 
@@ -183,6 +180,7 @@ void Engine::Core::Application::mainLoop()
 	float prevFPS = static_cast<float>(glfwGetTime());
 	int frameCount = 0;
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	const GLFWvidmode* currMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
 	Entity entity;
 	bool selectVertex = false;
@@ -192,7 +190,9 @@ void Engine::Core::Application::mainLoop()
 	bool selectMat = false;
 	bool useRaytracer = false;
 	bool setShaderPath = false;
-	bool toggleVsync = false;
+	bool toggleVsync = true;
+	bool fullscreenTrigger = false;
+	int currRefreshRate = currMode->refreshRate;
 
 	const char* shaderPath = "";
 	std::vector<const char*> shaderPaths;
@@ -212,7 +212,7 @@ void Engine::Core::Application::mainLoop()
 
 		processInput(window);
 
-		glfwPollEvents();
+		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -235,7 +235,20 @@ void Engine::Core::Application::mainLoop()
 		if (ImGui::BeginTabBar("Settings")) {
 			if (ImGui::BeginTabItem("General")) {
 				ImGui::Text("%.3f ms/frame (%.1f FPS)", msPerFrame, io.Framerate);
+				
+				if(ImGui::Checkbox("Fullscreen", &fullscreenTrigger)) {
+					fullscreen = !fullscreen;
 
+					if (fullscreen) {
+						const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+						glfwSetWindowMonitor(window, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, mode->refreshRate);
+					}
+					else {
+						glfwSetWindowMonitor(window, nullptr, 100, 100, Engine::Settings::WIDTH, Engine::Settings::HEIGHT, 0);
+					}
+
+					framebufferResized = true;
+				}
 
 				if (ImGui::Checkbox("VSync", &toggleVsync)) {
 					recreateSwapchainFlag = !recreateSwapchainFlag;
@@ -263,7 +276,7 @@ void Engine::Core::Application::mainLoop()
 			rtscenemanager.updateScene();
 		}
 		else {
-
+			/*
 			if (ImGui::Button("Set Shader Path")) {
 				setShaderPath = true;
 				file.Open();
@@ -280,7 +293,7 @@ void Engine::Core::Application::mainLoop()
 					scenemanager.setShaderPaths(shaderPaths);
 					setShaderPath = false;
 				}
-			}
+			}*/
 
 			scenemanager.updateScene();
 
@@ -592,6 +605,8 @@ void Engine::Core::Application::mainLoop()
 		else {
 			drawFrame();
 		}
+
+		glfwPollEvents();
 	}
 
 	vkDeviceWaitIdle(device.getDevice());
@@ -608,11 +623,9 @@ void Engine::Core::Application::cleanup()
 	}
 	vkDestroyRenderPass(device.getDevice(), imguiRenderPass, nullptr);
 
-	if (Engine::Settings::enableValidationLayers) {
-		ImGui_ImplVulkan_Shutdown();
-		ImGui_ImplGlfw_Shutdown();
-		ImGui::DestroyContext();
-	}
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
 	swapchain.cleanupSwapChain(device, framebuffer);
 
@@ -682,9 +695,7 @@ void Engine::Core::Application::cleanup()
 
 	vkDestroyDevice(device.getDevice(), nullptr);
 
-	if (Engine::Settings::enableValidationLayers) {
-		instance.DestroyDebugUtilsMessengerEXT(instance.getInstance(), instance.getDebugMessenger(), nullptr);
-	}
+	instance.DestroyDebugUtilsMessengerEXT(instance.getInstance(), instance.getDebugMessenger(), nullptr);
 
 	vkDestroySurfaceKHR(instance.getInstance(), instance.getSurface(), nullptr);
 	vkDestroyInstance(instance.getInstance(), nullptr);
@@ -696,7 +707,7 @@ void Engine::Core::Application::cleanup()
 
 void Engine::Core::Application::framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
-	auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+	auto app = reinterpret_cast<Engine::Core::Application*>(glfwGetWindowUserPointer(window));
 	app->framebufferResized = true;
 }
 
@@ -1109,9 +1120,7 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 		vkCmdDrawIndexed(commandBuffer, m.indexCount, 1, 0, 0, 0);
 	}
 
-	if (Engine::Settings::enableValidationLayers) {
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
-	}
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
 	vkCmdEndRenderPass(commandBuffer);
 

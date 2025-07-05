@@ -31,7 +31,7 @@ layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
     uint rayBounces;
 } ubo;
 
-layout(set = 0, binding = 4, scalar) buffer Vertices {
+layout(set = 0, binding = 4) buffer Vertices {
     Vertex vertices[];
 } vertexBuffers[];
 
@@ -171,7 +171,7 @@ void main() {
         0,
         0,
         newOrigin,
-        0.001,
+        1e-9,
         newDir,
         1e9,
         0

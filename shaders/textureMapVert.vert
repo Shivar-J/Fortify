@@ -22,6 +22,5 @@ void main() {
 	fragTexCoord = inTexCoord;
 	fragPosition = (ubo.model * vec4(inPosition, 1.0)).xyz;
 
-	//TEMP NORMAL
 	fragNormal = mat3(transpose(inverse(ubo.model))) * vec3(0.0, 0.0, 1.0);
 }

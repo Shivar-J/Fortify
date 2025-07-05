@@ -50,7 +50,7 @@ namespace Engine::Core {
 
 		GLFWwindow* getWindow() const { return window; }
 	public:
-		bool framebufferResized = false;
+		inline static bool framebufferResized = false;
 		inline static uint32_t currentFrame = 0;
 		float deltaTime = 0.0f;
 		float fpsCounter = 0.0f;		
@@ -67,6 +67,7 @@ namespace Engine::Core {
 		VkRenderPass imguiRenderPass = VK_NULL_HANDLE;
 		std::vector<VkFramebuffer> imguiFramebuffers;
 		bool accumulateFrames = true;
+		bool fullscreen = false;
 		bool recreateSwapchainFlag = false;
 
 		Engine::Graphics::Instance instance;

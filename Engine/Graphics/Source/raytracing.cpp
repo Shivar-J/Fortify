@@ -597,7 +597,7 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 
 	auto createSBTBuffer = [&](VkBuffer& buffer, VkDeviceMemory& memory, const void* data, VkDeviceSize size) {
 		VkBufferCreateInfo bufferInfo{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-		bufferInfo.usage = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+		bufferInfo.usage = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		bufferInfo.size = size;
 
 		vkCreateBuffer(device.getDevice(), &bufferInfo, nullptr, &buffer);

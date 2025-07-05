@@ -75,9 +75,9 @@ void main() {
         0xFF,
         0, 0, 0,
         rayOrigin,
-        0.001,
+        1e-9,
         rayDir,
-        10000.0,
+        1e9,
         0
     );
 

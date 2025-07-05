@@ -12,7 +12,7 @@ struct RayPayload {
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
-layout(location = 0, binding = 6) uniform samplerCube skybox;
+layout(set = 0, binding = 6) uniform samplerCube skybox;
 
 void main() {
     vec3 rayDir = normalize(gl_WorldRayDirectionEXT);
