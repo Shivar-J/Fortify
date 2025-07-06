@@ -632,11 +632,13 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 
 void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture)
 {
+	uint32_t modelBufferSize = std::max(static_cast<uint32_t>(models.size()), 1u);
+
 	std::vector<VkDescriptorPoolSize> poolSizes = {
 		{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * static_cast<uint32_t>(models.size())},
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * modelBufferSize},
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
 	};
 
@@ -747,6 +749,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		iBufferWrite.pBufferInfo = iBufferInfos.data();
 		writeDescriptorSets.push_back(iBufferWrite);
 	}
+
 	if (skyboxTexture.has_value()) {
 		VkDescriptorImageInfo skyboxInfo{};
 		skyboxInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -794,7 +797,6 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	instanceTransformWrite.dstBinding = 8;
 	instanceTransformWrite.descriptorCount = 1;
 	instanceTransformWrite.pBufferInfo = &instanceTransformInfo;
-
 	writeDescriptorSets.push_back(instanceTransformWrite);
 
 	vkUpdateDescriptorSets(
@@ -866,15 +868,17 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 	VkShaderModule anyHitShaderModule = createShaderModule(device.getDevice(), anyHitShaderCode);
 	VkShaderModule intersectionShaderModule = createShaderModule(device.getDevice(), intersectionShaderCode);
 
+	uint32_t modelBufferSize = std::max(static_cast<uint32_t>(models.size()), 1u);
+
 	std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
 		{0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
 		{1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
 		{2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
 		{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
-		{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
-		{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
+		{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
+		{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 		{6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr },
-		{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR| VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
+		{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR| VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 		{8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 	};
 
@@ -1208,12 +1212,14 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 	BLAS.clear();
 	rtscenemanager.pushToAccelerationStructure(models);
 
-	buildAccelerationStructure(device, commandBuffer, framebuffer);
+	if (!models.empty()) {
+		buildAccelerationStructure(device, commandBuffer, framebuffer);
+	}
 
 	createRayTracingPipeline(device, raygenPath, missPath, cHitPath, aHitPath, intPath);
 	createShaderBindingTables(device);
 	createUniformBuffer(device);
-	
+
 	if (skyboxTexture.has_value()) {
 		createDescriptorSets(device, skyboxTexture.value());
 	}

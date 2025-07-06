@@ -79,10 +79,10 @@ void main() {
     
         traceRayEXT(
             topLevelAS,
-            gl_RayFlagsOpaqueEXT,
+            gl_RayFlagsNoneEXT,
             0xFF,
             0, 0, 0,
-            hitPoint + 0.001 * R,
+            hitPoint + 1e-9 * R,
             1e-9,
             R,
             1e9,
@@ -92,7 +92,7 @@ void main() {
         refractPayload = payload;
         refractPayload.color = vec3(0.0);
         refractPayload.depth = payload.depth + 1;
-        refractPayload.rngState += 2;
+        refractPayload.rngState += 1;
 
         if(!TIR) {
             traceRayEXT(
@@ -100,7 +100,7 @@ void main() {
                 gl_RayFlagsCullBackFacingTrianglesEXT,
                 0xFF,
                 0, 0, 0,
-                hitPoint + 0.001 * T,
+                hitPoint + 1e-9 * T,
                 1e-9,
                 T,
                 1e9,
@@ -108,10 +108,12 @@ void main() {
             );
         }
 
-        payload.color = fresnel * reflectPayload.color + (1.0 - fresnel) * refractPayload.color;
-        payload.attenuation *= glassTint;
+        payload.attenuation *= vec3(1.0);
+       
+        vec3 surfaceColor = fresnel * reflectPayload.color + (1.0 - fresnel) * refractPayload.color;
+        payload.color = surfaceColor * payload.attenuation;
     } else {
-        vec3 reflected = reflect(-viewDir, normal);
+        vec3 reflected = reflect(viewDir, normal);
         reflectPayload = payload;
         reflectPayload.color = vec3(0.0);
         reflectPayload.depth = payload.depth + 1;
@@ -119,17 +121,18 @@ void main() {
 
         traceRayEXT(
             topLevelAS,
-            gl_RayFlagsOpaqueEXT,
+            gl_RayFlagsNoneEXT,
             0xFF,
             0, 0, 0,
-            hitPoint + 0.001 * reflected,
+            hitPoint + 1e-9 * reflected,
             1e-9,
             reflected,
             1e9,
             1
         );
 
-        payload.color = reflectPayload.color * vec3(1.0, 0.0, 0.0);
-        payload.attenuation *= vec3(1.0, 0.0, 0.0);
+        payload.color = (reflectPayload.color * vec3(1.0, 0.0, 0.0)) * payload.attenuation;
     }
+
+    payload.depth++;
 }
