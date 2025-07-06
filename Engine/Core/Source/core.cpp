@@ -77,7 +77,7 @@ void Engine::Core::Application::initVulkan()
 
 	rtscenemanager.add("textures/backpack/backpack.obj");
 	rtscenemanager.add("textures/viking_room/viking_room.obj");
-	rtscenemanager.add("textures/backpack/backpack.obj");
+	//rtscenemanager.add("textures/backpack/backpack.obj");
 
 	rtscenemanager.pushToAccelerationStructure(raytrace.models);
 
@@ -92,7 +92,6 @@ void Engine::Core::Application::initVulkan()
 		"textures/skybox/back.jpg"
 	};
 
-	Engine::Graphics::Texture skyboxTexture;
 	skyboxTexture.createCubemap(skyboxPaths, device, commandbuffer, framebuffer, sampler, false);
 	skyboxTexture.createTextureImageView(swapchain, device.getDevice(), true);
 	skyboxTexture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), true);
@@ -112,7 +111,7 @@ void Engine::Core::Application::initVulkan()
 	scenemanager.addEntity<Vertex, EntityType::Light>("shaders/spv/lightVert.spv", "shaders/spv/lightFrag.spv", "", "", false);
 	//scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/spv/primitiveVert.spv", "shaders/spv/primitiveFrag.spv", PrimitiveType::Plane, "", false);
 	
-	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv");
+	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv", "shaders/spv/raytraceAhit.spv");
 	raytrace.createShaderBindingTables(device);
 	raytrace.createUniformBuffer(device);
 	raytrace.createDescriptorSets(device, skyboxTexture);
@@ -886,6 +885,12 @@ void Engine::Core::Application::drawFrame()
 void Engine::Core::Application::raytraceFrame()
 {
 	vkDeviceWaitIdle(device.getDevice());
+
+	if (raytrace.sceneUpdated) {
+		raytrace.recreateScene(device, framebuffer, commandbuffer, swapchain, rtscenemanager, skyboxTexture);
+		recreateSwapchain();
+		raytrace.sceneUpdated = false;
+	}
 
 	if (recreateSwapchainFlag) {
 		swapchain.presentImmediate = !swapchain.presentImmediate;

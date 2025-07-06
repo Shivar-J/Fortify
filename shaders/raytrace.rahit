@@ -1,0 +1,33 @@
+#version 460
+#extension GL_EXT_ray_tracing : enable
+#extension GL_EXT_nonuniform_qualifier : enable
+
+struct RayPayload {
+    vec3 color;
+    vec3 attenuation;
+    uint depth;
+    uint rngState;
+    uint instanceID;
+    uint insideObj;
+};
+
+layout(location = 0) rayPayloadInEXT RayPayload payload;
+hitAttributeEXT vec2 attribs;
+
+layout(set = 0, binding = 3) uniform RaytracingUBO {
+    mat4 view;
+    mat4 proj;
+    uint vertexSize;
+    uint sampleCount;
+    uint samplesPerFrame;
+    uint rayBounces;
+} ubo;
+
+void main() {
+    uint instID = gl_InstanceCustomIndexEXT;
+
+    if (instID % 2 == 0) {
+        payload.attenuation *= vec3(0.95, 0.98, 1.0);
+        ignoreIntersectionEXT;
+    }
+}

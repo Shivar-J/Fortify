@@ -8,6 +8,7 @@ struct RayPayload {
     uint depth;
     uint rngState;
     uint instanceID;
+    uint insideObj;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;

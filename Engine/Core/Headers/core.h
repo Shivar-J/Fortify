@@ -82,6 +82,7 @@ namespace Engine::Core {
 		Engine::Core::SceneManager scenemanager;
 		Engine::Core::RT::SceneManager rtscenemanager;
 		Engine::Graphics::Raytracing raytrace;
+		Engine::Graphics::Texture skyboxTexture;
 	};
 }
 #endif

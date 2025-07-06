@@ -18,6 +18,7 @@ del "%PROJECT_DIR%spv\skyboxVert.spv"
 del "%PROJECT_DIR%spv\raytraceRaygen.spv"
 del "%PROJECT_DIR%spv\raytraceMiss.spv"
 del "%PROJECT_DIR%spv\raytraceChit.spv"
+del "%PROJECT_DIR%spv\raytraceAhit.spv"
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%shader.vert" -o "%PROJECT_DIR%spv\vert.spv" || (echo failed to compile "shader.vert" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%shader.frag" -o "%PROJECT_DIR%spv\frag.spv" || (echo failed to compile "shader.frag" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%textureMapVert.vert" -o "%PROJECT_DIR%spv\textureMapVert.spv" || (echo failed to compile "textureMapVert.vert" && exit)
@@ -32,6 +33,7 @@ C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%skyboxFrag.frag" -o "%PROJECT
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rgen" -o "%PROJECT_DIR%spv\raytraceRaygen.spv" || (echo failed to compile "raytrace.rgen" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rmiss" -o "%PROJECT_DIR%spv\raytraceMiss.spv" || (echo failed to compile "raytrace.rmiss" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rchit" -o "%PROJECT_DIR%spv\raytraceChit.spv" || (echo failed to compile "raytrace.rchit" && exit)
+C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rahit" -o "%PROJECT_DIR%spv\raytraceAhit.spv" || (echo failed to compile "raytrace.rany" && exit)
 
 echo Shaders compiled
 pause

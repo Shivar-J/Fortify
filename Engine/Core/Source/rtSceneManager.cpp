@@ -20,6 +20,12 @@ void Engine::Core::RT::SceneManager::add(const std::string& texturePath) {
     scenes.push_back(scene);
 }
 
+void Engine::Core::RT::SceneManager::remove(int index)
+{
+    scenes.erase(scenes.begin() + index);
+    raytrace.sceneUpdated = true;
+}
+
 void Engine::Core::RT::SceneManager::pushToAccelerationStructure(std::vector<RTScene>& dst) {
     for(RTScene scene : scenes) {
         dst.push_back(scene);
@@ -33,6 +39,12 @@ void Engine::Core::RT::SceneManager::updateScene() {
 
     ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
 
+    for (int i = 0; i < scenes.size(); i++) {
+        if (scenes[i].markedForDeletion) {
+            remove(i);
+        }
+    }
+
     int i = 0;
     bool transformChanged = false;
     for(RTScene& scene : scenes) {
@@ -45,7 +57,6 @@ void Engine::Core::RT::SceneManager::updateScene() {
         static ImGuizmo::OPERATION currOp = ImGuizmo::TRANSLATE;
         static ImGuizmo::MODE currMode = ImGuizmo::WORLD;
 
-        ImGui::NewLine();
         ImGui::Checkbox("Show Gizmo", &scene.showGizmo);
 
         if (scene.showGizmo) {
@@ -65,6 +76,9 @@ void Engine::Core::RT::SceneManager::updateScene() {
                 transformChanged = true;
             }
         }
+
+        if (ImGui::Button("Remove Entity"))
+            scene.markedForDeletion = true;
 
         ImGui::PopID();
 

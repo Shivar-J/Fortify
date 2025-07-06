@@ -1,8 +1,9 @@
 #include "raytracing.h"
 #include "frameBuffer.h"
 #include "device.h"
-#include "texture.h"
 #include "commandBuffer.h"
+#include "rtSceneManager.h"
+#include "swapchain.h"
 
 void AccelerationStructure::create(Engine::Graphics::Device device, VkAccelerationStructureTypeKHR type, VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo)
 {
@@ -625,9 +626,10 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 	createSBTBuffer(raygenSBTBuffer, raygenSBTMemory, shaderHandleStorage.data(), handleSizeAligned);
 	createSBTBuffer(missSBTBuffer, missSBTMemory, shaderHandleStorage.data() + handleSizeAligned, handleSizeAligned);
 	createSBTBuffer(hitSBTBuffer, hitSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 2, handleSizeAligned);
+	createSBTBuffer(aHitSBTBuffer, aHitSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 3, handleSizeAligned);
 }
 
-void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, Engine::Graphics::Texture skyboxTexture)
+void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture)
 {
 	std::vector<VkDescriptorPoolSize> poolSizes = {
 		{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
@@ -744,21 +746,22 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		iBufferWrite.pBufferInfo = iBufferInfos.data();
 		writeDescriptorSets.push_back(iBufferWrite);
 	}
+	if (skyboxTexture.has_value()) {
+		VkDescriptorImageInfo skyboxInfo{};
+		skyboxInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		skyboxInfo.imageView = skyboxTexture.value().getTextureImageView();
+		skyboxInfo.sampler = skyboxTexture.value().getTextureSampler();
 
-	VkDescriptorImageInfo skyboxInfo{};
-	skyboxInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	skyboxInfo.imageView = skyboxTexture.getTextureImageView();
-	skyboxInfo.sampler = skyboxTexture.getTextureSampler();
-
-	VkWriteDescriptorSet skyboxWrite{};
-	skyboxWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	skyboxWrite.dstSet = descriptorSet;
-	skyboxWrite.dstBinding = 6;
-	skyboxWrite.dstArrayElement = 0;
-	skyboxWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	skyboxWrite.descriptorCount = 1;
-	skyboxWrite.pImageInfo = &skyboxInfo;
-	writeDescriptorSets.push_back(skyboxWrite);
+		VkWriteDescriptorSet skyboxWrite{};
+		skyboxWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		skyboxWrite.dstSet = descriptorSet;
+		skyboxWrite.dstBinding = 6;
+		skyboxWrite.dstArrayElement = 0;
+		skyboxWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		skyboxWrite.descriptorCount = 1;
+		skyboxWrite.pImageInfo = &skyboxInfo;
+		writeDescriptorSets.push_back(skyboxWrite);
+	}
 
 	std::vector<VkDescriptorBufferInfo> mBufferInfos;
 	for (auto& model : models) {
@@ -842,15 +845,22 @@ void Engine::Graphics::Raytracing::updateDescriptorSets(Engine::Graphics::Device
 
 }
 
-void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath)
+void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath)
 {
 	auto raygenShaderCode = readFile(raygenShaderPath);
 	auto missShaderCode = readFile(missShaderPath);
 	auto closestHitShaderCode = readFile(chitShaderPath);
+	auto anyHitShaderCode = readFile(ahitShaderPath);
 	
+	raygenPath = raygenShaderPath;
+	missPath = missShaderPath;
+	cHitPath = chitShaderPath;
+	aHitPath = ahitShaderPath;
+
 	VkShaderModule raygenShaderModule = createShaderModule(device.getDevice(), raygenShaderCode);
 	VkShaderModule missShaderModule = createShaderModule(device.getDevice(), missShaderCode);
 	VkShaderModule closestHitShaderModule = createShaderModule(device.getDevice(), closestHitShaderCode);
+	VkShaderModule anyHitShaderModule = createShaderModule(device.getDevice(), anyHitShaderCode);
 
 	std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
 		{0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
@@ -912,13 +922,23 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		nullptr
 		});
 
+	shaderStages.push_back({
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr,
+		0,
+		VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+		anyHitShaderModule,
+		"main",
+		nullptr
+		});
+
 	VkRayTracingShaderGroupCreateInfoKHR hitGroup{};
 	hitGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
 	hitGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-	hitGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+	hitGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 2;
 	hitGroup.generalShader = VK_SHADER_UNUSED_KHR;
 	hitGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
-	hitGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
+	hitGroup.anyHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
 	shaderGroups.push_back(hitGroup);
 
 	VkRayTracingPipelineCreateInfoKHR rayTracingPipelineCreateInfo{};
@@ -1152,6 +1172,41 @@ void Engine::Graphics::Raytracing::updateUBO(Engine::Graphics::Device device)
 	memcpy(uboMapped, &uboData, sizeof(uboData));
 }
 
+void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, Engine::Graphics::Swapchain swapchain, Engine::Core::RT::SceneManager rtscenemanager, std::optional<Engine::Graphics::Texture> skyboxTexture)
+{
+	vkDeviceWaitIdle(device.getDevice());
+
+	cleanup(device.getDevice());
+
+	initRaytracing(device);
+
+	VkExtent3D storageImageExtent = {
+		swapchain.getSwapchainExtent().width,
+		swapchain.getSwapchainExtent().height,
+		1
+	};
+
+	storageImage.create(device, device.getGraphicsQueue(), commandBuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
+	accumulationImage.create(device, device.getGraphicsQueue(), commandBuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
+
+	models.clear();
+	BLAS.clear();
+	rtscenemanager.pushToAccelerationStructure(models);
+
+	buildAccelerationStructure(device, commandBuffer, framebuffer);
+
+	createRayTracingPipeline(device, raygenPath, missPath, cHitPath, aHitPath);
+	createShaderBindingTables(device);
+	createUniformBuffer(device);
+	
+	if (skyboxTexture.has_value()) {
+		createDescriptorSets(device, skyboxTexture.value());
+	}
+	else {
+		createDescriptorSets(device);
+	}
+}
+
 void Engine::Graphics::Raytracing::cleanup(VkDevice device)
 {
 	vkDestroyBuffer(device, uniformBuffer, nullptr);
@@ -1163,6 +1218,8 @@ void Engine::Graphics::Raytracing::cleanup(VkDevice device)
 	vkFreeMemory(device, missSBTMemory, nullptr);
 	vkDestroyBuffer(device, hitSBTBuffer, nullptr);
 	vkFreeMemory(device, hitSBTMemory, nullptr);
+	vkDestroyBuffer(device, aHitSBTBuffer, nullptr);
+	vkFreeMemory(device, aHitSBTMemory, nullptr);
 
 	fpDestroyAccelerationStructureKHR(device, TLAS.handle, nullptr);
 	vkDestroyBuffer(device, TLAS.buffer, nullptr);

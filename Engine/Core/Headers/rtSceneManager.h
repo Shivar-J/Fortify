@@ -31,6 +31,7 @@ namespace Engine::Core {
             ) : device(device), sampler(sampler), commandbuffer(commandbuffer), framebuffer(framebuffer), swapchain(swapchain), camera(camera), texture(texture), raytrace(raytrace) {};
 
             void add(const std::string& texturePath);
+            void remove(int index);
             
             void pushToAccelerationStructure(std::vector<RTScene>& dst);
             void updateScene();

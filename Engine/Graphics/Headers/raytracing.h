@@ -3,6 +3,7 @@
 
 #include "utility.h"
 #include "vulkanPointers.hpp"
+#include "texture.h"
 
 struct AccelerationStructure {
 	VkAccelerationStructureKHR handle;
@@ -40,11 +41,15 @@ struct RaytracingUniformBufferObject {
     uint32_t rayBounces = 5;
 };
 
+namespace Engine::Core::RT {
+    class SceneManager;
+}
+
 namespace Engine::Graphics {
 	class FrameBuffer;
 	class Device;
-    class Texture;
     class CommandBuffer;
+    class Swapchain;
 
 	class Raytracing
 	{
@@ -60,6 +65,11 @@ namespace Engine::Graphics {
         StorageImage accumulationImage;
         StorageImage storageImage;
         
+        std::string raygenPath = "";
+        std::string missPath = "";
+        std::string cHitPath = "";
+        std::string aHitPath = "";
+
         VkPipeline pipeline;
         VkPipelineLayout pipelineLayout;
         VkDescriptorSetLayout descriptorSetLayout;
@@ -75,6 +85,9 @@ namespace Engine::Graphics {
         VkBuffer hitSBTBuffer;
         VkDeviceMemory hitSBTMemory;
 
+        VkBuffer aHitSBTBuffer;
+        VkDeviceMemory aHitSBTMemory;
+
         VkBuffer uniformBuffer;
         VkDeviceMemory uniformBufferMemory;
         RaytracingUniformBufferObject uboData;
@@ -84,6 +97,8 @@ namespace Engine::Graphics {
         VkDeviceMemory instanceBufferMemory;
 
         std::vector<RTScene> models;
+
+        bool sceneUpdated = false;
 
 	public:
         VkDeviceAddress getBufferDeviceAddress(VkDevice device, VkBuffer buffer);
@@ -98,14 +113,15 @@ namespace Engine::Graphics {
         
         void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);
-        void createDescriptorSets(Engine::Graphics::Device device, Engine::Graphics::Texture skyboxTexture);
+        void createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt);
         void updateDescriptorSets(Engine::Graphics::Device device);
-        void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath);
+        void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath);
         void createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent);
         void traceRays(VkDevice device, VkCommandBuffer commandBuffer, VkExtent2D extent, VkImage swapchainImage, uint32_t currentImageIndex);
     
         void createUniformBuffer(Engine::Graphics::Device device);
         void updateUBO(Engine::Graphics::Device device);
+        void recreateScene(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, Engine::Graphics::Swapchain swapchain, Engine::Core::RT::SceneManager rtscenemanager, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt);
 
         void cleanup(VkDevice device);
     };
