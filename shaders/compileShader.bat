@@ -33,7 +33,8 @@ C:\VulkanSDK\1.4.304.1\Bin\glslc.exe "%PROJECT_DIR%skyboxFrag.frag" -o "%PROJECT
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rgen" -o "%PROJECT_DIR%spv\raytraceRaygen.spv" || (echo failed to compile "raytrace.rgen" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rmiss" -o "%PROJECT_DIR%spv\raytraceMiss.spv" || (echo failed to compile "raytrace.rmiss" && exit)
 C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rchit" -o "%PROJECT_DIR%spv\raytraceChit.spv" || (echo failed to compile "raytrace.rchit" && exit)
-C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rahit" -o "%PROJECT_DIR%spv\raytraceAhit.spv" || (echo failed to compile "raytrace.rany" && exit)
+C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rahit" -o "%PROJECT_DIR%spv\raytraceAhit.spv" || (echo failed to compile "raytrace.rahit" && exit)
+C:\VulkanSDK\1.4.304.1\Bin\glslc.exe --target-env=vulkan1.3 "%PROJECT_DIR%raytrace.rint" -o "%PROJECT_DIR%spv\raytraceInt.spv" || (echo failed to compile "raytrace.rint" && exit)
 
 echo Shaders compiled
 pause

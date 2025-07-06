@@ -111,7 +111,7 @@ void Engine::Core::Application::initVulkan()
 	scenemanager.addEntity<Vertex, EntityType::Light>("shaders/spv/lightVert.spv", "shaders/spv/lightFrag.spv", "", "", false);
 	//scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/spv/primitiveVert.spv", "shaders/spv/primitiveFrag.spv", PrimitiveType::Plane, "", false);
 	
-	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv", "shaders/spv/raytraceAhit.spv");
+	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv", "shaders/spv/raytraceAhit.spv", "shaders/spv/raytraceInt.spv");
 	raytrace.createShaderBindingTables(device);
 	raytrace.createUniformBuffer(device);
 	raytrace.createDescriptorSets(device, skyboxTexture);
@@ -187,7 +187,7 @@ void Engine::Core::Application::mainLoop()
 	bool selectTexture = false;
 	bool selectModel = false;
 	bool selectMat = false;
-	bool useRaytracer = false;
+	bool useRaytracer = true;
 	bool setShaderPath = false;
 	bool toggleVsync = true;
 	bool fullscreenTrigger = false;

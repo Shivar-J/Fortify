@@ -1,24 +1,14 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
+#extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
-struct Vertex {
-    vec3 position;
-    vec3 normal;
-    vec2 texCoord;
-};
-
-struct RayPayload {
-    vec3 color;
-    vec3 attenuation;
-    uint depth;
-    uint rngState;
-    uint instanceID;
-    uint insideObj;
-};
+#include "raycommon.glsl"
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
+layout(location = 1) rayPayloadInEXT RayPayload reflectPayload;
+layout(location = 2) rayPayloadInEXT RayPayload refractPayload;
 hitAttributeEXT vec2 attribs;
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
@@ -38,12 +28,12 @@ const float IOR = 1.5;
 const vec3 glassTint = vec3(0.95, 0.98, 1.0);
 const vec3 metalTints[4] = vec3[4](vec3(1.0, 0.71, 0.29), vec3(0.95, 0.64, 0.54), vec3(0.95), vec3(0.56, 0.57, 0.58));
 
-float rand(inout uint state) {
-    state = (1664525u * state + 1013904223u);
-    return float(state & 0x00FFFFFF) / float(0x01000000);
-}
-
 void main() {
+    if (payload.depth >= ubo.rayBounces) {
+        payload.color = vec3(0);
+        return;
+    }
+
     uint primID = gl_PrimitiveID;
     uint instID = gl_InstanceCustomIndexEXT;
     bool isGlass = (instID % 2) == 0;
@@ -68,71 +58,78 @@ void main() {
     vec3 normal = normalize(bary.x * n0 + bary.y * n1 + bary.z * n2);
 
     vec3 viewDir = -gl_WorldRayDirectionEXT;
-    vec3 newOrigin;
-    vec3 newDir;
 
-    if (payload.depth >= ubo.rayBounces) {
-        payload.color = vec3(0);
-        return;
-    }
+    if(isGlass) {
+        float cosTheta = dot(normal, viewDir);
+        float eta = cosTheta < 0.0 ? IOR : 1.0 / IOR;
+        vec3 n = cosTheta < 0.0 ? -normal : normal;
+        cosTheta = abs(cosTheta);
 
-    if (payload.insideObj == 1 && payload.instanceID == instID && isGlass) {
-        payload.insideObj = 0;
-        vec3 forward = gl_WorldRayDirectionEXT;
-        vec3 offset = forward * 0.001;
-        payload.instanceID = instID;
-        traceRayEXT(
-            topLevelAS, 
-            gl_RayFlagsSkipClosestHitShaderEXT, 
-            0xFF, 0, 0, 0, 
-            hitPoint + offset, 
-            1e-9, forward, 
-            1e9, 
-            0
-        );
-        return;
-    }
-
-    if (isGlass) {
-        float dotNV = dot(normal, viewDir);
-        float eta = dotNV < 0.0 ? IOR : 1.0 / IOR;
-        normal = dotNV < 0.0 ? -normal : normal;
-        dotNV = abs(dotNV);
-
-        vec3 T = refract(-viewDir, normal, eta);
-        vec3 R = reflect(-viewDir, normal);
-        bool TIR = length(T) == 0.0;
+        vec3 R = reflect(-viewDir, n);
+        vec3 T = refract(-viewDir, n, eta);
+        bool TIR = length(T) == 0;
 
         float R0 = pow((1.0 - eta) / (1.0 + eta), 2.0);
-        float fresnel = R0 + (1.0 - R0) * pow(1.0 - dotNV, 5.0);
+        float fresnel = R0 + (1.0 - R0) * pow(1.0 - cosTheta, 5.0);
 
-        float r = rand(payload.rngState);
-        bool reflect = r < fresnel || TIR;
+        reflectPayload = payload;
+        reflectPayload.color = vec3(0.0);
+        reflectPayload.depth = payload.depth + 1;
+        reflectPayload.rngState += 1;
+    
+        traceRayEXT(
+            topLevelAS,
+            gl_RayFlagsOpaqueEXT,
+            0xFF,
+            0, 0, 0,
+            hitPoint + 0.001 * R,
+            1e-9,
+            R,
+            1e9,
+            1
+        );
 
-        newDir = reflect ? R : T;
-        newOrigin = hitPoint + 0.001 * newDir;
+        refractPayload = payload;
+        refractPayload.color = vec3(0.0);
+        refractPayload.depth = payload.depth + 1;
+        refractPayload.rngState += 2;
 
-        payload.attenuation *= reflect ? vec3(1.0) : glassTint;
-        payload.insideObj = reflect ? 0 : 1;
+        if(!TIR) {
+            traceRayEXT(
+                topLevelAS,
+                gl_RayFlagsCullBackFacingTrianglesEXT,
+                0xFF,
+                0, 0, 0,
+                hitPoint + 0.001 * T,
+                1e-9,
+                T,
+                1e9,
+                2
+            );
+        }
+
+        payload.color = fresnel * reflectPayload.color + (1.0 - fresnel) * refractPayload.color;
+        payload.attenuation *= glassTint;
     } else {
         vec3 reflected = reflect(-viewDir, normal);
-        newDir = reflected;
-        newOrigin = hitPoint + 0.001 * newDir;
-        payload.attenuation *= metalTints[instID % 4];
-        payload.insideObj = 0;
-    }
+        reflectPayload = payload;
+        reflectPayload.color = vec3(0.0);
+        reflectPayload.depth = payload.depth + 1;
+        reflectPayload.rngState += 3;
 
-    payload.instanceID = instID;
-    payload.depth++;
-    traceRayEXT(
-        topLevelAS, 
-        gl_RayFlagsSkipClosestHitShaderEXT, 
-        0xFF,
-        0, 0, 0, 
-        newOrigin, 
-        1e-9, 
-        newDir, 
-        1e9, 
-        0
-    );
+        traceRayEXT(
+            topLevelAS,
+            gl_RayFlagsOpaqueEXT,
+            0xFF,
+            0, 0, 0,
+            hitPoint + 0.001 * reflected,
+            1e-9,
+            reflected,
+            1e9,
+            1
+        );
+
+        payload.color = reflectPayload.color * vec3(1.0, 0.0, 0.0);
+        payload.attenuation *= vec3(1.0, 0.0, 0.0);
+    }
 }

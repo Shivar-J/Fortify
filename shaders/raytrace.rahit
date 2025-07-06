@@ -1,15 +1,9 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
-struct RayPayload {
-    vec3 color;
-    vec3 attenuation;
-    uint depth;
-    uint rngState;
-    uint instanceID;
-    uint insideObj;
-};
+#include "raycommon.glsl"
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 hitAttributeEXT vec2 attribs;
@@ -23,11 +17,41 @@ layout(set = 0, binding = 3) uniform RaytracingUBO {
     uint rayBounces;
 } ubo;
 
-void main() {
-    uint instID = gl_InstanceCustomIndexEXT;
+layout(set = 0, binding = 4) buffer Vertices { Vertex vertices[]; } vertexBuffers[];
+layout(set = 0, binding = 5) buffer Indices { uint indices[]; } indexBuffers[];
+layout(set = 0, binding = 8, std140) buffer InstanceTransforms { mat4 transforms[]; };
 
-    if (instID % 2 == 0) {
-        payload.attenuation *= vec3(0.95, 0.98, 1.0);
-        ignoreIntersectionEXT;
+float schlickApprox(float cosTheta, float F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+void main() {
+    uint primID = gl_PrimitiveID;
+    uint instID = gl_InstanceCustomIndexEXT;
+    bool isGlass = (instID % 2) == 0;
+
+    mat4 transform = transforms[instID];
+
+    uint i0 = indexBuffers[nonuniformEXT(instID)].indices[primID * 3 + 0];
+    uint i1 = indexBuffers[nonuniformEXT(instID)].indices[primID * 3 + 1];
+    uint i2 = indexBuffers[nonuniformEXT(instID)].indices[primID * 3 + 2];
+
+    vec3 p0 = (transform * vec4(vertexBuffers[nonuniformEXT(instID)].vertices[i0].position, 1.0)).xyz;
+    vec3 p1 = (transform * vec4(vertexBuffers[nonuniformEXT(instID)].vertices[i1].position, 1.0)).xyz;
+    vec3 p2 = (transform * vec4(vertexBuffers[nonuniformEXT(instID)].vertices[i2].position, 1.0)).xyz;
+
+    vec3 bary = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+    vec3 hitPoint = bary.x * p0 + bary.y * p1 + bary.z * p2;
+
+    mat3 normalMatrix = transpose(inverse(mat3(transform)));
+    vec3 n0 = normalize(normalMatrix * vertexBuffers[nonuniformEXT(instID)].vertices[i0].normal);
+    vec3 n1 = normalize(normalMatrix * vertexBuffers[nonuniformEXT(instID)].vertices[i1].normal);
+    vec3 n2 = normalize(normalMatrix * vertexBuffers[nonuniformEXT(instID)].vertices[i2].normal);
+    vec3 normal = normalize(bary.x * n0 + bary.y * n1 + bary.z * n2);
+
+    if(isGlass) {
+        if(rand(payload.rngState) < 0.5) {
+            ignoreIntersectionEXT;
+        }
     }
 }

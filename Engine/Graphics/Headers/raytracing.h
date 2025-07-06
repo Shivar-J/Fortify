@@ -69,6 +69,7 @@ namespace Engine::Graphics {
         std::string missPath = "";
         std::string cHitPath = "";
         std::string aHitPath = "";
+        std::string intPath = "";
 
         VkPipeline pipeline;
         VkPipelineLayout pipelineLayout;
@@ -87,6 +88,9 @@ namespace Engine::Graphics {
 
         VkBuffer aHitSBTBuffer;
         VkDeviceMemory aHitSBTMemory;
+
+        VkBuffer intSBTBuffer;
+        VkDeviceMemory intSBTMemory;
 
         VkBuffer uniformBuffer;
         VkDeviceMemory uniformBufferMemory;
@@ -115,7 +119,7 @@ namespace Engine::Graphics {
         void createShaderBindingTables(Engine::Graphics::Device device);
         void createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt);
         void updateDescriptorSets(Engine::Graphics::Device device);
-        void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath);
+        void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath, std::string intShaderPath);
         void createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent);
         void traceRays(VkDevice device, VkCommandBuffer commandBuffer, VkExtent2D extent, VkImage swapchainImage, uint32_t currentImageIndex);
     

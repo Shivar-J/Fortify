@@ -1,15 +1,9 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
+#extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
-struct RayPayload {
-    vec3 color;
-    vec3 attenuation;
-    uint depth;
-    uint rngState;
-    uint instanceID;
-    uint insideObj;
-};
+#include "raycommon.glsl"
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 

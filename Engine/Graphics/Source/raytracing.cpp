@@ -265,7 +265,7 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	blasInstance.transform = Engine::Utility::convertMat4ToTransformMatrix(models[index].matrix);
 	blasInstance.instanceCustomIndex = index;
 	blasInstance.mask = 0xFF;
-	blasInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+	blasInstance.flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
 	blasInstance.accelerationStructureReference = deviceAddress;
 
 	return blasInstance;
@@ -445,7 +445,7 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 		blasInstances[i].instanceCustomIndex = i;
 		blasInstances[i].mask = 0xFF;
 		blasInstances[i].instanceShaderBindingTableRecordOffset = 0;
-		blasInstances[i].flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+		blasInstances[i].flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
 		blasInstances[i].accelerationStructureReference = deviceAddress;
 	}
 
@@ -627,6 +627,7 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 	createSBTBuffer(missSBTBuffer, missSBTMemory, shaderHandleStorage.data() + handleSizeAligned, handleSizeAligned);
 	createSBTBuffer(hitSBTBuffer, hitSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 2, handleSizeAligned);
 	createSBTBuffer(aHitSBTBuffer, aHitSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 3, handleSizeAligned);
+	createSBTBuffer(intSBTBuffer, intSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 4, handleSizeAligned);
 }
 
 void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture)
@@ -845,33 +846,36 @@ void Engine::Graphics::Raytracing::updateDescriptorSets(Engine::Graphics::Device
 
 }
 
-void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath)
+void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath, std::string intShaderPath)
 {
 	auto raygenShaderCode = readFile(raygenShaderPath);
 	auto missShaderCode = readFile(missShaderPath);
 	auto closestHitShaderCode = readFile(chitShaderPath);
 	auto anyHitShaderCode = readFile(ahitShaderPath);
+	auto intersectionShaderCode = readFile(intShaderPath);
 	
 	raygenPath = raygenShaderPath;
 	missPath = missShaderPath;
 	cHitPath = chitShaderPath;
 	aHitPath = ahitShaderPath;
+	intPath = intShaderPath;
 
 	VkShaderModule raygenShaderModule = createShaderModule(device.getDevice(), raygenShaderCode);
 	VkShaderModule missShaderModule = createShaderModule(device.getDevice(), missShaderCode);
 	VkShaderModule closestHitShaderModule = createShaderModule(device.getDevice(), closestHitShaderCode);
 	VkShaderModule anyHitShaderModule = createShaderModule(device.getDevice(), anyHitShaderCode);
+	VkShaderModule intersectionShaderModule = createShaderModule(device.getDevice(), intersectionShaderCode);
 
 	std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
 		{0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
 		{1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
 		{2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
-		{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
-		{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
-		{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
+		{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
+		{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 		{6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr },
-		{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
-		{8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+		{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(models.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR| VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
+		{8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 	};
 
 	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
@@ -916,6 +920,16 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		nullptr,
 		0,
+		VK_SHADER_STAGE_INTERSECTION_BIT_KHR,
+		intersectionShaderModule,
+		"main",
+		nullptr
+		});
+
+	shaderStages.push_back({
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		nullptr,
+		0,
 		VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
 		closestHitShaderModule,
 		"main",
@@ -937,7 +951,7 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 	hitGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 	hitGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 2;
 	hitGroup.generalShader = VK_SHADER_UNUSED_KHR;
-	hitGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+	hitGroup.intersectionShader = static_cast<uint32_t>(shaderStages.size()) - 3;
 	hitGroup.anyHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
 	shaderGroups.push_back(hitGroup);
 
@@ -955,6 +969,7 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 	vkDestroyShaderModule(device.getDevice(), raygenShaderModule, nullptr);
 	vkDestroyShaderModule(device.getDevice(), missShaderModule, nullptr);
 	vkDestroyShaderModule(device.getDevice(), closestHitShaderModule, nullptr);
+	vkDestroyShaderModule(device.getDevice(), intersectionShaderModule, nullptr);
 }
 
 void Engine::Graphics::Raytracing::createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent)
@@ -1195,7 +1210,7 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 
 	buildAccelerationStructure(device, commandBuffer, framebuffer);
 
-	createRayTracingPipeline(device, raygenPath, missPath, cHitPath, aHitPath);
+	createRayTracingPipeline(device, raygenPath, missPath, cHitPath, aHitPath, intPath);
 	createShaderBindingTables(device);
 	createUniformBuffer(device);
 	
@@ -1220,6 +1235,8 @@ void Engine::Graphics::Raytracing::cleanup(VkDevice device)
 	vkFreeMemory(device, hitSBTMemory, nullptr);
 	vkDestroyBuffer(device, aHitSBTBuffer, nullptr);
 	vkFreeMemory(device, aHitSBTMemory, nullptr);
+	vkDestroyBuffer(device, intSBTBuffer, nullptr);
+	vkFreeMemory(device, intSBTMemory, nullptr);
 
 	fpDestroyAccelerationStructureKHR(device, TLAS.handle, nullptr);
 	vkDestroyBuffer(device, TLAS.buffer, nullptr);
