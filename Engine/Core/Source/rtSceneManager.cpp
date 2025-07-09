@@ -17,6 +17,15 @@ void Engine::Core::RT::SceneManager::add(const std::string& texturePath) {
     scene.matrix = glm::mat4(1.0f);
     scene.name = path.filename().string();
 
+    if (scene.name == "viking_room.obj") {
+        Engine::Graphics::Texture temp;
+        temp.createTextureImage("textures/viking_room/viking_room.png", device, commandbuffer, framebuffer, sampler, false, false);
+        temp.createTextureImageView(swapchain, device.getDevice(), false);
+        temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+        scene.modelTexture = temp;
+    }
+
     scenes.push_back(scene);
 }
 

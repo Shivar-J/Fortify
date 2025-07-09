@@ -23,6 +23,7 @@ layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
 layout(set = 0, binding = 4) buffer Vertices { Vertex vertices[]; } vertexBuffers[];
 layout(set = 0, binding = 5) buffer Indices { uint indices[]; } indexBuffers[];
 layout(set = 0, binding = 8, std140) buffer InstanceTransforms { mat4 transforms[]; };
+layout(set = 0, binding = 9) uniform sampler2D modelTexture;
 
 const float IOR = 1.5;
 const vec3 glassTint = vec3(0.95, 0.98, 1.0);
@@ -48,8 +49,13 @@ void main() {
     vec3 p1 = (transform * vec4(vertexBuffers[nonuniformEXT(instID)].vertices[i1].position, 1.0)).xyz;
     vec3 p2 = (transform * vec4(vertexBuffers[nonuniformEXT(instID)].vertices[i2].position, 1.0)).xyz;
 
+    vec2 uv0 = vertexBuffers[nonuniformEXT(instID)].vertices[i0].texCoord;
+    vec2 uv1 = vertexBuffers[nonuniformEXT(instID)].vertices[i1].texCoord;
+    vec2 uv2 = vertexBuffers[nonuniformEXT(instID)].vertices[i2].texCoord;
+
     vec3 bary = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
     vec3 hitPoint = bary.x * p0 + bary.y * p1 + bary.z * p2;
+    vec2 uv = uv0 * (1.0 - attribs.x - attribs.y) + uv1 * attribs.x + uv2 * attribs.y;
 
     mat3 normalMatrix = transpose(inverse(mat3(transform)));
     vec3 n0 = normalize(normalMatrix * vertexBuffers[nonuniformEXT(instID)].vertices[i0].normal);
@@ -113,6 +119,8 @@ void main() {
         vec3 surfaceColor = fresnel * reflectPayload.color + (1.0 - fresnel) * refractPayload.color;
         payload.color = surfaceColor * payload.attenuation;
     } else {
+        vec3 albedo = texture(modelTexture, uv).rgb;
+
         vec3 reflected = reflect(viewDir, normal);
         reflectPayload = payload;
         reflectPayload.color = vec3(0.0);
@@ -131,7 +139,9 @@ void main() {
             1
         );
 
-        payload.color = (reflectPayload.color * vec3(1.0, 0.0, 0.0)) * payload.attenuation;
+        payload.color = albedo;
+
+       //payload.color = albedo * (reflectPayload.color * vec3(1.0, 0.0, 0.0)) * payload.attenuation;
     }
 
     payload.depth++;

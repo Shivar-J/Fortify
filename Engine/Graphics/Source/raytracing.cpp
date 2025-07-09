@@ -630,7 +630,7 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 	createSBTBuffer(intSBTBuffer, intSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 4, handleSizeAligned);
 }
 
-void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture)
+void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture, std::optional<Engine::Graphics::Texture> modelTexture)
 {
 	uint32_t modelBufferSize = std::max(static_cast<uint32_t>(models.size()), 1u);
 
@@ -639,7 +639,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * modelBufferSize},
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 },
 	};
 
 	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
@@ -799,6 +799,25 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	instanceTransformWrite.pBufferInfo = &instanceTransformInfo;
 	writeDescriptorSets.push_back(instanceTransformWrite);
 
+	for (RTScene scene : models) {
+		if (scene.modelTexture.has_value()) {
+			VkDescriptorImageInfo modelTextureInfo{};
+			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			modelTextureInfo.imageView = scene.modelTexture.value().getTextureImageView();
+			modelTextureInfo.sampler = scene.modelTexture.value().getTextureSampler();
+
+			VkWriteDescriptorSet textureWrite{};
+			textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			textureWrite.dstSet = descriptorSet;
+			textureWrite.dstBinding = 9;
+			textureWrite.dstArrayElement = 0;
+			textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			textureWrite.descriptorCount = 1;
+			textureWrite.pImageInfo = &modelTextureInfo;
+			writeDescriptorSets.push_back(textureWrite);
+		}
+	}
+
 	vkUpdateDescriptorSets(
 		device.getDevice(),
 		static_cast<uint32_t>(writeDescriptorSets.size()),
@@ -880,6 +899,7 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		{6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr },
 		{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR| VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 		{8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
+		{9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
 	};
 
 	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
@@ -1216,7 +1236,7 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 		buildAccelerationStructure(device, commandBuffer, framebuffer);
 	}
 
-	createRayTracingPipeline(device, raygenPath, missPath, cHitPath, aHitPath, intPath);
+ 	createRayTracingPipeline(device, raygenPath, missPath, cHitPath, aHitPath, intPath);
 	createShaderBindingTables(device);
 	createUniformBuffer(device);
 

@@ -152,6 +152,19 @@ struct Materials {
 	VkDeviceMemory specularImageMemory;
 };
 
+struct MeshObject {
+	std::vector<Vertex> v;
+	std::vector<uint32_t> i;
+	std::vector<Materials> m;
+
+	VkBuffer vb = VK_NULL_HANDLE;
+	VkDeviceMemory vbm = VK_NULL_HANDLE;
+	VkBuffer ib = VK_NULL_HANDLE;
+	VkDeviceMemory ibm = VK_NULL_HANDLE;
+	VkBuffer mb = VK_NULL_HANDLE;
+	VkDeviceMemory mbm = VK_NULL_HANDLE;
+};
+
 enum class PBRTextureType {
 	Albedo = 1,
 	Normal = 2,
@@ -185,31 +198,6 @@ enum class PrimitiveType {
 	Cube,
 	Sphere,
 	Plane,
-};
-
-struct MeshObject {
-	std::vector<Vertex> v;
-	std::vector<uint32_t> i;
-	std::vector<Materials> m;
-
-	VkBuffer vb = VK_NULL_HANDLE;
-	VkDeviceMemory vbm = VK_NULL_HANDLE;
-	VkBuffer ib = VK_NULL_HANDLE;
-	VkDeviceMemory ibm = VK_NULL_HANDLE;
-	VkBuffer mb = VK_NULL_HANDLE;
-	VkDeviceMemory mbm = VK_NULL_HANDLE;
-};
-
-struct RTScene {
-	MeshObject obj;
-	std::string name = "";
-	bool markedForDeletion = false;
-	glm::mat4 matrix;
-	glm::vec3 scale = glm::vec3(1.0f);
-	glm::vec3 color = glm::vec3(0.75f);
-	std::unordered_map<PBRTextureType, std::string> texturePaths;
-	bool hasTexture = false;
-	bool showGizmo = false;
 };
 
 namespace Engine::Settings {

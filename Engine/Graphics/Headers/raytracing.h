@@ -4,6 +4,7 @@
 #include "utility.h"
 #include "vulkanPointers.hpp"
 #include "texture.h"
+#include "sceneUtility.h"
 
 struct AccelerationStructure {
 	VkAccelerationStructureKHR handle;
@@ -117,7 +118,7 @@ namespace Engine::Graphics {
         
         void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);
-        void createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt);
+        void createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt, std::optional<Engine::Graphics::Texture> modelTexture = std::nullopt);
         void updateDescriptorSets(Engine::Graphics::Device device);
         void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath, std::string intShaderPath);
         void createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent);
