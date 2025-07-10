@@ -1,5 +1,7 @@
 #include "utility.h"
 
+VmaAllocator allocator = VK_NULL_HANDLE;
+
 bool Engine::Settings::checkValidationLayerSupport()
 {
 	uint32_t layerCount;
@@ -57,19 +59,31 @@ bool Engine::Utility::hasStencilComponent(VkFormat format)
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;;
 }
 
-std::vector<const char*> Engine::Utility::getShaderPaths(const char*& path)
+std::vector<std::string> Engine::Utility::getAllPathsFromPath(const std::string& path, std::string ext)
 {
-	std::vector<const char*> shaderPaths;
-
-	shaderPaths.push_back("None");
+	std::vector<std::string> paths;
 
 	for (const auto& dir_entry : std::filesystem::recursive_directory_iterator(path)) {
-		if (dir_entry.path().extension() == ".spv") {
-			shaderPaths.push_back(dir_entry.path().string().c_str());
+		if (dir_entry.path().extension() == ext) {
+			paths.push_back(dir_entry.path().string());
 		}
 	}
 
-	return shaderPaths;
+	return paths;
+}
+
+std::vector<std::string> Engine::Utility::getAllPathsFromPath(const std::string& path, std::vector<std::string> exts) {
+	std::vector<std::string> paths;
+
+	for(const auto& dir_entry : std::filesystem::recursive_directory_iterator(path)) {
+		for(std::string ext : exts) {
+			if(dir_entry.path().extension() == ext) {
+				paths.push_back(dir_entry.path().string());
+			}
+		}
+	}
+
+	return paths;
 }
 
 VkTransformMatrixKHR Engine::Utility::convertMat4ToTransformMatrix(glm::mat4 m) {
@@ -92,4 +106,18 @@ glm::mat4 Engine::Utility::convertTransformMatrixToMat4(VkTransformMatrixKHR mat
 	};
 
 	return res;
+}
+
+
+void Engine::Utility::setDebugName(VkDevice device, uint64_t handle, VkObjectType type, const std::string& name) {
+	VkDebugUtilsObjectNameInfoEXT info = {};
+	info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+	info.objectType = type;
+	info.objectHandle = handle;
+	info.pObjectName = name.c_str();
+
+	auto func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(device, "vkSetDebugUtilsObjectNameEXT");
+	if (func) {
+		func(device, &info);
+	}
 }

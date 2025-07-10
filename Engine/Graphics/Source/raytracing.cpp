@@ -630,7 +630,7 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 	createSBTBuffer(intSBTBuffer, intSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 4, handleSizeAligned);
 }
 
-void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture, std::optional<Engine::Graphics::Texture> modelTexture)
+void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture)
 {
 	uint32_t modelBufferSize = std::max(static_cast<uint32_t>(models.size()), 1u);
 
@@ -639,7 +639,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * modelBufferSize},
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 7 * modelBufferSize + 1},
 	};
 
 	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
@@ -800,11 +800,11 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	writeDescriptorSets.push_back(instanceTransformWrite);
 
 	for (RTScene scene : models) {
-		if (scene.modelTexture.has_value()) {
+		if (scene.albedo.has_value()) {
 			VkDescriptorImageInfo modelTextureInfo{};
 			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			modelTextureInfo.imageView = scene.modelTexture.value().getTextureImageView();
-			modelTextureInfo.sampler = scene.modelTexture.value().getTextureSampler();
+			modelTextureInfo.imageView = scene.albedo.value().getTextureImageView();
+			modelTextureInfo.sampler = scene.albedo.value().getTextureSampler();
 
 			VkWriteDescriptorSet textureWrite{};
 			textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1252,6 +1252,36 @@ void Engine::Graphics::Raytracing::cleanup(VkDevice device)
 {
 	vkDestroyBuffer(device, uniformBuffer, nullptr);
 	vkFreeMemory(device, uniformBufferMemory, nullptr);
+
+	for(auto& scene : models) {
+		if(scene.obj.vb != VK_NULL_HANDLE) {
+			vkDestroyBuffer(device, scene.obj.vb, nullptr);
+			vkFreeMemory(device, scene.obj.vbm, nullptr);
+		}
+		if(scene.obj.ib != VK_NULL_HANDLE) {
+			vkDestroyBuffer(device, scene.obj.ib, nullptr);
+			vkFreeMemory(device, scene.obj.ibm, nullptr);
+		}
+		if(scene.obj.mb != VK_NULL_HANDLE) {
+			vkDestroyBuffer(device, scene.obj.mb, nullptr);
+			vkFreeMemory(device, scene.obj.mbm, nullptr);
+		}
+
+		if(scene.albedo.has_value())
+			scene.albedo.value().cleanup(device);
+		if(scene.normal.has_value()) 
+			scene.normal.value().cleanup(device);
+		if(scene.roughness.has_value())
+			scene.roughness.value().cleanup(device);
+		if(scene.metalness.has_value())
+			scene.metalness.value().cleanup(device);
+		if(scene.specular.has_value())
+			scene.specular.value().cleanup(device);
+		if(scene.height.has_value())
+			scene.height.value().cleanup(device);
+		if(scene.ambientOcclusion.has_value())
+			scene.ambientOcclusion.value().cleanup(device);
+	}
 
 	vkDestroyBuffer(device, raygenSBTBuffer, nullptr);
 	vkFreeMemory(device, raygenSBTMemory, nullptr);

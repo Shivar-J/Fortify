@@ -17,14 +17,79 @@ void Engine::Core::RT::SceneManager::add(const std::string& texturePath) {
     scene.matrix = glm::mat4(1.0f);
     scene.name = path.filename().string();
 
-    if (scene.name == "viking_room.obj") {
-        Engine::Graphics::Texture temp;
-        temp.createTextureImage("textures/viking_room/viking_room.png", device, commandbuffer, framebuffer, sampler, false, false);
-        temp.createTextureImageView(swapchain, device.getDevice(), false);
-        temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+    std::vector<std::string> texturePaths;
+    texturePaths = Engine::Utility::getAllPathsFromPath(path.parent_path().string() + "/", Engine::Utility::imageFileTypes);
 
-        scene.modelTexture = temp;
+    if(texturePaths.size() == 1) {
+        Engine::Graphics::Texture albedo;
+        albedo.createTextureImage(texturePaths[0], device, commandbuffer, framebuffer, sampler, false, false);
+        albedo.createTextureImageView(swapchain, device.getDevice(), false);
+        albedo.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+        scene.albedo = albedo;
+    } else if(texturePaths.size() > 1) {
+        for(auto& file : texturePaths) {
+            Engine::Graphics::Texture temp;
+
+            if(file.find("albedo") != std::string::npos || file.find("diffuse") != std::string::npos) {
+                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false);
+                temp.createTextureImageView(swapchain, device.getDevice(), false);
+                temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+                scene.albedo = std::move(temp);
+            }
+            else if(file.find("normal") != std::string::npos) {
+                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false);
+                temp.createTextureImageView(swapchain, device.getDevice(), false);
+                temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+                scene.normal = std::move(temp);
+            }
+            else if(file.find("roughness") != std::string::npos) {
+                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false);
+                temp.createTextureImageView(swapchain, device.getDevice(), false);
+                temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+                scene.roughness = std::move(temp);
+            }
+            else if(file.find("metalness") != std::string::npos) {
+                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false);
+                temp.createTextureImageView(swapchain, device.getDevice(), false);
+                temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+                scene.metalness = std::move(temp);
+            }
+            else if(file.find("specular") != std::string::npos) {
+                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false);
+                temp.createTextureImageView(swapchain, device.getDevice(), false);
+                temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+                scene.specular = std::move(temp);
+            }
+            else if(file.find("height") != std::string::npos) {
+                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false);
+                temp.createTextureImageView(swapchain, device.getDevice(), false);
+                temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+                scene.height = std::move(temp);
+            }
+            else if(file.find("ambient_occlusion") != std::string::npos) {
+                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false);
+                temp.createTextureImageView(swapchain, device.getDevice(), false);
+                temp.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+
+                scene.ambientOcclusion = std::move(temp);
+            } else {
+                std::cout << "Textures found but naming convention not followed" << std::endl;
+                // manually add textures
+                // clear texture memory
+            }
+
+            temp.cleanup(device.getDevice());
+        }
     }
+
+    scene.totalTextures = texturePaths.size();
 
     scenes.push_back(scene);
 }

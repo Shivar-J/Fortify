@@ -38,6 +38,14 @@ void Engine::Core::Application::initVulkan()
 	sampler.setSamples(device.getPhysicalDevice());
 	device.createLogicalDevice(instance.getSurface());
 
+	VmaAllocatorCreateInfo allocatorInfo{};
+	allocatorInfo.physicalDevice = device.getPhysicalDevice();
+	allocatorInfo.device = device.getDevice();
+	allocatorInfo.instance = instance.getInstance();
+	allocatorInfo.flags = 0;
+
+	vmaCreateAllocator(&allocatorInfo, &allocator);
+
 	fpCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCreateAccelerationStructureKHR"));
 	fpDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkDestroyAccelerationStructureKHR"));
 	fpGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetAccelerationStructureBuildSizesKHR"));

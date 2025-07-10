@@ -15,6 +15,7 @@
 
 #include <stb_image.h>
 #include <tiny_obj_loader.h>
+#include <vk_mem_alloc.h>
 
 #include <chrono>
 #include <iostream>
@@ -35,6 +36,8 @@
 #include <numeric>
 
 #include "device.h"
+
+extern VmaAllocator allocator;
 
 struct Vertex {
 	alignas (16) glm::vec3 pos;
@@ -237,10 +240,17 @@ namespace Engine::Settings {
 };
 
 namespace Engine::Utility {
+	inline const std::vector<std::string> imageFileTypes = {
+		".png", ".jpg",
+	};
+	
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice);
 	bool hasStencilComponent(VkFormat format);
-	std::vector<const char*> getShaderPaths(const char*& path);
+	std::vector<std::string> getAllPathsFromPath(const std::string& path, std::string ext);
+	std::vector<std::string> getAllPathsFromPath(const std::string& path, std::vector<std::string> exts);
 	VkTransformMatrixKHR convertMat4ToTransformMatrix(glm::mat4 mat);
 	glm::mat4 convertTransformMatrixToMat4(VkTransformMatrixKHR mat);
+	void setDebugName(VkDevice device, uint64_t handle, VkObjectType type, const std::string& name);
+
 }
 #endif

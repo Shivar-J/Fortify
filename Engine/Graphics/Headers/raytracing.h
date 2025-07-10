@@ -42,6 +42,16 @@ struct RaytracingUniformBufferObject {
     uint32_t rayBounces = 5;
 };
 
+struct TextureMapFlags {
+    bool hasAlbedo = false;
+    bool hasNormal = false;
+    bool hasRoughness = false;
+    bool hasMetalness = false;
+    bool hasSpecular = false;
+    bool hasHeight = false;
+    bool hasAmbientOcclusion = false;
+};
+
 namespace Engine::Core::RT {
     class SceneManager;
 }
@@ -118,7 +128,7 @@ namespace Engine::Graphics {
         
         void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);
-        void createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt, std::optional<Engine::Graphics::Texture> modelTexture = std::nullopt);
+        void createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt);
         void updateDescriptorSets(Engine::Graphics::Device device);
         void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath, std::string intShaderPath);
         void createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent);

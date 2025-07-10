@@ -13,6 +13,16 @@ struct RayPayload {
     uint insideObj;
 };
 
+struct TextureMapFlags {
+    bool hasAlbedo;
+    bool hasNormal;
+    bool hasRoughness;
+    bool hasMetalness;
+    bool hasSpecular;
+    bool hasHeight;
+    bool hasAmbientOcclusion;
+};
+
 uint rand_pcg(inout uint rngState) {
     uint state = rngState;
     rngState = rngState * 747796405u + 2891336453u;

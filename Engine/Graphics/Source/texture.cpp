@@ -812,3 +812,38 @@ void Engine::Graphics::Texture::updateSkyboxUniformBuffer(uint32_t currentImage,
 
     memcpy(skyboxUniformBuffersMapped[currentImage], &skyboxUBO, sizeof(skyboxUBO));
 }
+
+void Engine::Graphics::Texture::cleanup(VkDevice device) {
+    if (textureSampler) vkDestroySampler(device, textureSampler, nullptr);
+    if (textureImageView) vkDestroyImageView(device, textureImageView, nullptr);
+    if (textureImage) vkDestroyImage(device, textureImage, nullptr);
+    if (textureImageMemory) vkFreeMemory(device, textureImageMemory, nullptr);
+
+    for (size_t i = 0; i < textureImages.size(); ++i) {
+        if (textureSamples[i]) vkDestroySampler(device, textureSamples[i], nullptr);
+        if (textureImageViews[i]) vkDestroyImageView(device, textureImageViews[i], nullptr);
+        if (textureImages[i]) vkDestroyImage(device, textureImages[i], nullptr);
+        if (textureImageMemories[i]) vkFreeMemory(device, textureImageMemories[i], nullptr);
+    }
+
+    for (auto sem : imageAvailableSemaphores)
+        if (sem) vkDestroySemaphore(device, sem, nullptr);
+    for (auto sem : renderFinishedSemaphores)
+        if (sem) vkDestroySemaphore(device, sem, nullptr);
+    for (auto fence : inFlightFences)
+        if (fence) vkDestroyFence(device, fence, nullptr);
+
+    for (size_t i = 0; i < uniformBuffers.size(); ++i) {
+        if (uniformBuffers[i]) vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+        if (uniformBuffersMemory[i]) vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+    }
+    for (size_t i = 0; i < skyboxUniformBuffers.size(); ++i) {
+        if (skyboxUniformBuffers[i]) vkDestroyBuffer(device, skyboxUniformBuffers[i], nullptr);
+        if (skyboxUniformBuffersMemory[i]) vkFreeMemory(device, skyboxUniformBuffersMemory[i], nullptr);
+    }
+
+    if (vertexBuffer) vkDestroyBuffer(device, vertexBuffer, nullptr);
+    if (vertexBufferMemory) vkFreeMemory(device, vertexBufferMemory, nullptr);
+    if (indexBuffer) vkDestroyBuffer(device, indexBuffer, nullptr);
+    if (indexBufferMemory) vkFreeMemory(device, indexBufferMemory, nullptr);
+}

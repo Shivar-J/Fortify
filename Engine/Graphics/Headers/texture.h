@@ -94,6 +94,8 @@ namespace Engine::Graphics {
 		void createSkyboxUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer);
 		void updateSkyboxUniformBuffer(uint32_t currentImage, Engine::Core::Camera& camera, VkExtent2D swapChainExtent);
 
+		void cleanup(VkDevice device);
+
 		int getTextureCount() const {
 			return textureImageViews.size() > 0 ? static_cast<int>(textureImageViews.size()) : -1;
 		}
