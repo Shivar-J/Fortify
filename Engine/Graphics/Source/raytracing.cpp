@@ -183,10 +183,6 @@ VkDeviceAddress Engine::Graphics::Raytracing::getBufferDeviceAddress(VkDevice de
 	bufferDeviceAddress.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	bufferDeviceAddress.buffer = buffer;
 
-	VkMemoryRequirements memReqs;
-	vkGetBufferMemoryRequirements(device, buffer, &memReqs);
-	std::cout << "Buffer mem size: " << memReqs.size << ", alignment: " << memReqs.alignment << "\n";
-
 	return fpGetBufferDeviceAddressKHR(device, &bufferDeviceAddress);
 }
 
@@ -282,8 +278,6 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	VkDeviceMemory transformMatrixBufferMemory;
 
 	framebuffer.createBuffer(device, sizeof(glm::mat4), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, transformMatrixBuffer, transformMatrixBufferMemory, &model->matrix);
-		
-	std::cout << models.size() << std::endl;
 
 	uint32_t numTriangles = static_cast<uint32_t>(model->obj.i.size()) / 3;
 
