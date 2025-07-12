@@ -157,7 +157,7 @@ void StorageImage::create(Engine::Graphics::Device device, VkQueue queue, VkComm
 	vkWaitForFences(device.getDevice(), 1, &fence, VK_TRUE, 100000000000);
 	vkDestroyFence(device.getDevice(), fence, nullptr);
 
-	//vkFreeCommandBuffers(device.getDevice(), commandPool, 1, &commandBuffer);
+	vkFreeCommandBuffers(device.getDevice(), commandPool, 1, &commandBuffer);
 
 }
 
@@ -182,6 +182,11 @@ VkDeviceAddress Engine::Graphics::Raytracing::getBufferDeviceAddress(VkDevice de
 	VkBufferDeviceAddressInfoKHR bufferDeviceAddress{};
 	bufferDeviceAddress.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	bufferDeviceAddress.buffer = buffer;
+
+	VkMemoryRequirements memReqs;
+	vkGetBufferMemoryRequirements(device, buffer, &memReqs);
+	std::cout << "Buffer mem size: " << memReqs.size << ", alignment: " << memReqs.alignment << "\n";
+
 	return fpGetBufferDeviceAddressKHR(device, &bufferDeviceAddress);
 }
 
@@ -262,7 +267,7 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	auto deviceAddress = fpGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &accelerationDeviceAddressInfo);
 
 	VkAccelerationStructureInstanceKHR blasInstance{};
-	blasInstance.transform = Engine::Utility::convertMat4ToTransformMatrix(models[index].matrix);
+	blasInstance.transform = Engine::Utility::convertMat4ToTransformMatrix(models[index]->matrix);
 	blasInstance.instanceCustomIndex = index;
 	blasInstance.mask = 0xFF;
 	blasInstance.flags = VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
@@ -271,14 +276,16 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	return blasInstance;
 }
 
-void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, RTScene model)
+void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, std::shared_ptr<RTScene> model)
 {
 	VkBuffer transformMatrixBuffer;
 	VkDeviceMemory transformMatrixBufferMemory;
 
-	framebuffer.createBuffer(device, sizeof(glm::mat4), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, transformMatrixBuffer, transformMatrixBufferMemory, &model.matrix);
+	framebuffer.createBuffer(device, sizeof(glm::mat4), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, transformMatrixBuffer, transformMatrixBufferMemory, &model->matrix);
 		
-	uint32_t numTriangles = static_cast<uint32_t>(model.obj.i.size()) / 3;
+	std::cout << models.size() << std::endl;
+
+	uint32_t numTriangles = static_cast<uint32_t>(model->obj.i.size()) / 3;
 
 	VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
 	accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -286,11 +293,11 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
 	accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 	accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.obj.vb);
-	accelerationStructureGeometry.geometry.triangles.maxVertex = model.obj.v.size();
+	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model->obj.vb);
+	accelerationStructureGeometry.geometry.triangles.maxVertex = model->obj.v.size();
 	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model.obj.ib);
+	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model->obj.ib);
 	accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = 0;
 	accelerationStructureGeometry.geometry.triangles.transformData.hostAddress = nullptr;
 
@@ -441,7 +448,7 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 		addrInfo.accelerationStructure = BLAS[i].handle;
 		uint64_t deviceAddress = fpGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &addrInfo);
 
-		blasInstances[i].transform = Engine::Utility::convertMat4ToTransformMatrix(models[i].matrix);
+		blasInstances[i].transform = Engine::Utility::convertMat4ToTransformMatrix(models[i]->matrix);
 		blasInstances[i].instanceCustomIndex = i;
 		blasInstances[i].mask = 0xFF;
 		blasInstances[i].instanceShaderBindingTableRecordOffset = 0;
@@ -716,8 +723,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> vBufferInfos;
 	for (auto& model : models) {
-		if (model.obj.vb != VK_NULL_HANDLE) {
-			vBufferInfos.push_back({ model.obj.vb, 0, VK_WHOLE_SIZE });
+		if (model->obj.vb != VK_NULL_HANDLE) {
+			vBufferInfos.push_back({ model->obj.vb, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -734,8 +741,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> iBufferInfos;
 	for (auto& model : models) {
-		if (model.obj.ib != VK_NULL_HANDLE) {
-			iBufferInfos.push_back({ model.obj.ib, 0, VK_WHOLE_SIZE });
+		if (model->obj.ib != VK_NULL_HANDLE) {
+			iBufferInfos.push_back({ model->obj.ib, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -769,8 +776,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> mBufferInfos;
 	for (auto& model : models) {
-		if (model.obj.mb != VK_NULL_HANDLE) {
-			mBufferInfos.push_back({ model.obj.mb, 0, VK_WHOLE_SIZE });
+		if (model->obj.mb != VK_NULL_HANDLE) {
+			mBufferInfos.push_back({ model->obj.mb, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -799,12 +806,12 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	instanceTransformWrite.pBufferInfo = &instanceTransformInfo;
 	writeDescriptorSets.push_back(instanceTransformWrite);
 
-	for (RTScene scene : models) {
-		if (scene.albedo.has_value()) {
+	for (auto& scene : models) {
+		if (scene->albedo.has_value()) {
 			VkDescriptorImageInfo modelTextureInfo{};
 			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			modelTextureInfo.imageView = scene.albedo.value().getTextureImageView();
-			modelTextureInfo.sampler = scene.albedo.value().getTextureSampler();
+			modelTextureInfo.imageView = scene->albedo.value().getTextureImageView();
+			modelTextureInfo.sampler = scene->albedo.value().getTextureSampler();
 
 			VkWriteDescriptorSet textureWrite{};
 			textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1215,7 +1222,9 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 {
 	vkDeviceWaitIdle(device.getDevice());
 
-	cleanup(device.getDevice());
+	cleanup(device.getDevice(), true);
+
+	BLAS.clear();
 
 	initRaytracing(device);
 
@@ -1228,8 +1237,6 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 	storageImage.create(device, device.getGraphicsQueue(), commandBuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 	accumulationImage.create(device, device.getGraphicsQueue(), commandBuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 
-	models.clear();
-	BLAS.clear();
 	rtscenemanager.pushToAccelerationStructure(models);
 
 	if (!models.empty()) {
@@ -1248,39 +1255,30 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 	}
 }
 
-void Engine::Graphics::Raytracing::cleanup(VkDevice device)
+void Engine::Graphics::Raytracing::cleanup(VkDevice device, bool softClean)
 {
 	vkDestroyBuffer(device, uniformBuffer, nullptr);
 	vkFreeMemory(device, uniformBufferMemory, nullptr);
 
-	for(auto& scene : models) {
-		if(scene.obj.vb != VK_NULL_HANDLE) {
-			vkDestroyBuffer(device, scene.obj.vb, nullptr);
-			vkFreeMemory(device, scene.obj.vbm, nullptr);
-		}
-		if(scene.obj.ib != VK_NULL_HANDLE) {
-			vkDestroyBuffer(device, scene.obj.ib, nullptr);
-			vkFreeMemory(device, scene.obj.ibm, nullptr);
-		}
-		if(scene.obj.mb != VK_NULL_HANDLE) {
-			vkDestroyBuffer(device, scene.obj.mb, nullptr);
-			vkFreeMemory(device, scene.obj.mbm, nullptr);
-		}
+	if (!softClean) {
+		for (auto& scene : models) {
+			scene->obj.destroy(device);
 
-		if(scene.albedo.has_value())
-			scene.albedo.value().cleanup(device);
-		if(scene.normal.has_value()) 
-			scene.normal.value().cleanup(device);
-		if(scene.roughness.has_value())
-			scene.roughness.value().cleanup(device);
-		if(scene.metalness.has_value())
-			scene.metalness.value().cleanup(device);
-		if(scene.specular.has_value())
-			scene.specular.value().cleanup(device);
-		if(scene.height.has_value())
-			scene.height.value().cleanup(device);
-		if(scene.ambientOcclusion.has_value())
-			scene.ambientOcclusion.value().cleanup(device);
+			if (scene->albedo.has_value())
+				scene->albedo.value().cleanup(device);
+			if (scene->normal.has_value())
+				scene->normal.value().cleanup(device);
+			if (scene->roughness.has_value())
+				scene->roughness.value().cleanup(device);
+			if (scene->metalness.has_value())
+				scene->metalness.value().cleanup(device);
+			if (scene->specular.has_value())
+				scene->specular.value().cleanup(device);
+			if (scene->height.has_value())
+				scene->height.value().cleanup(device);
+			if (scene->ambientOcclusion.has_value())
+				scene->ambientOcclusion.value().cleanup(device);
+		}
 	}
 
 	vkDestroyBuffer(device, raygenSBTBuffer, nullptr);

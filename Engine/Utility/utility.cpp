@@ -1,6 +1,7 @@
 #include "utility.h"
 
 VmaAllocator allocator = VK_NULL_HANDLE;
+std::unique_ptr<ResourceManager> resources;
 
 bool Engine::Settings::checkValidationLayerSupport()
 {
@@ -119,5 +120,29 @@ void Engine::Utility::setDebugName(VkDevice device, uint64_t handle, VkObjectTyp
 	auto func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(device, "vkSetDebugUtilsObjectNameEXT");
 	if (func) {
 		func(device, &info);
+	}
+}
+
+void MeshObject::destroy(VkDevice device)
+{
+	vkDeviceWaitIdle(device);
+
+	if (vb != VK_NULL_HANDLE) {
+		vkDestroyBuffer(device, vb, nullptr);
+		vkFreeMemory(device, vbm, nullptr);
+		vb = VK_NULL_HANDLE;
+		vbm = VK_NULL_HANDLE;
+	}
+	if (ib != VK_NULL_HANDLE) {
+		vkDestroyBuffer(device, ib, nullptr);
+		vkFreeMemory(device, ibm, nullptr);
+		ib = VK_NULL_HANDLE;
+		ibm = VK_NULL_HANDLE;
+	}
+	if (mb != VK_NULL_HANDLE) {
+		vkDestroyBuffer(device, mb, nullptr);
+		vkFreeMemory(device, mbm, nullptr);
+		mb = VK_NULL_HANDLE;
+		mbm = VK_NULL_HANDLE;
 	}
 }

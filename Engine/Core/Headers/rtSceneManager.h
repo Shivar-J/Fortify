@@ -33,13 +33,13 @@ namespace Engine::Core {
             void add(const std::string& texturePath);
             void remove(int index);
             
-            void pushToAccelerationStructure(std::vector<RTScene>& dst);
+            void pushToAccelerationStructure(std::vector<std::shared_ptr<RTScene>>& dst);
             void updateScene();
 
-            std::vector<RTScene> getScenes() const { return scenes; }
+            std::vector<std::shared_ptr<RTScene>> getScenes() const { return scenes; }
             
         private:
-            std::vector<RTScene> scenes;
+            std::vector<std::shared_ptr<RTScene>> scenes;
 
             Engine::Graphics::Device& device;
             Engine::Graphics::Sampler& sampler;

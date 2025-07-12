@@ -15,7 +15,6 @@
 
 #include <stb_image.h>
 #include <tiny_obj_loader.h>
-#include <vk_mem_alloc.h>
 
 #include <chrono>
 #include <iostream>
@@ -36,8 +35,10 @@
 #include <numeric>
 
 #include "device.h"
+#include "ResourceManager.h"
 
 extern VmaAllocator allocator;
+extern std::unique_ptr<ResourceManager> resources;
 
 struct Vertex {
 	alignas (16) glm::vec3 pos;
@@ -166,6 +167,10 @@ struct MeshObject {
 	VkDeviceMemory ibm = VK_NULL_HANDLE;
 	VkBuffer mb = VK_NULL_HANDLE;
 	VkDeviceMemory mbm = VK_NULL_HANDLE;
+
+	std::string path = "";
+
+	void destroy(VkDevice device);
 };
 
 enum class PBRTextureType {

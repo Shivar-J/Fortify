@@ -46,6 +46,8 @@ void Engine::Core::Application::initVulkan()
 
 	vmaCreateAllocator(&allocatorInfo, &allocator);
 
+	resources = std::make_unique<ResourceManager>(allocator);
+
 	fpCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCreateAccelerationStructureKHR"));
 	fpDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkDestroyAccelerationStructureKHR"));
 	fpGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetAccelerationStructureBuildSizesKHR"));
@@ -99,6 +101,8 @@ void Engine::Core::Application::initVulkan()
 		"textures/skybox/front.jpg",
 		"textures/skybox/back.jpg"
 	};
+
+	auto* buffer = resources->create<BufferResource>(allocator, 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	skyboxTexture.createCubemap(skyboxPaths, device, commandbuffer, framebuffer, sampler, false);
 	skyboxTexture.createTextureImageView(swapchain, device.getDevice(), true);
@@ -624,6 +628,8 @@ void Engine::Core::Application::cleanup()
 	vkDeviceWaitIdle(device.getDevice());
 
 	raytrace.cleanup(device.getDevice());
+
+	resources->cleanup();
 
 	for (auto& fb : imguiFramebuffers) {
 		vkDestroyFramebuffer(device.getDevice(), fb, nullptr);
@@ -1153,94 +1159,6 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
 		throw std::runtime_error("failed to record command buffer!");
 	}
-}
-
-void Engine::Core::Application::createModel(int x)
-{
-	RTScene obj;
-	MeshObject testModel;
-	testModel.v = {
-		{{-1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 0.0f}},
-		{{ 1.0f + x,  4.0f,  1.0f}, {}, {1.0f, 0.0f}},
-		{{ 1.0f + x,  6.0f,  1.0f}, {}, {1.0f, 1.0f}},
-		{{-1.0f + x,  6.0f,  1.0f}, {}, {0.0f, 1.0f}},
-
-		{{ 1.0f + x,  4.0f, -1.0f}, {}, {0.0f, 0.0f}},
-		{{-1.0f + x,  4.0f, -1.0f}, {}, {1.0f, 0.0f}},
-		{{-1.0f + x,  6.0f, -1.0f}, {}, {1.0f, 1.0f}},
-		{{ 1.0f + x,  6.0f, -1.0f}, {}, {0.0f, 1.0f}},
-
-		{{-1.0f + x,  6.0f,  1.0f}, {}, {0.0f, 0.0f}},
-		{{ 1.0f + x,  6.0f,  1.0f}, {}, {1.0f, 0.0f}},
-		{{ 1.0f + x,  6.0f, -1.0f}, {}, {1.0f, 1.0f}},
-		{{-1.0f + x,  6.0f, -1.0f}, {}, {0.0f, 1.0f}},
-
-		{{-1.0f + x,  4.0f, -1.0f}, {}, {0.0f, 0.0f}},
-		{{ 1.0f + x,  4.0f, -1.0f}, {}, {1.0f, 0.0f}},
-		{{ 1.0f + x,  4.0f,  1.0f}, {}, {1.0f, 1.0f}},
-		{{-1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 1.0f}},
-
-		{{-1.0f + x,  4.0f, -1.0f}, {}, {0.0f, 0.0f}},
-		{{-1.0f + x,  4.0f,  1.0f}, {}, {1.0f, 0.0f}},
-		{{-1.0f + x,  6.0f,  1.0f}, {}, {1.0f, 1.0f}},
-		{{-1.0f + x,  6.0f, -1.0f}, {}, {0.0f, 1.0f}},
-
-		{{ 1.0f + x,  4.0f,  1.0f}, {}, {0.0f, 0.0f}},
-		{{ 1.0f + x,  4.0f, -1.0f}, {}, {1.0f, 0.0f}},
-		{{ 1.0f + x,  6.0f, -1.0f}, {}, {1.0f, 1.0f}},
-		{{ 1.0f + x,  6.0f,  1.0f}, {}, {0.0f, 1.0f}}
-	};
-
-	testModel.i = {
-		0, 1, 2,  2, 3, 0,
-		4, 5, 6,  6, 7, 4,
-		8, 9, 10, 10, 11, 8,
-		12, 13, 14, 14, 15, 12,
-		16, 17, 18, 18, 19, 16,
-		20, 21, 22, 22, 23, 20
-	};
-
-	for (auto& v : testModel.v) {
-		v.normal = { 0.0, 0.0, 0.0 };
-	}
-
-	for (uint32_t i = 0; i < testModel.i.size(); i += 3) {
-		uint32_t i0 = testModel.i[i];
-		uint32_t i1 = testModel.i[i + 1];
-		uint32_t i2 = testModel.i[i + 2];
-
-		glm::vec3 edge1 = testModel.v[i1].pos - testModel.v[i0].pos;
-		glm::vec3 edge2 = testModel.v[i2].pos - testModel.v[i0].pos;
-		glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
-
-		testModel.v[i0].normal += normal;
-		testModel.v[i1].normal += normal;
-		testModel.v[i2].normal += normal;
-	}
-
-	for (auto& v : testModel.v) {
-		v.normal = glm::normalize(v.normal);
-	}
-
-	VkDeviceSize vertexBufferSize = sizeof(testModel.v[0]) * testModel.v.size();
-	framebuffer.createBuffer(device, vertexBufferSize,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		testModel.vb, testModel.vbm, testModel.v.data());
-
-	VkDeviceSize indexBufferSize = sizeof(testModel.i[0]) * testModel.i.size();
-	framebuffer.createBuffer(device, indexBufferSize,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		testModel.ib, testModel.ibm, testModel.i.data());
-
-	obj.matrix = glm::mat4(1.0f);
-	obj.obj = testModel;
-	raytrace.models.push_back(obj);
 }
 
 void Engine::Core::Application::createImGuiRenderPass()

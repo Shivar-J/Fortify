@@ -25,7 +25,7 @@ namespace Engine::Core {
 		Application() :
 			scenemanager(device, sampler, renderpass, commandbuffer, framebuffer, swapchain, camera, raytrace),
 			rtscenemanager(device, sampler, commandbuffer, framebuffer, swapchain, camera, texture, raytrace)
-			 {}
+		{}
 
 		void run();
 		void initWindow();
@@ -43,8 +43,6 @@ namespace Engine::Core {
 
 		void recreateSwapchain();
 		void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
-		void createModel(int x = 0);
 
 		void createImGuiRenderPass();
 		void createImGuiFramebuffers();

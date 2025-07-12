@@ -111,7 +111,7 @@ namespace Engine::Graphics {
         VkBuffer instanceBuffer;
         VkDeviceMemory instanceBufferMemory;
 
-        std::vector<RTScene> models;
+        std::vector<std::shared_ptr<RTScene>> models;
 
         bool sceneUpdated = false;
 
@@ -122,7 +122,7 @@ namespace Engine::Graphics {
 
         void initRaytracing(Engine::Graphics::Device device);
         auto createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index);
-        void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, RTScene model);
+        void createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, std::shared_ptr<RTScene> model);
         void createTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer);
         void updateTopLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, bool rebuild = false);
         
@@ -138,7 +138,7 @@ namespace Engine::Graphics {
         void updateUBO(Engine::Graphics::Device device);
         void recreateScene(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, Engine::Graphics::Swapchain swapchain, Engine::Core::RT::SceneManager rtscenemanager, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt);
 
-        void cleanup(VkDevice device);
+        void cleanup(VkDevice device, bool softClean = false);
     };
 }
 
