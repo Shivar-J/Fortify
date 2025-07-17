@@ -107,9 +107,7 @@ namespace Engine::Core {
 			if (!modelPath.empty())
 				m.texture.loadModel(modelPath);
 
-			m.texture.createTextureImage(texturePath, device, commandbuffer, framebuffer, sampler, flipTexture);
-			m.texture.createTextureImageView(swapchain, device.getDevice(), false);
-			m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
+			m.texture.createTextureImage(texturePath, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
 			m.type = EntityType::Object;
 			m.matrix = glm::mat4(1.0f);
 			m.texture.createVertexBuffer(device, commandbuffer, framebuffer);
@@ -136,39 +134,27 @@ namespace Engine::Core {
 			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, false);
 			
 			if (texturePaths.count(PBRTextureType::Albedo)) {
-				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Albedo), device, commandbuffer, framebuffer, sampler, flipTexture, true);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Albedo), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
 			if (texturePaths.count(PBRTextureType::Normal)) {
-				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Normal), device, commandbuffer, framebuffer, sampler, flipTexture, true);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Normal), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
 			if (texturePaths.count(PBRTextureType::Roughness)) {
-				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Roughness), device, commandbuffer, framebuffer, sampler, flipTexture, true);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Roughness), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
 			if (texturePaths.count(PBRTextureType::Metalness)) {
-				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Metalness), device, commandbuffer, framebuffer, sampler, flipTexture, true);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Metalness), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 			
 			if (texturePaths.count(PBRTextureType::AmbientOcclusion)) {
-				m.texture.createTextureImage(texturePaths.at(PBRTextureType::AmbientOcclusion), device, commandbuffer, framebuffer, sampler, flipTexture, true);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+				m.texture.createTextureImage(texturePaths.at(PBRTextureType::AmbientOcclusion), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
 			if (texturePaths.count(PBRTextureType::Specular)) {
-				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Specular), device, commandbuffer, framebuffer, sampler, flipTexture, true);
-				m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-				m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Specular), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
 			if (!modelPath.empty()) {
@@ -208,8 +194,6 @@ namespace Engine::Core {
 			m.indexCount = static_cast<uint32_t>(m.texture.getCubeIndices().size());
 			m.texture.createSkyboxUniformBuffers(device, framebuffer);
 			m.type = EntityType::Skybox;
-			m.texture.createTextureImageView(swapchain, device.getDevice(), true);
-			m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), true);
 
 			m.descriptor.createDescriptorPool(device.getDevice());
 			m.descriptor.createDescriptorSets(device.getDevice(), m.texture, renderpass.getDescriptorSetLayout(), true);
@@ -238,49 +222,37 @@ namespace Engine::Core {
 			for (auto& mat : m.texture.getMaterials()) {
 				if (!mat.diffusePath.empty()) {
 					std::string path = baseDir + "/" + mat.diffusePath;
-					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
-					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 					paths.insert({ PBRTextureType::Albedo, path });
 				}
 
 				if (!mat.normalPath.empty()) {
 					std::string path = baseDir + "/" + mat.normalPath;
-					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
-					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 					paths.insert({ PBRTextureType::Normal, path });
 				}
 
 				if (!mat.roughnessPath.empty()) {
 					std::string path = baseDir + "/" + mat.roughnessPath;
-					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
-					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 					paths.insert({ PBRTextureType::Roughness, path });
 				}
 
 				if (!mat.metalnessPath.empty()) {
 					std::string path = baseDir + "/" + mat.metalnessPath;
-					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
-					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 					paths.insert({ PBRTextureType::Metalness, path });
 				}
 
 				if (!mat.aoPath.empty()) {
 					std::string path = baseDir + "/" + mat.aoPath;
-					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
-					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 					paths.insert({ PBRTextureType::AmbientOcclusion, path });
 				}
 
 				if (!mat.specularPath.empty()) {
 					std::string path = baseDir + "/" + mat.specularPath;
-					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true);
-					m.texture.createTextureImageView(swapchain, device.getDevice(), false, true);
-					m.texture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false, true);
+					m.texture.createTextureImage(path, device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 					paths.insert({ PBRTextureType::Specular, path });
 				}
 			}

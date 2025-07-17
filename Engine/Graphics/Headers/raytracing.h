@@ -103,13 +103,10 @@ namespace Engine::Graphics {
         VkBuffer intSBTBuffer;
         VkDeviceMemory intSBTMemory;
 
-        VkBuffer uniformBuffer;
-        VkDeviceMemory uniformBufferMemory;
+        BufferResource* uniformBuffer;
         RaytracingUniformBufferObject uboData;
-        void* uboMapped = nullptr;
 
-        VkBuffer instanceBuffer;
-        VkDeviceMemory instanceBufferMemory;
+        BufferResource* instanceBuffer;
 
         std::vector<std::shared_ptr<RTScene>> models;
 

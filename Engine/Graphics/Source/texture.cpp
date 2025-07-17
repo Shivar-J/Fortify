@@ -6,7 +6,7 @@
 #include "swapchain.h"
 #include "sampler.h"
 
-void Engine::Graphics::Texture::createTextureImage(const std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, bool isPBR)
+void Engine::Graphics::Texture::createTextureImage(const std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, bool isPBR, bool isCube, bool useSampler)
 {
 	if (flipTexture) {
 		stbi_set_flip_vertically_on_load(true);
@@ -20,82 +20,24 @@ void Engine::Graphics::Texture::createTextureImage(const std::string texturePath
 	if (!pixels)
 		throw std::runtime_error("failed to load texture image");
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
+    BufferResource* stagingBuffer = framebuffer.createBuffer(device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	framebuffer.createBuffer(device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(device.getDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
-	memcpy(data, pixels, static_cast<size_t>(imageSize));
-	vkUnmapMemory(device.getDevice(), stagingBufferMemory);
+	memcpy(stagingBuffer->mapped, pixels, static_cast<size_t>(imageSize));
 
 	stbi_image_free(pixels);
 
-	framebuffer.createImage(device, texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, 1, 0);
-	commandBuf.transitionImageLayout(device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 1);
-	commandBuf.copyBufferToImage(device, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
+	textureResource = framebuffer.createImage(device.getDevice(), device.getPhysicalDevice(), texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_COLOR_BIT, isCube, useSampler);
+	commandBuf.transitionImageLayout(device, textureResource->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 1);
+	commandBuf.copyBufferToImage(device, stagingBuffer->buffer, textureResource->image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 
-	sampler.generateMipmaps(commandBuf, device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 1);
-    
+	sampler.generateMipmaps(commandBuf, device, textureResource->image, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 1);
+
     if (isPBR) {
-        textureImages.push_back(textureImage);
-        textureImageMemories.push_back(textureImageMemory);
+        textureResources.push_back(textureResource);
         vecMipLevels.push_back(mipLevels);
     }
 
-    vkDestroyBuffer(device.getDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(device.getDevice(), stagingBufferMemory, nullptr);
-}
-
-void Engine::Graphics::Texture::createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube, bool isPBR)
-{
-    textureImageView = swapchain.createImageView(device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels, isCube);
-
-    if (isPBR) {
-        textureImageViews.push_back(textureImageView);
-    }
-}
-
-void Engine::Graphics::Texture::createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, bool isPBR)
-{
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-
-    if (isCube) {
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        samplerInfo.anisotropyEnable = VK_FALSE;
-    }
-    else {
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.anisotropyEnable = VK_TRUE;
-    }
-    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = static_cast<float>(mipLevels);
-
-    if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create texture sampler!");
-    }
-    
-    if (isPBR) {
-        textureSamples.push_back(textureSampler);
-    }
+    resources->destroy(stagingBuffer, device.getDevice());
 }
 
 void Engine::Graphics::Texture::loadModel(const std::string modelPath)
@@ -272,22 +214,21 @@ MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, E
 
 
     VkDeviceSize vertexBufferSize = sizeof(t.v[0]) * t.v.size();
-    fb.createBuffer(device, vertexBufferSize,
+    t.vertex = fb.createBuffer(device, vertexBufferSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        t.vb, t.vbm, t.v.data());
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, t.v.data());
 
 
     VkDeviceSize indexBufferSize = sizeof(t.i[0]) * t.i.size();
-    fb.createBuffer(device, indexBufferSize,
+    t.index = fb.createBuffer(device, indexBufferSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        t.ib, t.ibm, t.i.data());
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, t.i.data());
 
+    t.material = nullptr;
 
     return t;
 }
@@ -317,23 +258,6 @@ MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, c
         material.metalnessPath = mat.metallic_texname;
         material.aoPath = mat.ambient_texname;
         material.specularPath = mat.specular_texname;
-
-        if (!mat.diffuse_texname.empty()) {
-            vkDestroySampler(device.getDevice(), textureSampler, nullptr);
-            vkDestroyImageView(device.getDevice(), textureImageView, nullptr);
-
-            vkDestroyImage(device.getDevice(), textureImage, nullptr);
-            vkFreeMemory(device.getDevice(), textureImageMemory, nullptr);
-
-            createTextureImage(material.diffusePath, device, cb, fb, sampler, false);
-            createTextureImageView(swapchain, device.getDevice(), false);
-            createTextureSampler(device.getDevice(), device.getPhysicalDevice(), false);
-
-            material.diffuseImage = textureImage;
-            material.diffuseImageView = textureImageView;
-            material.diffuseSampler = textureSampler;
-            material.diffuseImageMemory = textureImageMemory;
-        }
 
         t.m.push_back(material);
     }
@@ -378,28 +302,25 @@ MeshObject Engine::Graphics::Texture::loadModelRT(const std::string modelPath, c
     }
 
     VkDeviceSize vertexBufferSize = sizeof(t.v[0]) * t.v.size();
-    fb.createBuffer(device, vertexBufferSize,
+    t.vertex = fb.createBuffer(device, vertexBufferSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        t.vb, t.vbm, t.v.data());
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, t.v.data());
 
     VkDeviceSize indexBufferSize = sizeof(t.i[0]) * t.i.size();
-    fb.createBuffer(device, indexBufferSize,
+    t.index = fb.createBuffer(device, indexBufferSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        t.ib, t.ibm, t.i.data());
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, t.i.data());
 
     VkDeviceSize matBufferSize = sizeof(t.m[0]) * t.m.size();
-    fb.createBuffer(device, matBufferSize,
+    t.material = fb.createBuffer(device, matBufferSize,
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        t.mb, t.mbm, t.m.data());
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, t.m.data());
 
     return t;
 }
@@ -408,55 +329,39 @@ void Engine::Graphics::Texture::createVertexBuffer(Engine::Graphics::Device devi
 {
     VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    BufferResource* stagingBuffer = fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    void* data;
-    vkMapMemory(device.getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device.getDevice(), stagingBufferMemory);
+    memcpy(stagingBuffer->mapped, vertices.data(), (size_t)bufferSize);
 
-    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-    commandBuf.copyBuffer(device, stagingBuffer, vertexBuffer, bufferSize);
+    vertexResource = fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    commandBuf.copyBuffer(device, stagingBuffer->buffer, vertexResource->buffer, bufferSize);
 
-    vkDestroyBuffer(device.getDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(device.getDevice(), stagingBufferMemory, nullptr);
+    resources->destroy(stagingBuffer, device.getDevice());
 }
 
 void Engine::Graphics::Texture::createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb)
 {
     VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    BufferResource* stagingBuffer = fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    void* data;
-    vkMapMemory(device.getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device.getDevice(), stagingBufferMemory);
+    memcpy(stagingBuffer->mapped, indices.data(), (size_t)bufferSize);
 
-    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+    indexResource = fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    commandBuf.copyBuffer(device, stagingBuffer, indexBuffer, bufferSize);
+    commandBuf.copyBuffer(device, stagingBuffer->buffer, indexResource->buffer, bufferSize);
 
-    vkDestroyBuffer(device.getDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(device.getDevice(), stagingBufferMemory, nullptr);
+    resources->destroy(stagingBuffer, device.getDevice());
 }
 
 void Engine::Graphics::Texture::createUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb)
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    uniformBuffers.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
-    uniformBuffersMemory.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
-    uniformBuffersMapped.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
+    uniformResources.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
-        fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
-
-        vkMapMemory(device.getDevice(), uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+        uniformResources[i] = fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     }
 }
 
@@ -496,7 +401,7 @@ void Engine::Graphics::Texture::updateUniformBuffer(uint32_t currentImage, Engin
         ubo.lights[i] = lights[i];
     }
          
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    memcpy(uniformResources[currentImage]->mapped, &ubo, sizeof(ubo));
 }
 
 void Engine::Graphics::Texture::createCubemap(const std::vector<std::string>& faces, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture)
@@ -522,28 +427,20 @@ void Engine::Graphics::Texture::createCubemap(const std::vector<std::string>& fa
     mipLevels = 1;
     //mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    BufferResource* stagingBuffer = framebuffer.createBuffer(device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    framebuffer.createBuffer(device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(device.getDevice(), stagingBufferMemory, 0, imageSize, 0, &data);
     for (size_t i = 0; i < 6; i++) {
-        memcpy(static_cast<char*>(data) + (layerSize * i), pixels[i], static_cast<size_t>(layerSize));
+        memcpy(static_cast<char*>(stagingBuffer->mapped) + (layerSize * i), pixels[i], static_cast<size_t>(layerSize));
         stbi_image_free(pixels[i]);
     }
 
-    vkUnmapMemory(device.getDevice(), stagingBufferMemory);
-
-    framebuffer.createImage(device, texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+    textureResource = framebuffer.createImage(device.getDevice(), device.getPhysicalDevice(), texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_IMAGE_ASPECT_COLOR_BIT, true, true);
     
-    commandBuf.transitionImageLayout(device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 6);
-    commandBuf.copyBufferToImage(device, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 6);
-    sampler.generateMipmaps(commandBuf, device, textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 6);
+    commandBuf.transitionImageLayout(device, textureResource->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 6);
+    commandBuf.copyBufferToImage(device, stagingBuffer->buffer, textureResource->image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 6);
+    sampler.generateMipmaps(commandBuf, device, textureResource->image, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 6);
     
-    vkDestroyBuffer(device.getDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(device.getDevice(), stagingBufferMemory, nullptr);
+    resources->destroy(stagingBuffer, device.getDevice());
 }
 
 void Engine::Graphics::Texture::createCube()
@@ -735,72 +632,52 @@ void Engine::Graphics::Texture::createSkybox()
 void Engine::Graphics::Texture::createCubeVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb) {
     VkDeviceSize bufferSize = sizeof(cubeVertices[0]) * cubeVertices.size();
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-
-    fb.createBuffer(
+    BufferResource* stagingBuffer = fb.createBuffer(
         device,
         bufferSize,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingBuffer,
-        stagingBufferMemory
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     );
 
-    void* data;
-    vkMapMemory(device.getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, cubeVertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device.getDevice(), stagingBufferMemory);
+    memcpy(stagingBuffer->mapped, cubeVertices.data(), (size_t)bufferSize);
 
-    fb.createBuffer(
+    vertexResource = fb.createBuffer(
         device,
         bufferSize,
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        vertexBuffer,
-        vertexBufferMemory
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     );
 
-    commandBuf.copyBuffer(device, stagingBuffer, vertexBuffer, bufferSize);
+    commandBuf.copyBuffer(device, stagingBuffer->buffer, vertexResource->buffer, bufferSize);
 
-    vkDestroyBuffer(device.getDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(device.getDevice(), stagingBufferMemory, nullptr);
+    resources->destroy(stagingBuffer, device.getDevice());
 }
 
 void Engine::Graphics::Texture::createCubeIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb)
 {
     VkDeviceSize bufferSize = sizeof(cubeIndices[0]) * cubeIndices.size();
     
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    BufferResource* stagingBuffer = fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    memcpy(stagingBuffer->mapped, cubeIndices.data(), (size_t)bufferSize);
 
-    void* data;
-    vkMapMemory(device.getDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, cubeIndices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device.getDevice(), stagingBufferMemory);
+    indexResource = fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+    commandBuf.copyBuffer(device, stagingBuffer->buffer, indexResource->buffer, bufferSize);
 
-    commandBuf.copyBuffer(device, stagingBuffer, indexBuffer, bufferSize);
-
-    vkDestroyBuffer(device.getDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(device.getDevice(), stagingBufferMemory, nullptr);
+    resources->destroy(stagingBuffer, device.getDevice());
 }
 
 void Engine::Graphics::Texture::createSkyboxUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer)
 {
     VkDeviceSize bufferSize = sizeof(SkyboxUBO);
 
-    skyboxUniformBuffers.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
-    skyboxUniformBuffersMemory.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
-    skyboxUniformBuffersMapped.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
+    skyboxUniformResources.resize(Engine::Settings::MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
-        framebuffer.createBuffer(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, skyboxUniformBuffers[i], skyboxUniformBuffersMemory[i]);
+        skyboxUniformResources[i] = framebuffer.createBuffer(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-        vkMapMemory(device.getDevice(), skyboxUniformBuffersMemory[i], 0, bufferSize, 0, &skyboxUniformBuffersMapped[i]);
+        vkMapMemory(device.getDevice(), skyboxUniformResources[i]->memory, 0, bufferSize, 0, &skyboxUniformResources[i]->mapped);
     }
 }
 
@@ -810,20 +687,14 @@ void Engine::Graphics::Texture::updateSkyboxUniformBuffer(uint32_t currentImage,
     skyboxUBO.view = glm::mat4(glm::mat3(camera.GetViewMatrix()));
     skyboxUBO.proj = camera.GetProjectionMatrix();
 
-    memcpy(skyboxUniformBuffersMapped[currentImage], &skyboxUBO, sizeof(skyboxUBO));
+    memcpy(skyboxUniformResources[currentImage]->mapped, &skyboxUBO, sizeof(skyboxUBO));
 }
 
 void Engine::Graphics::Texture::cleanup(VkDevice device) {
-    if (textureSampler) vkDestroySampler(device, textureSampler, nullptr);
-    if (textureImageView) vkDestroyImageView(device, textureImageView, nullptr);
-    if (textureImage) vkDestroyImage(device, textureImage, nullptr);
-    if (textureImageMemory) vkFreeMemory(device, textureImageMemory, nullptr);
+    resources->destroy(textureResource, device);
 
-    for (size_t i = 0; i < textureImages.size(); ++i) {
-        if (textureSamples[i]) vkDestroySampler(device, textureSamples[i], nullptr);
-        if (textureImageViews[i]) vkDestroyImageView(device, textureImageViews[i], nullptr);
-        if (textureImages[i]) vkDestroyImage(device, textureImages[i], nullptr);
-        if (textureImageMemories[i]) vkFreeMemory(device, textureImageMemories[i], nullptr);
+    for (size_t i = 0; i < textureResources.size(); i++) {
+        resources->destroy(textureResources[i], device);
     }
 
     for (auto sem : imageAvailableSemaphores)
@@ -833,17 +704,13 @@ void Engine::Graphics::Texture::cleanup(VkDevice device) {
     for (auto fence : inFlightFences)
         if (fence) vkDestroyFence(device, fence, nullptr);
 
-    for (size_t i = 0; i < uniformBuffers.size(); ++i) {
-        if (uniformBuffers[i]) vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-        if (uniformBuffersMemory[i]) vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+    for (size_t i = 0; i < uniformResources.size(); ++i) {
+        resources->destroy(uniformResources[i], device);
     }
-    for (size_t i = 0; i < skyboxUniformBuffers.size(); ++i) {
-        if (skyboxUniformBuffers[i]) vkDestroyBuffer(device, skyboxUniformBuffers[i], nullptr);
-        if (skyboxUniformBuffersMemory[i]) vkFreeMemory(device, skyboxUniformBuffersMemory[i], nullptr);
+    for (size_t i = 0; i < skyboxUniformResources.size(); ++i) {
+        resources->destroy(skyboxUniformResources[i], device);
     }
 
-    if (vertexBuffer) vkDestroyBuffer(device, vertexBuffer, nullptr);
-    if (vertexBufferMemory) vkFreeMemory(device, vertexBufferMemory, nullptr);
-    if (indexBuffer) vkDestroyBuffer(device, indexBuffer, nullptr);
-    if (indexBufferMemory) vkFreeMemory(device, indexBufferMemory, nullptr);
+    resources->destroy(vertexResource, device);
+    resources->destroy(indexResource, device);
 }

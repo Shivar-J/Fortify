@@ -4,9 +4,6 @@
 #include <tiny_obj_loader.h>
 #define TINYOBJLOADER_IMPLEMENTATION
 
-#include <vk_mem_alloc.h>
-#define VMA_IMPLEMENTATION
-
 #include "core.h"
 
 int main() {

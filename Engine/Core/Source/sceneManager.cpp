@@ -54,7 +54,7 @@ void Engine::Core::SceneManager::updateScene() {
 			if (scenes[i].model.hasTexture) {
 				if (textureCount == -1) {
 					if (scenes[i].model.textureIDs.count(0) == 0) {
-						VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(), scenes[i].model.texture.getTextureImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+						VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.textureResource->sampler, scenes[i].model.texture.textureResource->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 						scenes[i].model.textureIDs[0] = textureID;
 					}
 					ImGui::Image((ImTextureID)scenes[i].model.textureIDs[0], ImVec2(64, 64));
@@ -64,7 +64,7 @@ void Engine::Core::SceneManager::updateScene() {
 					int index = 0;
 					for (auto& texturePair : scenes[i].model.texturePaths) {
 						if (scenes[i].model.textureIDs.count(index) == 0) {
-							VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.getTextureSampler(index), scenes[i].model.texture.getTextureImageView(index), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+							VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.textureResources[index]->sampler, scenes[i].model.texture.textureResources[index]->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 							scenes[i].model.textureIDs[index] = textureID;
 						}
 						ImGui::Image((ImTextureID)scenes[i].model.textureIDs[index], ImVec2(64, 64));
@@ -141,13 +141,11 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 	vkDestroyPipelineLayout(device.getDevice(), p.getPipelineLayout(), nullptr);
 
 	for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
-		if (i < m.texture.getUniformBuffers().size()) {
-			vkDestroyBuffer(device.getDevice(), m.texture.getUniformBuffers()[i], nullptr);
-			vkFreeMemory(device.getDevice(), m.texture.getUniformBuffersMemory()[i], nullptr);
+		if (i < m.texture.uniformResources.size()) {
+			resources->destroy(m.texture.uniformResources[i], device.getDevice());
 		}
-		if (i < m.texture.getSkyboxUniformBuffers().size()) {
-			vkDestroyBuffer(device.getDevice(), m.texture.getSkyboxUniformBuffers()[i], nullptr);
-			vkFreeMemory(device.getDevice(), m.texture.getSkyboxUniformBuffersMemory()[i], nullptr);
+		if (i < m.texture.skyboxUniformResources.size()) {
+			resources->destroy(m.texture.skyboxUniformResources[i], device.getDevice());
 		}
 	}
 
@@ -155,27 +153,17 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 
 	if(m.hasTexture) {
 		if (textureCount == -1) {
-			vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(), nullptr);
-			vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(), nullptr);
-
-			vkDestroyImage(device.getDevice(), m.texture.getTextureImage(), nullptr);
-			vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(), nullptr);
+			resources->destroy(m.texture.textureResource, device.getDevice());
 		}
 		else {
 			for (int i = 0; i < textureCount; i++) {
-				vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(i), nullptr);
-				vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(i), nullptr);
-
-				vkDestroyImage(device.getDevice(), m.texture.getTextureImage(i), nullptr);
-				vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(i), nullptr);
+				resources->destroy(m.texture.textureResources[i], device.getDevice());
 			}
 		}
 	}
 
-	vkDestroyBuffer(device.getDevice(), m.texture.getIndexBuffer(), nullptr);
-	vkFreeMemory(device.getDevice(), m.texture.getIndexBufferMemory(), nullptr);
-	vkDestroyBuffer(device.getDevice(), m.texture.getVertexBuffer(), nullptr);
-	vkFreeMemory(device.getDevice(), m.texture.getVertexBufferMemory(), nullptr);
+	resources->destroy(m.texture.vertexResource, device.getDevice());
+	resources->destroy(m.texture.indexResource, device.getDevice());
 }
 
 const char* Engine::Core::SceneManager::entityString(EntityType type)

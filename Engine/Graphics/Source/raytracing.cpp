@@ -274,10 +274,7 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 
 void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, std::shared_ptr<RTScene> model)
 {
-	VkBuffer transformMatrixBuffer;
-	VkDeviceMemory transformMatrixBufferMemory;
-
-	framebuffer.createBuffer(device, sizeof(glm::mat4), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, transformMatrixBuffer, transformMatrixBufferMemory, &model->matrix);
+	BufferResource* transformMatrix = framebuffer.createBuffer(device, sizeof(glm::mat4), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &model->matrix);
 
 	uint32_t numTriangles = static_cast<uint32_t>(model->obj.i.size()) / 3;
 
@@ -287,11 +284,11 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
 	accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 	accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model->obj.vb);
+	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model->obj.vertex->buffer);
 	accelerationStructureGeometry.geometry.triangles.maxVertex = model->obj.v.size();
 	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model->obj.ib);
+	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model->obj.index->buffer);
 	accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = 0;
 	accelerationStructureGeometry.geometry.triangles.transformData.hostAddress = nullptr;
 
@@ -349,10 +346,10 @@ void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::G
 		blasInstances.push_back(createBottomLevelAccelerationStructure(device, i));
 	}
 
-	framebuffer.createBuffer(device, sizeof(VkAccelerationStructureInstanceKHR) * blasInstances.size(), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, instanceBuffer, instanceBufferMemory, blasInstances.data());
+	instanceBuffer = framebuffer.createBuffer(device, sizeof(VkAccelerationStructureInstanceKHR) * blasInstances.size(), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, blasInstances.data());
 
 	VkDeviceOrHostAddressConstKHR instanceDataDeviceAddress{};
-	instanceDataDeviceAddress.deviceAddress = getBufferDeviceAddress(device.getDevice(), instanceBuffer);
+	instanceDataDeviceAddress.deviceAddress = getBufferDeviceAddress(device.getDevice(), instanceBuffer->buffer);
 
 	VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
 	accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -451,12 +448,12 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 	}
 
 	void* data;
-	vkMapMemory(device.getDevice(), instanceBufferMemory, 0, VK_WHOLE_SIZE, 0, &data);
+	vkMapMemory(device.getDevice(), instanceBuffer->memory, 0, VK_WHOLE_SIZE, 0, &data);
 	memcpy(data, blasInstances.data(), blasInstances.size() * sizeof(VkAccelerationStructureInstanceKHR));
-	vkUnmapMemory(device.getDevice(), instanceBufferMemory);
+	vkUnmapMemory(device.getDevice(), instanceBuffer->memory);
 
 	VkDescriptorBufferInfo bufferInfo{};
-	bufferInfo.buffer = instanceBuffer;
+	bufferInfo.buffer = instanceBuffer->buffer;
 	bufferInfo.offset = 0;
 	bufferInfo.range = VK_WHOLE_SIZE;
 
@@ -473,14 +470,14 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 
 	VkMappedMemoryRange memoryRange{};
 	memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	memoryRange.memory = instanceBufferMemory;
+	memoryRange.memory = instanceBuffer->memory;
 	memoryRange.size = VK_WHOLE_SIZE;
 	vkFlushMappedMemoryRanges(device.getDevice(), 1, &memoryRange);
 
-	vkUnmapMemory(device.getDevice(), instanceBufferMemory);
+	vkUnmapMemory(device.getDevice(), instanceBuffer->memory);
 
 	VkDeviceOrHostAddressConstKHR instanceDataDeviceAddress{};
-	instanceDataDeviceAddress.deviceAddress = getBufferDeviceAddress(device.getDevice(), instanceBuffer);
+	instanceDataDeviceAddress.deviceAddress = getBufferDeviceAddress(device.getDevice(), instanceBuffer->buffer);
 
 	VkAccelerationStructureGeometryKHR geometry{};
 	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -702,7 +699,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	writeDescriptorSets.push_back(accumImageWrite);
 
 	VkDescriptorBufferInfo uboInfo{};
-	uboInfo.buffer = uniformBuffer;
+	uboInfo.buffer = uniformBuffer->buffer;
 	uboInfo.offset = 0;
 	uboInfo.range = sizeof(RaytracingUniformBufferObject);
 
@@ -717,8 +714,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> vBufferInfos;
 	for (auto& model : models) {
-		if (model->obj.vb != VK_NULL_HANDLE) {
-			vBufferInfos.push_back({ model->obj.vb, 0, VK_WHOLE_SIZE });
+		if (model->obj.vertex) {
+			vBufferInfos.push_back({ model->obj.vertex->buffer, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -735,8 +732,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> iBufferInfos;
 	for (auto& model : models) {
-		if (model->obj.ib != VK_NULL_HANDLE) {
-			iBufferInfos.push_back({ model->obj.ib, 0, VK_WHOLE_SIZE });
+		if (model->obj.index) {
+			iBufferInfos.push_back({ model->obj.index->buffer, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -754,8 +751,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	if (skyboxTexture.has_value()) {
 		VkDescriptorImageInfo skyboxInfo{};
 		skyboxInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		skyboxInfo.imageView = skyboxTexture.value().getTextureImageView();
-		skyboxInfo.sampler = skyboxTexture.value().getTextureSampler();
+		skyboxInfo.imageView = skyboxTexture.value().textureResource->view;
+		skyboxInfo.sampler = skyboxTexture.value().textureResource->sampler;
 
 		VkWriteDescriptorSet skyboxWrite{};
 		skyboxWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -770,8 +767,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 	std::vector<VkDescriptorBufferInfo> mBufferInfos;
 	for (auto& model : models) {
-		if (model->obj.mb != VK_NULL_HANDLE) {
-			mBufferInfos.push_back({ model->obj.mb, 0, VK_WHOLE_SIZE });
+		if (model->obj.material && model->obj.material->buffer != VK_NULL_HANDLE) {
+			mBufferInfos.push_back({ model->obj.material->buffer, 0, VK_WHOLE_SIZE });
 		}
 	}
 
@@ -787,7 +784,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	}
 
 	VkDescriptorBufferInfo instanceTransformInfo{};
-	instanceTransformInfo.buffer = instanceBuffer;
+	instanceTransformInfo.buffer = instanceBuffer->buffer;
 	instanceTransformInfo.offset = 0;
 	instanceTransformInfo.range = sizeof(glm::mat4) * models.size();
 
@@ -804,8 +801,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		if (scene->albedo.has_value()) {
 			VkDescriptorImageInfo modelTextureInfo{};
 			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			modelTextureInfo.imageView = scene->albedo.value().getTextureImageView();
-			modelTextureInfo.sampler = scene->albedo.value().getTextureSampler();
+			modelTextureInfo.imageView = scene->albedo.value().textureResource->view;
+			modelTextureInfo.sampler = scene->albedo.value().textureResource->sampler;
 
 			VkWriteDescriptorSet textureWrite{};
 			textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1177,39 +1174,12 @@ void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device 
 {
 	VkDeviceSize bufferSize = sizeof(RaytracingUniformBufferObject);
 
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = bufferSize;
-	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	if (vkCreateBuffer(device.getDevice(), &bufferInfo, nullptr, &uniformBuffer) != VK_SUCCESS) {
-		throw std::runtime_error("Failed to create uniform buffer!");
-	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(device.getDevice(), uniformBuffer, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = Engine::Utility::findMemoryType(
-		memRequirements.memoryTypeBits,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		device.getPhysicalDevice()
-	);
-
-	if (vkAllocateMemory(device.getDevice(), &allocInfo, nullptr, &uniformBufferMemory) != VK_SUCCESS) {
-		throw std::runtime_error("Failed to allocate uniform buffer memory!");
-	}
-
-	vkBindBufferMemory(device.getDevice(), uniformBuffer, uniformBufferMemory, 0);
-	vkMapMemory(device.getDevice(), uniformBufferMemory, 0, bufferSize, 0, &uboMapped);
+	uniformBuffer = resources->create<BufferResource>(device.getDevice(), device.getPhysicalDevice(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 }
 
 void Engine::Graphics::Raytracing::updateUBO(Engine::Graphics::Device device)
 {
-	memcpy(uboMapped, &uboData, sizeof(uboData));
+	memcpy(uniformBuffer->mapped, &uboData, sizeof(uboData));
 }
 
 void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::CommandBuffer commandBuffer, Engine::Graphics::Swapchain swapchain, Engine::Core::RT::SceneManager rtscenemanager, std::optional<Engine::Graphics::Texture> skyboxTexture)
@@ -1251,8 +1221,7 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 
 void Engine::Graphics::Raytracing::cleanup(VkDevice device, bool softClean)
 {
-	vkDestroyBuffer(device, uniformBuffer, nullptr);
-	vkFreeMemory(device, uniformBufferMemory, nullptr);
+	resources->destroy(uniformBuffer, device);
 
 	if (!softClean) {
 		for (auto& scene : models) {

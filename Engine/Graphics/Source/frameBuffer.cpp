@@ -9,52 +9,20 @@ void Engine::Graphics::FrameBuffer::createColorResources(Engine::Graphics::Devic
 {
 	VkFormat colorFormat = swapchain.getSwapchainImageFormat();
 
-	createImage(device, swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory, 1, 0);
-	colorImageView = swapchain.createImageView(device.getDevice(), colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, false);
+	colorResource = createImage(device.getDevice(), device.getPhysicalDevice(), swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_COLOR_BIT, false, false);
 }
 
-void Engine::Graphics::FrameBuffer::createImage(Engine::Graphics::Device device, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, uint32_t arrayLayers, VkImageCreateFlags flags)
+ImageResource* Engine::Graphics::FrameBuffer::createImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, uint32_t arrayLayers, VkImageCreateFlags flags, VkImageAspectFlags aspectFlags, bool isCube, bool useSampler)
 {
-	VkImageCreateInfo imageInfo{};
-	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.flags = flags;
-	imageInfo.extent.width = width;
-	imageInfo.extent.height = height;
-	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = mipLevels;
-	imageInfo.arrayLayers = arrayLayers;
-	imageInfo.format = format;
-	imageInfo.tiling = tiling;
-	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = usage;
-	imageInfo.samples = numSamples;
-	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	if (vkCreateImage(device.getDevice(), &imageInfo, nullptr, &image) != VK_SUCCESS)
-		throw std::runtime_error("failed to create image");
-
-	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(device.getDevice(), image, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = Engine::Utility::findMemoryType(memRequirements.memoryTypeBits, properties, device.getPhysicalDevice());
-
-	if (vkAllocateMemory(device.getDevice(), &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
-		throw std::runtime_error("failed to allocate image memory");
-
-	vkBindImageMemory(device.getDevice(), image, imageMemory, 0);
+	return resources->create<ImageResource>(device, physicalDevice, width, height, mipLevels, samples, format, tiling, usage, properties, arrayLayers, flags, aspectFlags, isCube, useSampler);
 }
 
 void Engine::Graphics::FrameBuffer::createDepthResources(Engine::Graphics::Device device, Engine::Graphics::Swapchain swapchain, VkSampleCountFlagBits msaaSamples, Engine::Graphics::CommandBuffer commandBuffer)
 {
 	VkFormat depthFormat = findDepthFormat(device.getPhysicalDevice());
-	createImage(device, swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory, 1, 0);
-	depthImageView = swapchain.createImageView(device.getDevice(), depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, false);
+	depthResource = createImage(device.getDevice(), device.getPhysicalDevice(), swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_DEPTH_BIT, false, false);
 
-	commandBuffer.transitionImageLayout(device, depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, 1);
+	commandBuffer.transitionImageLayout(device, depthResource->image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, 1);
 }
 
 VkFormat Engine::Graphics::FrameBuffer::findDepthFormat(VkPhysicalDevice physicalDevice)
@@ -90,8 +58,8 @@ void Engine::Graphics::FrameBuffer::createFramebuffers(VkDevice device, Engine::
 
 	for (size_t i = 0; i < swapchain.getSwapchainImageViews().size(); i++) {
 		std::array<VkImageView, 3> attachments = {
-			colorImageView,
-			depthImageView,
+			colorResource->view,
+			depthResource->view,
 			swapchain.getSwapchainImageViews()[i]
 		};
 
@@ -110,52 +78,7 @@ void Engine::Graphics::FrameBuffer::createFramebuffers(VkDevice device, Engine::
 	}
 }
 
-void Engine::Graphics::FrameBuffer::createBuffer(Engine::Graphics::Device device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory, void* data)
+BufferResource* Engine::Graphics::FrameBuffer::createBuffer(Engine::Graphics::Device device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, void* data)
 {
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = size;
-	bufferInfo.usage = usage;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	if (vkCreateBuffer(device.getDevice(), &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create vertex buffer!");
-	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(device.getDevice(), buffer, &memRequirements);
-
-	VkMemoryAllocateFlagsInfo memFlagsInfo{};
-	memFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-	memFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = Engine::Utility::findMemoryType(memRequirements.memoryTypeBits, properties, device.getPhysicalDevice());
-	allocInfo.pNext = &memFlagsInfo;
-
-	if (vkAllocateMemory(device.getDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-		throw std::runtime_error("failed to allocate vertex buffer memory!");
-	}
-
-	if (data != nullptr) {
-		void* mapped;
-		vkMapMemory(device.getDevice(), bufferMemory, 0, size, 0, &mapped);
-		memcpy(mapped, data, size);
-
-		if ((properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
-			VkMappedMemoryRange mappedRange{};
-			mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-			mappedRange.memory = bufferMemory;
-			mappedRange.offset = 0;
-			mappedRange.size = size;
-
-			vkFlushMappedMemoryRanges(device.getDevice(), 1, &mappedRange);
-		}
-
-		vkUnmapMemory(device.getDevice(), bufferMemory);
-	}
-
-	vkBindBufferMemory(device.getDevice(), buffer, bufferMemory, 0);
+	return resources->create<BufferResource>(device.getDevice(), device.getPhysicalDevice(), size, usage, properties, data);
 }

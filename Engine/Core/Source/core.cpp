@@ -38,15 +38,7 @@ void Engine::Core::Application::initVulkan()
 	sampler.setSamples(device.getPhysicalDevice());
 	device.createLogicalDevice(instance.getSurface());
 
-	VmaAllocatorCreateInfo allocatorInfo{};
-	allocatorInfo.physicalDevice = device.getPhysicalDevice();
-	allocatorInfo.device = device.getDevice();
-	allocatorInfo.instance = instance.getInstance();
-	allocatorInfo.flags = 0;
-
-	vmaCreateAllocator(&allocatorInfo, &allocator);
-
-	resources = std::make_unique<ResourceManager>(allocator);
+	resources = std::make_unique<ResourceManager>(device.getDevice());
 
 	fpCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCreateAccelerationStructureKHR"));
 	fpDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkDestroyAccelerationStructureKHR"));
@@ -102,11 +94,7 @@ void Engine::Core::Application::initVulkan()
 		"textures/skybox/back.jpg"
 	};
 
-	auto* buffer = resources->create<BufferResource>(allocator, 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
-
 	skyboxTexture.createCubemap(skyboxPaths, device, commandbuffer, framebuffer, sampler, false);
-	skyboxTexture.createTextureImageView(swapchain, device.getDevice(), true);
-	skyboxTexture.createTextureSampler(device.getDevice(), device.getPhysicalDevice(), true);
 
 	std::unordered_map<PBRTextureType, std::string> pbrTextures = {
 		{ PBRTextureType::Albedo, "textures/backpack/diffuse.jpg" },
@@ -625,11 +613,11 @@ void Engine::Core::Application::mainLoop()
 
 void Engine::Core::Application::cleanup()
 {
+	resources->log();
+
 	vkDeviceWaitIdle(device.getDevice());
 
 	raytrace.cleanup(device.getDevice());
-
-	resources->cleanup();
 
 	for (auto& fb : imguiFramebuffers) {
 		vkDestroyFramebuffer(device.getDevice(), fb, nullptr);
@@ -650,52 +638,9 @@ void Engine::Core::Application::cleanup()
 	}
 
 	vkDestroyRenderPass(device.getDevice(), renderpass.getRenderPass(), nullptr);
-	
-	for(auto& scene : scenemanager.getScenes()) {
-		auto& m = scene.model;
-
-		int textureCount = m.texture.getTextureCount();
-
-		for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
-			if (i < m.texture.getUniformBuffers().size()) {
-				vkDestroyBuffer(device.getDevice(), m.texture.getUniformBuffers()[i], nullptr);
-				vkFreeMemory(device.getDevice(), m.texture.getUniformBuffersMemory()[i], nullptr);
-			}
-			if (i < m.texture.getSkyboxUniformBuffers().size()) {
-				vkDestroyBuffer(device.getDevice(), m.texture.getSkyboxUniformBuffers()[i], nullptr);
-				vkFreeMemory(device.getDevice(), m.texture.getSkyboxUniformBuffersMemory()[i], nullptr);
-			}
-		}
-
-		vkDestroyDescriptorPool(device.getDevice(), m.descriptor.getDescriptorPool(), nullptr);
-		if (textureCount == -1) {
-			vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(), nullptr);
-			vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(), nullptr);
-
-			vkDestroyImage(device.getDevice(), m.texture.getTextureImage(), nullptr);
-			vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(), nullptr);
-		}
-		else {
-			for (int i = 0; i < textureCount; i++) {
-				vkDestroySampler(device.getDevice(), m.texture.getTextureSampler(i), nullptr);
-				vkDestroyImageView(device.getDevice(), m.texture.getTextureImageView(i), nullptr);
-
-				vkDestroyImage(device.getDevice(), m.texture.getTextureImage(i), nullptr);
-				vkFreeMemory(device.getDevice(), m.texture.getTextureImageMemory(i), nullptr);
-			}
-		}
-	}
 	vkDestroyDescriptorPool(device.getDevice(), imguiPool, nullptr);
 	vkDestroyDescriptorSetLayout(device.getDevice(), renderpass.getDescriptorSetLayout(), nullptr);
 	
-	for (auto& scene : scenemanager.getScenes()) {
-		auto& m = scene.model;
-		vkDestroyBuffer(device.getDevice(), m.texture.getIndexBuffer(), nullptr);
-		vkFreeMemory(device.getDevice(), m.texture.getIndexBufferMemory(), nullptr);
-		vkDestroyBuffer(device.getDevice(), m.texture.getVertexBuffer(), nullptr);
-		vkFreeMemory(device.getDevice(), m.texture.getVertexBufferMemory(), nullptr);
-	}
-
 	for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
 		vkDestroySemaphore(device.getDevice(), texture.getRenderFinishedSemaphores()[i], nullptr);
 		vkDestroySemaphore(device.getDevice(), texture.getImageAvailableSemaphores()[i], nullptr);
@@ -703,6 +648,14 @@ void Engine::Core::Application::cleanup()
 	}
 
 	vkDestroyCommandPool(device.getDevice(), commandbuffer.getCommandPool(), nullptr);
+
+	if (resources) {
+		resources->cleanup();
+
+		std::cout << "RESOURCES AFTER CLEANUP" << std::endl;
+
+		resources->log();
+	}
 
 	vkDeviceWaitIdle(device.getDevice());
 
@@ -1141,11 +1094,11 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p.getGraphicsPipeline());
 
-		VkBuffer vertexBuffers[] = { m.texture.getVertexBuffer() };
+		VkBuffer vertexBuffers[] = { m.texture.vertexResource->buffer };
 		VkDeviceSize offsets[] = { 0 };
 
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, m.texture.getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(commandBuffer, m.texture.indexResource->buffer, 0, VK_INDEX_TYPE_UINT32);
 
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p.getPipelineLayout(), 0, 1, &m.descriptor.getDescriptorSets()[currentFrame], 0, nullptr);
 

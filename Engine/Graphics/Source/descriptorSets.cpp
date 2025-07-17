@@ -41,12 +41,12 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
     for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{};
         if (isCube) {
-            bufferInfo.buffer = texture.getSkyboxUniformBuffers()[i];
+            bufferInfo.buffer = texture.skyboxUniformResources[i]->buffer;
             bufferInfo.offset = 0;
             bufferInfo.range = sizeof(SkyboxUBO);
         }
         else {
-            bufferInfo.buffer = texture.getUniformBuffers()[i];
+            bufferInfo.buffer = texture.uniformResources[i]->buffer;
             bufferInfo.offset = 0;
             bufferInfo.range = sizeof(UniformBufferObject);
         }
@@ -58,8 +58,8 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
             if (textureCount == -1) {
                 imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                imageInfo.imageView = texture.getTextureImageView();
-                imageInfo.sampler = texture.getTextureSampler();
+                imageInfo.imageView = texture.textureResource->view;
+                imageInfo.sampler = texture.textureResource->sampler;
                 imageInfos.push_back(imageInfo);
             }
             else {
@@ -70,8 +70,8 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
 
                     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-                    imageInfo.imageView = texture.getTextureImageView(index);
-                    imageInfo.sampler = texture.getTextureSampler(index);
+                    imageInfo.imageView = texture.textureResources[index]->view;
+                    imageInfo.sampler = texture.textureResources[index]->sampler;
 
                     imageInfos[index] = (imageInfo);
                     index++;

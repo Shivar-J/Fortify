@@ -37,7 +37,6 @@
 #include "device.h"
 #include "ResourceManager.h"
 
-extern VmaAllocator allocator;
 extern std::unique_ptr<ResourceManager> resources;
 
 struct Vertex {
@@ -161,12 +160,9 @@ struct MeshObject {
 	std::vector<uint32_t> i;
 	std::vector<Materials> m;
 
-	VkBuffer vb = VK_NULL_HANDLE;
-	VkDeviceMemory vbm = VK_NULL_HANDLE;
-	VkBuffer ib = VK_NULL_HANDLE;
-	VkDeviceMemory ibm = VK_NULL_HANDLE;
-	VkBuffer mb = VK_NULL_HANDLE;
-	VkDeviceMemory mbm = VK_NULL_HANDLE;
+	BufferResource* vertex;
+	BufferResource* index;
+	BufferResource* material;
 
 	std::string path = "";
 

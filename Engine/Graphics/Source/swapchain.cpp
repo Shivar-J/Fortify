@@ -104,13 +104,8 @@ VkExtent2D Engine::Graphics::Swapchain::chooseSwapExtent(const VkSurfaceCapabili
 
 void Engine::Graphics::Swapchain::cleanupSwapChain(Engine::Graphics::Device& device, Engine::Graphics::FrameBuffer& fb)
 {
-	vkDestroyImageView(device.getDevice(), fb.getDepthImageView(), nullptr);
-	vkDestroyImage(device.getDevice(), fb.getDepthImage(), nullptr);
-	vkFreeMemory(device.getDevice(), fb.getDepthImageMemory(), nullptr);
-
-	vkDestroyImageView(device.getDevice(), fb.getColorImageView(), nullptr);
-	vkDestroyImage(device.getDevice(), fb.getColorImage(), nullptr);
-	vkFreeMemory(device.getDevice(), fb.getColorImageMemory(), nullptr);
+	resources->destroy(fb.depthResource, device.getDevice());
+	resources->destroy(fb.colorResource, device.getDevice());
 
 	for (auto framebuffer : swapChainFrameBuffers) {
 		vkDestroyFramebuffer(device.getDevice(), framebuffer, nullptr);
