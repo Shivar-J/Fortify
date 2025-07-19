@@ -73,7 +73,7 @@ void Engine::Graphics::CommandBuffer::createCommandBuffers(VkDevice device)
 	}
 }
 
-void Engine::Graphics::CommandBuffer::transitionImageLayout(const Engine::Graphics::Device& device, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount) {
+void Engine::Graphics::CommandBuffer::transitionImageLayout(const Engine::Graphics::Device& device, ImageResource* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(device.getDevice());
 
     VkImageMemoryBarrier barrier{};
@@ -82,7 +82,7 @@ void Engine::Graphics::CommandBuffer::transitionImageLayout(const Engine::Graphi
     barrier.newLayout = newLayout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
+    barrier.image = image->image;
 
     if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -136,6 +136,8 @@ void Engine::Graphics::CommandBuffer::transitionImageLayout(const Engine::Graphi
         0, nullptr,
         1, &barrier
     );
+
+    image->updateLayout(newLayout);
 
     endSingleTimeCommands(commandBuffer, device.getGraphicsQueue(), device.getDevice());
 }

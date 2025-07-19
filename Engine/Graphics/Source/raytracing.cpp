@@ -7,38 +7,7 @@
 
 void AccelerationStructure::create(Engine::Graphics::Device device, VkAccelerationStructureTypeKHR type, VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo)
 {
-	VkBufferCreateInfo bufferCreateInfo{};
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferCreateInfo.size = buildSizeInfo.accelerationStructureSize;
-	bufferCreateInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-	vkCreateBuffer(device.getDevice(), &bufferCreateInfo, nullptr, &buffer);
-
-	VkMemoryRequirements memoryRequirements{};
-	vkGetBufferMemoryRequirements(device.getDevice(), buffer, &memoryRequirements);
-
-	VkMemoryAllocateFlagsInfo memoryAllocateFlagsInfo{};
-	memoryAllocateFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-	memoryAllocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
-	
-	VkMemoryAllocateInfo memoryAllocateInfo{};
-	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memoryAllocateInfo.pNext = &memoryAllocateFlagsInfo;
-	memoryAllocateInfo.allocationSize = memoryRequirements.size;
-	memoryAllocateInfo.memoryTypeIndex = Engine::Utility::findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, device.getPhysicalDevice());
-	vkAllocateMemory(device.getDevice(), &memoryAllocateInfo, nullptr, &memory);
-	vkBindBufferMemory(device.getDevice(), buffer, memory, 0);
-
-	VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
-	accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-	accelerationStructureCreateInfo.buffer = buffer;
-	accelerationStructureCreateInfo.size = buildSizeInfo.accelerationStructureSize;
-	accelerationStructureCreateInfo.type = type;
-	fpCreateAccelerationStructureKHR(device.getDevice(), &accelerationStructureCreateInfo, nullptr, &handle);
-
-	VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
-	accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-	accelerationDeviceAddressInfo.accelerationStructure = handle;
-	deviceAddress = fpGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &accelerationDeviceAddressInfo);
+	resource = resources->create<AccelerationStructureResource>(device.getDevice(), device.getPhysicalDevice(), type, buildSizeInfo);
 }
 
 ScratchBuffer::ScratchBuffer(Engine::Graphics::Device device, VkDeviceSize size)
@@ -258,7 +227,7 @@ auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 
 	VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 	accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-	accelerationDeviceAddressInfo.accelerationStructure = blas.handle;
+	accelerationDeviceAddressInfo.accelerationStructure = blas.resource->handle;
 
 	auto deviceAddress = fpGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &accelerationDeviceAddressInfo);
 
@@ -314,7 +283,7 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	accelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 	accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 	accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-	accelerationBuildGeometryInfo.dstAccelerationStructure = blas.handle;
+	accelerationBuildGeometryInfo.dstAccelerationStructure = blas.resource->handle;
 	accelerationBuildGeometryInfo.geometryCount = 1;
 	accelerationBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
 	accelerationBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
@@ -376,7 +345,7 @@ void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::G
 
 	TLAS.create(device, VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR, accelerationStructureBuildSizesInfo);
 
-	if (TLAS.handle == VK_NULL_HANDLE) {
+	if (TLAS.resource->handle == VK_NULL_HANDLE) {
 		throw std::runtime_error("failed to create TLAS acceleration structures");
 	}
 
@@ -387,7 +356,7 @@ void Engine::Graphics::Raytracing::createTopLevelAccelerationStructure(Engine::G
 	accelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 	accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 	accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-	accelerationBuildGeometryInfo.dstAccelerationStructure = TLAS.handle;
+	accelerationBuildGeometryInfo.dstAccelerationStructure = TLAS.resource->handle;
 	accelerationBuildGeometryInfo.geometryCount = 1;
 	accelerationBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
 	accelerationBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
@@ -436,7 +405,7 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 	for (uint32_t i = 0; i < BLAS.size(); ++i) {
 		VkAccelerationStructureDeviceAddressInfoKHR addrInfo{};
 		addrInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-		addrInfo.accelerationStructure = BLAS[i].handle;
+		addrInfo.accelerationStructure = BLAS[i].resource->handle;
 		uint64_t deviceAddress = fpGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &addrInfo);
 
 		blasInstances[i].transform = Engine::Utility::convertMat4ToTransformMatrix(models[i]->matrix);
@@ -492,8 +461,8 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 	buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
-	buildInfo.srcAccelerationStructure = TLAS.handle;
-	buildInfo.dstAccelerationStructure = TLAS.handle;
+	buildInfo.srcAccelerationStructure = TLAS.resource->handle;
+	buildInfo.dstAccelerationStructure = TLAS.resource->handle;
 	buildInfo.geometryCount = 1;
 	buildInfo.pGeometries = &geometry;
 
@@ -556,7 +525,7 @@ void Engine::Graphics::Raytracing::updateTopLevelAccelerationStructure(Engine::G
 	VkWriteDescriptorSetAccelerationStructureKHR asWrite{};
 	asWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
 	asWrite.accelerationStructureCount = 1;
-	asWrite.pAccelerationStructures = &TLAS.handle;
+	asWrite.pAccelerationStructures = &TLAS.resource->handle;
 
 	VkWriteDescriptorSet tlasDescriptorWrite{};
 	tlasDescriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -594,38 +563,17 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 	std::vector<uint8_t> shaderHandleStorage(sbtSize);
 	fpGetRayTracingShaderGroupHandlesKHR(device.getDevice(), pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data());
 
-	auto createSBTBuffer = [&](VkBuffer& buffer, VkDeviceMemory& memory, const void* data, VkDeviceSize size) {
-		VkBufferCreateInfo bufferInfo{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-		bufferInfo.usage = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		bufferInfo.size = size;
+	VkBufferUsageFlags usage = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-		vkCreateBuffer(device.getDevice(), &bufferInfo, nullptr, &buffer);
-
-		VkMemoryRequirements memReqs;
-		vkGetBufferMemoryRequirements(device.getDevice(), buffer, &memReqs);
-
-		VkMemoryAllocateFlagsInfo allocFlagsInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO };
-		allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-
-		VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-		allocInfo.allocationSize = memReqs.size;
-		allocInfo.memoryTypeIndex = Engine::Utility::findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, device.getPhysicalDevice());
-		allocInfo.pNext = &allocFlagsInfo;
-
-		vkAllocateMemory(device.getDevice(), &allocInfo, nullptr, &memory);
-		vkBindBufferMemory(device.getDevice(), buffer, memory, 0);
-
-		void* mapped;
-		vkMapMemory(device.getDevice(), memory, 0, size, 0, &mapped);
-		memcpy(mapped, data, size);
-		vkUnmapMemory(device.getDevice(), memory);
-		};
-
-	createSBTBuffer(raygenSBTBuffer, raygenSBTMemory, shaderHandleStorage.data(), handleSizeAligned);
-	createSBTBuffer(missSBTBuffer, missSBTMemory, shaderHandleStorage.data() + handleSizeAligned, handleSizeAligned);
-	createSBTBuffer(hitSBTBuffer, hitSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 2, handleSizeAligned);
-	createSBTBuffer(aHitSBTBuffer, aHitSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 3, handleSizeAligned);
-	createSBTBuffer(intSBTBuffer, intSBTMemory, shaderHandleStorage.data() + handleSizeAligned * 4, handleSizeAligned);
+	raygenResource = resources->create<BufferResource>(device.getDevice(), device.getPhysicalDevice(), handleSizeAligned, usage, properties, shaderHandleStorage.data());
+	memcpy(raygenResource->mapped, shaderHandleStorage.data(), handleSizeAligned);
+	missResource = resources->create<BufferResource>(device.getDevice(), device.getPhysicalDevice(), handleSizeAligned, usage, properties, shaderHandleStorage.data() + handleSizeAligned);
+	memcpy(missResource->mapped, shaderHandleStorage.data() + handleSizeAligned, handleSizeAligned);
+	closestHitResource = resources->create<BufferResource>(device.getDevice(), device.getPhysicalDevice(), handleSizeAligned, usage, properties, shaderHandleStorage.data() + handleSizeAligned * 2);
+	memcpy(closestHitResource->mapped, shaderHandleStorage.data() + handleSizeAligned * 2, handleSizeAligned);
+	anyHitResource = resources->create<BufferResource>(device.getDevice(), device.getPhysicalDevice(), handleSizeAligned, usage, properties, shaderHandleStorage.data() + handleSizeAligned * 3);
+	memcpy(anyHitResource->mapped, shaderHandleStorage.data() + handleSizeAligned * 3, handleSizeAligned);
 }
 
 void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture)
@@ -661,7 +609,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelerationStructureInfo{};
 	descriptorAccelerationStructureInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
 	descriptorAccelerationStructureInfo.accelerationStructureCount = 1;
-	descriptorAccelerationStructureInfo.pAccelerationStructures = &TLAS.handle;
+	descriptorAccelerationStructureInfo.pAccelerationStructures = &TLAS.resource->handle;
 
 	VkWriteDescriptorSet accelerationStructureWrite{};
 	accelerationStructureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -801,8 +749,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		if (scene->albedo.has_value()) {
 			VkDescriptorImageInfo modelTextureInfo{};
 			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			modelTextureInfo.imageView = scene->albedo.value().textureResource->view;
-			modelTextureInfo.sampler = scene->albedo.value().textureResource->sampler;
+			modelTextureInfo.imageView = scene->albedo.value()->view;
+			modelTextureInfo.sampler = scene->albedo.value()->sampler;
 
 			VkWriteDescriptorSet textureWrite{};
 			textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -938,6 +886,7 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		nullptr
 		});
 	
+	/*
 	shaderStages.push_back({
 		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		nullptr,
@@ -947,7 +896,7 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		"main",
 		nullptr
 		});
-
+	*/
 	shaderStages.push_back({
 		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		nullptr,
@@ -973,7 +922,7 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 	hitGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 	hitGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 2;
 	hitGroup.generalShader = VK_SHADER_UNUSED_KHR;
-	hitGroup.intersectionShader = static_cast<uint32_t>(shaderStages.size()) - 3;
+	hitGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
 	hitGroup.anyHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
 	shaderGroups.push_back(hitGroup);
 
@@ -1000,24 +949,24 @@ void Engine::Graphics::Raytracing::createImage(Engine::Graphics::Device device, 
 	accumulationImage.create(device, device.getGraphicsQueue(), commandPool, VK_FORMAT_R32G32B32A32_SFLOAT, { extent.width, extent.height, 1 });
 }
 
-void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer commandBuffer, VkExtent2D extent, VkImage swapchainImage, uint32_t currentImageIndex)
+void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer commandBuffer, SwapchainResource* resource, uint32_t currentIndex)
 {
 	const uint32_t handleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
 	const uint32_t handleSizeAligned = (handleSize + rayTracingPipelineProperties.shaderGroupHandleAlignment - 1) &
 		~(rayTracingPipelineProperties.shaderGroupHandleAlignment - 1);
 
 	VkStridedDeviceAddressRegionKHR raygenSBTRegion{};
-	raygenSBTRegion.deviceAddress = getBufferDeviceAddress(device, raygenSBTBuffer);
+	raygenSBTRegion.deviceAddress = getBufferDeviceAddress(device, raygenResource->buffer);
 	raygenSBTRegion.stride = handleSizeAligned;
 	raygenSBTRegion.size = handleSizeAligned;
 
 	VkStridedDeviceAddressRegionKHR missSBTRegion{};
-	missSBTRegion.deviceAddress = getBufferDeviceAddress(device, missSBTBuffer);
+	missSBTRegion.deviceAddress = getBufferDeviceAddress(device, missResource->buffer);
 	missSBTRegion.stride = handleSizeAligned;
 	missSBTRegion.size = handleSizeAligned;
 
 	VkStridedDeviceAddressRegionKHR hitSBTRegion{};
-	hitSBTRegion.deviceAddress = getBufferDeviceAddress(device, hitSBTBuffer);
+	hitSBTRegion.deviceAddress = getBufferDeviceAddress(device, closestHitResource->buffer);
 	hitSBTRegion.stride = handleSizeAligned;
 	hitSBTRegion.size = handleSizeAligned;
 
@@ -1033,8 +982,8 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 		&missSBTRegion,
 		&hitSBTRegion,
 		&callableSBTRegion,
-		extent.width,
-		extent.height,
+		resource->extent.width,
+		resource->extent.height,
 		1
 	);
 
@@ -1086,7 +1035,7 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 	copyRegion.srcOffset = { 0, 0, 0 };
 	copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 	copyRegion.dstOffset = { 0, 0, 0 };
-	copyRegion.extent = { extent.width, extent.height, 1 };
+	copyRegion.extent = { resource->extent.width, resource->extent.height, 1 };
 
 	vkCmdCopyImage(
 		commandBuffer,
@@ -1114,13 +1063,25 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 		1, &accumGeneral
 	);
 
+	VkImageLayout currentLayout = resource->layouts[currentIndex];
+
 	VkImageMemoryBarrier swapchainBarrier = {};
 	swapchainBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	swapchainBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	swapchainBarrier.oldLayout = currentLayout;
 	swapchainBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	swapchainBarrier.srcAccessMask = 0;
+
+	if (currentLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+		swapchainBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	}
+	else if (currentLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		swapchainBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	}
+	else {
+		swapchainBarrier.srcAccessMask = 0;
+	}
+
 	swapchainBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	swapchainBarrier.image = swapchainImage;
+	swapchainBarrier.image = resource->images[currentIndex];
 	swapchainBarrier.subresourceRange = subresourceRange;
 
 	vkCmdPipelineBarrier(
@@ -1133,41 +1094,44 @@ void Engine::Graphics::Raytracing::traceRays(VkDevice device, VkCommandBuffer co
 		1, &swapchainBarrier
 	);
 
+	resource->updateLayout(currentIndex, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
 	VkImageBlit blitRegion{};
 	blitRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 	blitRegion.srcOffsets[0] = { 0, 0, 0 };
-	blitRegion.srcOffsets[1] = { (int)extent.width, (int)extent.height, 1 };
+	blitRegion.srcOffsets[1] = { (int)resource->extent.width, (int)resource->extent.height, 1 };
 	blitRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 	blitRegion.dstOffsets[0] = { 0, 0, 0 };
-	blitRegion.dstOffsets[1] = { (int)extent.width, (int)extent.height, 1 };
+	blitRegion.dstOffsets[1] = { (int)resource->extent.width, (int)resource->extent.height, 1 };
 
 	vkCmdBlitImage(
 		commandBuffer,
-		accumulationImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		swapchainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		accumulationImage.image, VK_IMAGE_LAYOUT_GENERAL,
+		resource->images[currentIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1, &blitRegion,
 		VK_FILTER_LINEAR
 	);
 	
-	VkImageMemoryBarrier presentBarrier = {};
-	presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	presentBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	presentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	presentBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	presentBarrier.dstAccessMask = 0;
-	presentBarrier.image = swapchainImage;
-	presentBarrier.subresourceRange = subresourceRange;
+	VkImageMemoryBarrier returnBarrier = {};
+	returnBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	returnBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	returnBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	returnBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	returnBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+	returnBarrier.image = storageImage.image;
+	returnBarrier.subresourceRange = {
+		VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1
+	};
 
 	vkCmdPipelineBarrier(
 		commandBuffer,
 		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
 		0,
 		0, nullptr,
 		0, nullptr,
-		1, &presentBarrier
+		1, &returnBarrier
 	);
-	
 }
 
 void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device device)
@@ -1193,8 +1157,8 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 	initRaytracing(device);
 
 	VkExtent3D storageImageExtent = {
-		swapchain.getSwapchainExtent().width,
-		swapchain.getSwapchainExtent().height,
+		swapchain.resource->extent.width,
+		swapchain.resource->extent.height,
 		1
 	};
 
@@ -1221,48 +1185,27 @@ void Engine::Graphics::Raytracing::recreateScene(Engine::Graphics::Device device
 
 void Engine::Graphics::Raytracing::cleanup(VkDevice device, bool softClean)
 {
-	resources->destroy(uniformBuffer, device);
+	resources->destroy(uniformBuffer);
 
 	if (!softClean) {
 		for (auto& scene : models) {
 			scene->obj.destroy(device);
 
-			if (scene->albedo.has_value())
-				scene->albedo.value().cleanup(device);
-			if (scene->normal.has_value())
-				scene->normal.value().cleanup(device);
-			if (scene->roughness.has_value())
-				scene->roughness.value().cleanup(device);
-			if (scene->metalness.has_value())
-				scene->metalness.value().cleanup(device);
-			if (scene->specular.has_value())
-				scene->specular.value().cleanup(device);
-			if (scene->height.has_value())
-				scene->height.value().cleanup(device);
-			if (scene->ambientOcclusion.has_value())
-				scene->ambientOcclusion.value().cleanup(device);
+			scene->textureCleanup();
 		}
 	}
 
-	vkDestroyBuffer(device, raygenSBTBuffer, nullptr);
-	vkFreeMemory(device, raygenSBTMemory, nullptr);
-	vkDestroyBuffer(device, missSBTBuffer, nullptr);
-	vkFreeMemory(device, missSBTMemory, nullptr);
-	vkDestroyBuffer(device, hitSBTBuffer, nullptr);
-	vkFreeMemory(device, hitSBTMemory, nullptr);
-	vkDestroyBuffer(device, aHitSBTBuffer, nullptr);
-	vkFreeMemory(device, aHitSBTMemory, nullptr);
-	vkDestroyBuffer(device, intSBTBuffer, nullptr);
-	vkFreeMemory(device, intSBTMemory, nullptr);
-
-	fpDestroyAccelerationStructureKHR(device, TLAS.handle, nullptr);
-	vkDestroyBuffer(device, TLAS.buffer, nullptr);
-	vkFreeMemory(device, TLAS.memory, nullptr);
+	
+	(raygenResource);
+	
+	(missResource);
+	resources->destroy(closestHitResource);
+	resources->destroy(anyHitResource);
+	
+	resources->destroy(TLAS.resource);
 
 	for (auto& blas : BLAS) {
-		fpDestroyAccelerationStructureKHR(device, blas.handle, nullptr);
-		vkDestroyBuffer(device, blas.buffer, nullptr);
-		vkFreeMemory(device, blas.memory, nullptr);
+		resources->destroy(blas.resource);
 	}
 
 	storageImage.destroy(device);

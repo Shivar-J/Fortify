@@ -22,55 +22,33 @@ void Engine::Core::RT::SceneManager::add(const std::string& texturePath) {
     texturePaths = Engine::Utility::getAllPathsFromPath(path.parent_path().string() + "/", Engine::Utility::imageFileTypes);
 
     if(texturePaths.size() == 1) {
-        Engine::Graphics::Texture albedo;
-        albedo.createTextureImage(texturePaths[0], device, commandbuffer, framebuffer, sampler, false, false, false, true);
-
-        scene->albedo = albedo;
+        scene->albedo = texture.createImageResource(texturePaths[0], device, commandbuffer, framebuffer, sampler, false, false, false, true);
     } else if(texturePaths.size() > 1) {
         for(auto& file : texturePaths) {
-            Engine::Graphics::Texture temp;
-
             if(file.find("albedo") != std::string::npos || file.find("diffuse") != std::string::npos) {
-                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-
-                scene->albedo = std::move(temp);
+                scene->albedo = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
             }
             else if(file.find("normal") != std::string::npos) {
-                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-
-                scene->normal = std::move(temp);
+                scene->normal = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
             }
             else if(file.find("roughness") != std::string::npos) {
-                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-
-                scene->roughness = std::move(temp);
+                scene->roughness = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
             }
             else if(file.find("metalness") != std::string::npos) {
-                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-
-                scene->metalness = std::move(temp);
+                scene->metalness = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
             }
             else if(file.find("specular") != std::string::npos) {
-                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-
-                scene->specular = std::move(temp);
+                scene->specular = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
             }
             else if(file.find("height") != std::string::npos) {
-                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-
-                scene->height = std::move(temp);
+                scene->height= texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
             }
             else if(file.find("ambient_occlusion") != std::string::npos) {
-                temp.createTextureImage(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-
-                scene->ambientOcclusion = std::move(temp);
+                scene->ambientOcclusion = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
             } else {
                 std::cout << "Textures found but naming convention not followed" << std::endl;
                 // manually add textures
-                // clear texture memory
             }
-
-            temp.cleanup(device.getDevice());
         }
     }
 
@@ -83,6 +61,7 @@ void Engine::Core::RT::SceneManager::remove(int index)
 {
     if (index >= 0 && index < scenes.size()) {
         scenes[index]->obj.destroy(device.getDevice());
+        scenes[index]->textureCleanup();
         scenes.erase(scenes.begin() + index);
         raytrace.sceneUpdated = true;
     }

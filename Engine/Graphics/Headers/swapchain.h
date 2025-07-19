@@ -49,32 +49,14 @@ namespace Engine::Graphics {
 		Swapchain() = default;
 		~Swapchain();
 
-	private:
-		VkSwapchainKHR swapChain;
-		std::vector<VkImage> swapChainImages;
-		VkFormat swapChainImageFormat;
-		VkExtent2D swapChainExtent;
-		std::vector<VkImageView> swapChainImageViews;
-		std::vector<VkFramebuffer> swapChainFrameBuffers;
-
+		SwapchainResource* resource;
 	public:
 		void createSwapChain(GLFWwindow* window, Engine::Graphics::Instance& instance, Engine::Graphics::Device& device);
 		VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window);
 		void cleanupSwapChain(Engine::Graphics::Device& device, Engine::Graphics::FrameBuffer& fb);
-		//void recreateSwapChain();
-
-		void createImageViews(VkDevice device);
 		VkImageView createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, bool isCube);
-
-		VkSwapchainKHR getSwapchain() const { return swapChain; }
-		std::vector<VkImage> getSwapchainImages() const { return swapChainImages; }
-		VkFormat getSwapchainImageFormat() const { return swapChainImageFormat; }
-		VkExtent2D getSwapchainExtent() const { return swapChainExtent; }
-		std::vector<VkImageView> getSwapchainImageViews() const { return swapChainImageViews; }
-		std::vector<VkFramebuffer> getSwapchainFramebuffers() const { return swapChainFrameBuffers; }
-		std::vector<VkFramebuffer>& getSwapchainFramebuffers() { return swapChainFrameBuffers; }
 
 		bool presentImmediate = false;
 	};

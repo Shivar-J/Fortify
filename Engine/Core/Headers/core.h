@@ -51,6 +51,7 @@ namespace Engine::Core {
 	public:
 		inline static bool framebufferResized = false;
 		inline static uint32_t currentFrame = 0;
+		inline static unsigned int g_frameCount = 0;
 		float deltaTime = 0.0f;
 		float fpsCounter = 0.0f;		
 		inline static float lastX = 0.0f;

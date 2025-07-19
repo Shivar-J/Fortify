@@ -27,7 +27,7 @@ VkSampleCountFlagBits Engine::Graphics::Sampler::getMaxUsableSampleCount(VkPhysi
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::Device device, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount)
+void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::Device device, ImageResource* image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount)
 {
     VkFormatProperties formatProperties;
     vkGetPhysicalDeviceFormatProperties(device.getPhysicalDevice(), imageFormat, &formatProperties);
@@ -40,7 +40,7 @@ void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer 
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.image = image;
+    barrier.image = image->image;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -49,7 +49,7 @@ void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer 
     barrier.subresourceRange.levelCount = 1;
 
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.oldLayout = image->layout;
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.srcAccessMask = 0;
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -60,6 +60,8 @@ void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer 
         0, nullptr,
         1, &barrier
     );
+
+    image->updateLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     int32_t mipWidth = texWidth;
     int32_t mipHeight = texHeight;
@@ -78,6 +80,8 @@ void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer 
             1, &barrier
         );
 
+        image->updateLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
         VkImageBlit blit{};
         blit.srcOffsets[0] = { 0, 0, 0 };
         blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
@@ -93,8 +97,8 @@ void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer 
         blit.dstSubresource.layerCount = layerCount;
 
         vkCmdBlitImage(commandBuffer,
-            image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, &blit,
             VK_FILTER_LINEAR
         );
@@ -110,6 +114,8 @@ void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer 
             0, nullptr,
             1, &barrier
         );
+
+        image->updateLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         if (mipWidth > 1) mipWidth /= 2;
         if (mipHeight > 1) mipHeight /= 2;
@@ -127,6 +133,8 @@ void Engine::Graphics::Sampler::generateMipmaps(Engine::Graphics::CommandBuffer 
         0, nullptr,
         1, &barrier
     );
+
+    image->updateLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     commandBuf.endSingleTimeCommands(commandBuffer, device.getGraphicsQueue(), device.getDevice());
 }

@@ -7,9 +7,9 @@
 
 void Engine::Graphics::FrameBuffer::createColorResources(Engine::Graphics::Device device, Engine::Graphics::Swapchain swapchain, VkSampleCountFlagBits msaaSamples)
 {
-	VkFormat colorFormat = swapchain.getSwapchainImageFormat();
+	VkFormat colorFormat = swapchain.resource->format;
 
-	colorResource = createImage(device.getDevice(), device.getPhysicalDevice(), swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_COLOR_BIT, false, false);
+	colorResource = createImage(device.getDevice(), device.getPhysicalDevice(), swapchain.resource->extent.width, swapchain.resource->extent.height, 1, msaaSamples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_COLOR_BIT, false, false);
 }
 
 ImageResource* Engine::Graphics::FrameBuffer::createImage(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, uint32_t arrayLayers, VkImageCreateFlags flags, VkImageAspectFlags aspectFlags, bool isCube, bool useSampler)
@@ -20,9 +20,9 @@ ImageResource* Engine::Graphics::FrameBuffer::createImage(VkDevice device, VkPhy
 void Engine::Graphics::FrameBuffer::createDepthResources(Engine::Graphics::Device device, Engine::Graphics::Swapchain swapchain, VkSampleCountFlagBits msaaSamples, Engine::Graphics::CommandBuffer commandBuffer)
 {
 	VkFormat depthFormat = findDepthFormat(device.getPhysicalDevice());
-	depthResource = createImage(device.getDevice(), device.getPhysicalDevice(), swapchain.getSwapchainExtent().width, swapchain.getSwapchainExtent().height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_DEPTH_BIT, false, false);
+	depthResource = createImage(device.getDevice(), device.getPhysicalDevice(), swapchain.resource->extent.width, swapchain.resource->extent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_DEPTH_BIT, false, false);
 
-	commandBuffer.transitionImageLayout(device, depthResource->image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, 1);
+	commandBuffer.transitionImageLayout(device, depthResource, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, 1);
 }
 
 VkFormat Engine::Graphics::FrameBuffer::findDepthFormat(VkPhysicalDevice physicalDevice)
@@ -54,13 +54,11 @@ VkFormat Engine::Graphics::FrameBuffer::findSupportedFormat(VkPhysicalDevice phy
 
 void Engine::Graphics::FrameBuffer::createFramebuffers(VkDevice device, Engine::Graphics::Swapchain& swapchain, VkRenderPass renderPass)
 {
-	swapchain.getSwapchainFramebuffers().resize(swapchain.getSwapchainImageViews().size());
-
-	for (size_t i = 0; i < swapchain.getSwapchainImageViews().size(); i++) {
+	for (size_t i = 0; i < swapchain.resource->views.size(); i++) {
 		std::array<VkImageView, 3> attachments = {
 			colorResource->view,
 			depthResource->view,
-			swapchain.getSwapchainImageViews()[i]
+			swapchain.resource->views[i]
 		};
 
 		VkFramebufferCreateInfo framebufferInfo{};
@@ -68,11 +66,11 @@ void Engine::Graphics::FrameBuffer::createFramebuffers(VkDevice device, Engine::
 		framebufferInfo.renderPass = renderPass;
 		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 		framebufferInfo.pAttachments = attachments.data();
-		framebufferInfo.width = swapchain.getSwapchainExtent().width;
-		framebufferInfo.height = swapchain.getSwapchainExtent().height;
+		framebufferInfo.width = swapchain.resource->extent.width;
+		framebufferInfo.height = swapchain.resource->extent.height;
 		framebufferInfo.layers = 1;
 
-		if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapchain.getSwapchainFramebuffers()[i]) != VK_SUCCESS) {
+		if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapchain.resource->framebuffers[i]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create framebuffer!");
 		}
 	}

@@ -2,6 +2,7 @@
 #define RESOURCEMANAGER
 
 #include <vulkan/vulkan.h>
+#include "vulkanPointers.hpp"
 #include <unordered_map>
 #include <cstdint>
 
@@ -9,6 +10,7 @@ class Resource {
 public:
 	virtual void destroy(VkDevice device) = 0;
 	virtual ~Resource() = default;
+	virtual void log() = 0;
 };
 
 class BufferResource : public Resource {
@@ -32,13 +34,23 @@ public:
 
 		VkMemoryAllocateFlagsInfo memFlagsInfo{};
 		memFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-		memFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+		if ((usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) != 0) {
+			memFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+		}
 
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memReq.size;
 		allocInfo.memoryTypeIndex = findMemoryType(memReq.memoryTypeBits, properties, physicalDevice);
 		
+		if (memFlagsInfo.flags != 0) {
+			allocInfo.pNext = &memFlagsInfo;
+		}
+		else {
+			allocInfo.pNext = nullptr;
+		}
+
 		result = vkAllocateMemory(device, &allocInfo, nullptr, &memory);
 		if (result != VK_SUCCESS) return result;
 
@@ -81,6 +93,103 @@ public:
 		}
 	}
 
+	void log() override {
+		std::cout << "BufferResource | "
+			<< "VkBuffer: " << buffer << ", "
+			<< "VkDeviceMemory: " << memory << ", "
+			<< "Mapped: " << (mapped ? "Yes" : "No")
+			<< std::endl;
+	}
+
+private:
+	uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+			if ((type & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & prop) == prop) {
+				return i;
+			}
+		}
+
+		throw std::runtime_error("failed to find suitable memory type");
+	}
+};
+
+class AccelerationStructureResource : public Resource {
+public:
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VkDeviceMemory memory = VK_NULL_HANDLE;
+	VkAccelerationStructureKHR handle = VK_NULL_HANDLE;
+	VkDeviceAddress address;
+
+	VkResult initialize(VkDevice device, VkPhysicalDevice physicalDevice, VkAccelerationStructureTypeKHR type, VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo) {
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = buildSizeInfo.accelerationStructureSize;
+		bufferInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
+		VkResult result = vkCreateBuffer(device, &bufferInfo, nullptr, &buffer);
+		if (result != VK_SUCCESS) return result;
+
+		VkMemoryRequirements memoryRequirements{};
+		vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
+
+		VkMemoryAllocateFlagsInfo memoryAllocateFlagsInfo{};
+		memoryAllocateFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+		memoryAllocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+
+		VkMemoryAllocateInfo memoryAllocateInfo{};
+		memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		memoryAllocateInfo.pNext = &memoryAllocateFlagsInfo;
+		memoryAllocateInfo.allocationSize = memoryRequirements.size;
+		memoryAllocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physicalDevice);
+		result = vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &memory);
+		if (result != VK_SUCCESS) return result;
+
+		result = vkBindBufferMemory(device, buffer, memory, 0);
+		if (result != VK_SUCCESS) return result;
+
+		VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo{};
+		accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+		accelerationStructureCreateInfo.buffer = buffer;
+		accelerationStructureCreateInfo.size = buildSizeInfo.accelerationStructureSize;
+		accelerationStructureCreateInfo.type = type;
+		result = fpCreateAccelerationStructureKHR(device, &accelerationStructureCreateInfo, nullptr, &handle);
+		if (result != VK_SUCCESS) return result;
+
+		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
+		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+		accelerationDeviceAddressInfo.accelerationStructure = handle;
+		address = fpGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
+
+		return VK_SUCCESS;
+	}
+
+	void destroy(VkDevice device) override {
+		if (handle != VK_NULL_HANDLE) {
+			fpDestroyAccelerationStructureKHR(device, handle, nullptr);
+			handle = VK_NULL_HANDLE;
+		}
+		if (buffer != VK_NULL_HANDLE) {
+			vkDestroyBuffer(device, buffer, nullptr);
+			buffer = VK_NULL_HANDLE;
+		}
+		if (memory != VK_NULL_HANDLE) {
+			vkFreeMemory(device, memory, nullptr);
+			memory = VK_NULL_HANDLE;
+			address = 0;
+		}
+	}
+
+	void log() override {
+		std::cout << "AccelerationStructureResource | "
+			<< "VkBuffer: " << buffer << ", "
+			<< "VkDeviceMemory: " << memory << ", "
+			<< "VkAccelerationStructureKHR: " << handle << ", "
+			<< "VkDeviceAddress: " << address << std::endl;
+	}
+
 private:
 	uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
 		VkPhysicalDeviceMemoryProperties memProperties;
@@ -102,6 +211,7 @@ public:
 	VkImageView view = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 	VkDeviceMemory memory = VK_NULL_HANDLE;
+	VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	VkResult initialize(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, uint32_t arrayLayers, VkImageCreateFlags flags, VkImageAspectFlags aspectFlags, bool isCube, bool useSampler) {
 		VkImageCreateInfo imageInfo{};
@@ -216,6 +326,19 @@ public:
 		}
 	}
 
+	void updateLayout(VkImageLayout newLayout) {
+		layout = newLayout;
+	}
+
+	void log() override {
+		std::cout << "ImageResource | "
+			<< "VkImage: " << image << ", "
+			<< "VkDeviceMemory: " << memory << ", "
+			<< "View: " << view << ", "
+			<< "Sampler: " << sampler << ", "
+			<< "Image Layout: " << layout << std::endl;
+	}
+
 private:
 	uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
 		VkPhysicalDeviceMemoryProperties memProperties;
@@ -228,6 +351,83 @@ private:
 		}
 
 		throw std::runtime_error("failed to find suitable memory type");
+	}
+};
+
+class SwapchainResource : public Resource {
+public:
+	VkSwapchainKHR swapchain;
+	VkFormat format;
+	VkExtent2D extent;
+	std::vector<VkImage> images;
+	std::vector<VkImageView> views;
+	std::vector<VkFramebuffer> framebuffers;
+	std::vector<VkImageLayout> layouts;
+
+	VkResult initialize(VkDevice device, VkSwapchainCreateInfoKHR swapchainInfo, uint32_t imageCount, VkSurfaceFormatKHR surfaceFormat, VkExtent2D surfaceExtent) {
+		VkResult result = vkCreateSwapchainKHR(device, &swapchainInfo, nullptr, &swapchain);
+		if (result != VK_SUCCESS) return result;
+
+		vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
+		images.resize(imageCount);
+		vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.data());
+
+		format = surfaceFormat.format;
+		extent = surfaceExtent;
+
+		views.resize(images.size());
+		framebuffers.resize(images.size());
+		layouts.resize(images.size());
+
+		for (uint32_t i = 0; i < images.size(); i++) {
+			VkImageViewCreateInfo viewInfo{};
+			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewInfo.image = images[i];
+			viewInfo.format = format;
+			viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewInfo.subresourceRange.baseMipLevel = 0;
+			viewInfo.subresourceRange.levelCount = 1;
+			viewInfo.subresourceRange.baseArrayLayer = 0;
+			viewInfo.subresourceRange.layerCount = 1;
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+
+			result = vkCreateImageView(device, &viewInfo, nullptr, &views[i]);
+
+			layouts[i] = VK_IMAGE_LAYOUT_UNDEFINED;
+		}
+
+		return VK_SUCCESS;
+	}
+
+	void destroy(VkDevice device) override {
+		for (auto fb : framebuffers) {
+			vkDestroyFramebuffer(device, fb, nullptr);
+		}
+		for (auto view : views) {
+			vkDestroyImageView(device, view, nullptr);
+		}
+
+		vkDestroySwapchainKHR(device, swapchain, nullptr);
+	}
+
+	void log() override {
+
+		std::cout << "SwapchainResource | "
+			<< "VkSwapchainKHR: " << swapchain << ", "
+			<< "VkFormat: " << format << ", "
+			<< "VkExtent: " << extent.width << "," << extent.height << std::endl;
+
+		for (int i = 0; i < images.size(); i++) {
+			std::cout << "SwapchainResource | "
+				<< "VkImage: " << images[i] << ", "
+				<< "VkImageView: " << views[i] << ", "
+				<< "VkFramebuffer: " << framebuffers[i] << ", "
+				<< "VkImageLayout: " << layouts[i]  << std::endl;
+		}
+	}
+
+	void updateLayout(int index, VkImageLayout newLayout) {
+		layouts[index] = newLayout;
 	}
 };
 
@@ -254,13 +454,13 @@ public:
 		return ptr;
 	}
 
-	void destroy(Resource* resource, VkDevice device) {
+	void destroy(Resource* resource) {
 		auto it = std::find_if(m_resources.begin(), m_resources.end(), [resource](const std::unique_ptr<Resource>& res) {
 			return res.get() == resource;
 			});
 
 		if (it != m_resources.end()) {
-			(*it)->destroy(device);
+			(*it)->destroy(m_device);
 			m_resources.erase(it);
 		}
 	}
@@ -283,21 +483,10 @@ public:
 
 			std::cout << "Resource [" << i << "]: ";
 
-			if (auto buffer = dynamic_cast<BufferResource*>(res.get())) {
-				std::cout << "BufferResource | "
-					<< "VkBuffer: " << buffer->buffer << ", "
-					<< "VkDeviceMemory: " << buffer->memory << ", "
-					<< "Mapped: " << (buffer->mapped ? "Yes" : "No")
-					<< std::endl;
+			try {
+				m_resources[i]->log();
 			}
-			else if (auto image = dynamic_cast<ImageResource*>(res.get())) {
-				std::cout << "ImageResource | "
-					<< "VkImage: " << image->image << ", "
-					<< "VkDeviceMemory: " << image->memory << ", "
-					<< "View: " << image->view << ", "
-					<< "Sampler: " << image->sampler << std::endl;
-			}
-			else {
+			catch(...) {
 				std::cout << "Unknown Resource Type: " << typeid(*res).name() << std::endl;
 			}
 		}

@@ -48,15 +48,7 @@ void Engine::Graphics::Swapchain::createSwapChain(GLFWwindow* window, Engine::Gr
 
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	if (vkCreateSwapchainKHR(device.getDevice(), &createInfo, nullptr, &swapChain) != VK_SUCCESS)
-		throw std::runtime_error("failed to create swap chain");
-
-	vkGetSwapchainImagesKHR(device.getDevice(), swapChain, &imageCount, nullptr);
-	swapChainImages.resize(imageCount);
-	vkGetSwapchainImagesKHR(device.getDevice(), swapChain, &imageCount, swapChainImages.data());
-
-	swapChainImageFormat = surfaceFormat.format;
-	swapChainExtent = extent;
+	resource = resources->create<SwapchainResource>(device.getDevice(), createInfo, imageCount, surfaceFormat, extent);
 }
 
 VkSurfaceFormatKHR Engine::Graphics::Swapchain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
@@ -104,26 +96,10 @@ VkExtent2D Engine::Graphics::Swapchain::chooseSwapExtent(const VkSurfaceCapabili
 
 void Engine::Graphics::Swapchain::cleanupSwapChain(Engine::Graphics::Device& device, Engine::Graphics::FrameBuffer& fb)
 {
-	resources->destroy(fb.depthResource, device.getDevice());
-	resources->destroy(fb.colorResource, device.getDevice());
+	resources->destroy(fb.depthResource);
+	resources->destroy(fb.colorResource);
 
-	for (auto framebuffer : swapChainFrameBuffers) {
-		vkDestroyFramebuffer(device.getDevice(), framebuffer, nullptr);
-	}
-
-	for (auto imageView : swapChainImageViews) {
-		vkDestroyImageView(device.getDevice(), imageView, nullptr);
-	}
-
-	vkDestroySwapchainKHR(device.getDevice(), swapChain, nullptr);
-}
-
-void Engine::Graphics::Swapchain::createImageViews(VkDevice device) {
-	swapChainImageViews.resize(swapChainImages.size());
-
-	for(uint32_t i = 0; i < swapChainImages.size(); i++) {
-		swapChainImageViews[i] = createImageView(device, swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, false);
-	}
+	resources->destroy(resource);
 }
 
 VkImageView Engine::Graphics::Swapchain::createImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, bool isCube) {

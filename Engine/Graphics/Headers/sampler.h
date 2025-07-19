@@ -20,7 +20,7 @@ namespace Engine::Graphics {
 		VkSampleCountFlagBits getSamples() const { return msaaSamples; }
 
 		VkSampleCountFlagBits getMaxUsableSampleCount(VkPhysicalDevice physicalDevice);
-		void generateMipmaps(Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::Device device, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount);
+		void generateMipmaps(Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::Device device, ImageResource* image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, uint32_t layerCount);
 	};
 }
 

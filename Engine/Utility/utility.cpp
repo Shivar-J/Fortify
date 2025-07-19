@@ -126,7 +126,7 @@ void MeshObject::destroy(VkDevice device)
 {
 	vkDeviceWaitIdle(device);
 
-	resources->destroy(vertex, device);
-	resources->destroy(index, device);
-	resources->destroy(material, device);
+	resources->destroy(vertex);
+	resources->destroy(index);
+	resources->destroy(material);
 }

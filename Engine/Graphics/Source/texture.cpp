@@ -27,17 +27,55 @@ void Engine::Graphics::Texture::createTextureImage(const std::string texturePath
 	stbi_image_free(pixels);
 
 	textureResource = framebuffer.createImage(device.getDevice(), device.getPhysicalDevice(), texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_COLOR_BIT, isCube, useSampler);
-	commandBuf.transitionImageLayout(device, textureResource->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 1);
+	commandBuf.transitionImageLayout(device, textureResource, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 1);
 	commandBuf.copyBufferToImage(device, stagingBuffer->buffer, textureResource->image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 
-	sampler.generateMipmaps(commandBuf, device, textureResource->image, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 1);
+	sampler.generateMipmaps(commandBuf, device, textureResource, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 1);
 
     if (isPBR) {
         textureResources.push_back(textureResource);
         vecMipLevels.push_back(mipLevels);
     }
 
-    resources->destroy(stagingBuffer, device.getDevice());
+    resources->destroy(stagingBuffer);
+}
+
+ImageResource* Engine::Graphics::Texture::createImageResource(const std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, bool isPBR, bool isCube, bool useSampler)
+{
+    ImageResource* image;
+
+    if (flipTexture) {
+        stbi_set_flip_vertically_on_load(true);
+    }
+    int texWidth, texHeight, texChannels;
+    stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+    mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+
+    if (!pixels)
+        throw std::runtime_error("failed to load texture image");
+
+    BufferResource* stagingBuffer = framebuffer.createBuffer(device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    memcpy(stagingBuffer->mapped, pixels, static_cast<size_t>(imageSize));
+
+    stbi_image_free(pixels);
+
+    image = framebuffer.createImage(device.getDevice(), device.getPhysicalDevice(), texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, 0, VK_IMAGE_ASPECT_COLOR_BIT, isCube, useSampler);
+    commandBuf.transitionImageLayout(device, image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 1);
+    commandBuf.copyBufferToImage(device, stagingBuffer->buffer, image->image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
+
+    sampler.generateMipmaps(commandBuf, device, image, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 1);
+
+    if (isPBR) {
+        textureResources.push_back(image);
+        vecMipLevels.push_back(mipLevels);
+    }
+
+    resources->destroy(stagingBuffer);
+
+    return image;
 }
 
 void Engine::Graphics::Texture::loadModel(const std::string modelPath)
@@ -336,7 +374,7 @@ void Engine::Graphics::Texture::createVertexBuffer(Engine::Graphics::Device devi
     vertexResource = fb.createBuffer(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     commandBuf.copyBuffer(device, stagingBuffer->buffer, vertexResource->buffer, bufferSize);
 
-    resources->destroy(stagingBuffer, device.getDevice());
+    resources->destroy(stagingBuffer);
 }
 
 void Engine::Graphics::Texture::createIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb)
@@ -351,7 +389,7 @@ void Engine::Graphics::Texture::createIndexBuffer(Engine::Graphics::Device devic
 
     commandBuf.copyBuffer(device, stagingBuffer->buffer, indexResource->buffer, bufferSize);
 
-    resources->destroy(stagingBuffer, device.getDevice());
+    resources->destroy(stagingBuffer);
 }
 
 void Engine::Graphics::Texture::createUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb)
@@ -436,11 +474,11 @@ void Engine::Graphics::Texture::createCubemap(const std::vector<std::string>& fa
 
     textureResource = framebuffer.createImage(device.getDevice(), device.getPhysicalDevice(), texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_IMAGE_ASPECT_COLOR_BIT, true, true);
     
-    commandBuf.transitionImageLayout(device, textureResource->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 6);
+    commandBuf.transitionImageLayout(device, textureResource, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, 6);
     commandBuf.copyBufferToImage(device, stagingBuffer->buffer, textureResource->image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 6);
-    sampler.generateMipmaps(commandBuf, device, textureResource->image, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 6);
+    sampler.generateMipmaps(commandBuf, device, textureResource, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels, 6);
     
-    resources->destroy(stagingBuffer, device.getDevice());
+    resources->destroy(stagingBuffer);
 }
 
 void Engine::Graphics::Texture::createCube()
@@ -650,7 +688,7 @@ void Engine::Graphics::Texture::createCubeVertexBuffer(Engine::Graphics::Device 
 
     commandBuf.copyBuffer(device, stagingBuffer->buffer, vertexResource->buffer, bufferSize);
 
-    resources->destroy(stagingBuffer, device.getDevice());
+    resources->destroy(stagingBuffer);
 }
 
 void Engine::Graphics::Texture::createCubeIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb)
@@ -665,7 +703,7 @@ void Engine::Graphics::Texture::createCubeIndexBuffer(Engine::Graphics::Device d
 
     commandBuf.copyBuffer(device, stagingBuffer->buffer, indexResource->buffer, bufferSize);
 
-    resources->destroy(stagingBuffer, device.getDevice());
+    resources->destroy(stagingBuffer);
 }
 
 void Engine::Graphics::Texture::createSkyboxUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer)
@@ -691,10 +729,10 @@ void Engine::Graphics::Texture::updateSkyboxUniformBuffer(uint32_t currentImage,
 }
 
 void Engine::Graphics::Texture::cleanup(VkDevice device) {
-    resources->destroy(textureResource, device);
+    resources->destroy(textureResource);
 
     for (size_t i = 0; i < textureResources.size(); i++) {
-        resources->destroy(textureResources[i], device);
+        resources->destroy(textureResources[i]);
     }
 
     for (auto sem : imageAvailableSemaphores)
@@ -705,12 +743,12 @@ void Engine::Graphics::Texture::cleanup(VkDevice device) {
         if (fence) vkDestroyFence(device, fence, nullptr);
 
     for (size_t i = 0; i < uniformResources.size(); ++i) {
-        resources->destroy(uniformResources[i], device);
+        resources->destroy(uniformResources[i]);
     }
     for (size_t i = 0; i < skyboxUniformResources.size(); ++i) {
-        resources->destroy(skyboxUniformResources[i], device);
+        resources->destroy(skyboxUniformResources[i]);
     }
 
-    resources->destroy(vertexResource, device);
-    resources->destroy(indexResource, device);
+    resources->destroy(vertexResource);
+    resources->destroy(indexResource);
 }

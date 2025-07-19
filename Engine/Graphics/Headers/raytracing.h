@@ -7,10 +7,7 @@
 #include "sceneUtility.h"
 
 struct AccelerationStructure {
-	VkAccelerationStructureKHR handle;
-	VkDeviceMemory memory;
-	VkBuffer buffer;
-	VkDeviceAddress deviceAddress;
+    AccelerationStructureResource* resource;
 
     void create(Engine::Graphics::Device device, VkAccelerationStructureTypeKHR type, VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo);
 };
@@ -88,20 +85,10 @@ namespace Engine::Graphics {
         VkDescriptorPool descriptorPool;
         VkDescriptorSet descriptorSet;
 
-        VkBuffer raygenSBTBuffer;
-        VkDeviceMemory raygenSBTMemory;
-
-        VkBuffer missSBTBuffer;
-        VkDeviceMemory missSBTMemory;
-
-        VkBuffer hitSBTBuffer;
-        VkDeviceMemory hitSBTMemory;
-
-        VkBuffer aHitSBTBuffer;
-        VkDeviceMemory aHitSBTMemory;
-
-        VkBuffer intSBTBuffer;
-        VkDeviceMemory intSBTMemory;
+        BufferResource* raygenResource;
+        BufferResource* missResource;
+        BufferResource* closestHitResource;
+        BufferResource* anyHitResource;
 
         BufferResource* uniformBuffer;
         RaytracingUniformBufferObject uboData;
@@ -129,7 +116,7 @@ namespace Engine::Graphics {
         void updateDescriptorSets(Engine::Graphics::Device device);
         void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath, std::string intShaderPath);
         void createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent);
-        void traceRays(VkDevice device, VkCommandBuffer commandBuffer, VkExtent2D extent, VkImage swapchainImage, uint32_t currentImageIndex);
+        void traceRays(VkDevice device, VkCommandBuffer commandBuffer, SwapchainResource* resource, uint32_t currentIndex);
     
         void createUniformBuffer(Engine::Graphics::Device device);
         void updateUBO(Engine::Graphics::Device device);

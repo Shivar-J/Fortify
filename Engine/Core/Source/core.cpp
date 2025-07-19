@@ -55,11 +55,10 @@ void Engine::Core::Application::initVulkan()
 	fpBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkBuildAccelerationStructureKHR"));
 
 	swapchain.createSwapChain(window, instance, device);
-	swapchain.createImageViews(device.getDevice());
 
 	VkExtent3D storageImageExtent = {
-		swapchain.getSwapchainExtent().width,
-		swapchain.getSwapchainExtent().height,
+		swapchain.resource->extent.width,
+		swapchain.resource->extent.height,
 		1
 	};
 
@@ -606,6 +605,8 @@ void Engine::Core::Application::mainLoop()
 		}
 
 		glfwPollEvents();
+
+		g_frameCount++;
 	}
 
 	vkDeviceWaitIdle(device.getDevice());
@@ -616,6 +617,14 @@ void Engine::Core::Application::cleanup()
 	resources->log();
 
 	vkDeviceWaitIdle(device.getDevice());
+	
+	if (resources) {
+		resources->cleanup();
+
+		std::cout << "RESOURCES AFTER CLEANUP" << std::endl;
+
+		resources->log();
+	}
 
 	raytrace.cleanup(device.getDevice());
 
@@ -648,14 +657,6 @@ void Engine::Core::Application::cleanup()
 	}
 
 	vkDestroyCommandPool(device.getDevice(), commandbuffer.getCommandPool(), nullptr);
-
-	if (resources) {
-		resources->cleanup();
-
-		std::cout << "RESOURCES AFTER CLEANUP" << std::endl;
-
-		resources->log();
-	}
 
 	vkDeviceWaitIdle(device.getDevice());
 
@@ -751,7 +752,7 @@ void Engine::Core::Application::drawFrame()
 	}
 
 	uint32_t imageIndex;
-	VkResult result = vkAcquireNextImageKHR(device.getDevice(), swapchain.getSwapchain(), UINT64_MAX, texture.getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
+	VkResult result = vkAcquireNextImageKHR(device.getDevice(), swapchain.resource->swapchain, UINT64_MAX, texture.getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		recreateSwapchain();
@@ -780,10 +781,10 @@ void Engine::Core::Application::drawFrame()
 	for (auto& scene : scenemanager.getScenes()) {
 		auto& m = scene.model;
 		if (m.type == EntityType::Skybox) {
-			m.texture.updateSkyboxUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent());
+			m.texture.updateSkyboxUniformBuffer(currentFrame, camera, swapchain.resource->extent);
 		}
 		else {
-			m.texture.updateUniformBuffer(currentFrame, camera, swapchain.getSwapchainExtent(), m.matrix, m.color, lights);
+			m.texture.updateUniformBuffer(currentFrame, camera, swapchain.resource->extent, m.matrix, m.color, lights);
 		}
 	}
 	
@@ -830,7 +831,7 @@ void Engine::Core::Application::drawFrame()
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphore;
 
-	VkSwapchainKHR swapChains[]{ swapchain.getSwapchain() };
+	VkSwapchainKHR swapChains[]{ swapchain.resource->swapchain };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapChains;
 
@@ -884,7 +885,7 @@ void Engine::Core::Application::raytraceFrame()
 	}
 
 	uint32_t imageIndex;
-	VkResult result = vkAcquireNextImageKHR(device.getDevice(), swapchain.getSwapchain(), UINT64_MAX, texture.getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
+	VkResult result = vkAcquireNextImageKHR(device.getDevice(), swapchain.resource->swapchain, UINT64_MAX, texture.getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		recreateSwapchain();
@@ -910,22 +911,34 @@ void Engine::Core::Application::raytraceFrame()
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-	raytrace.traceRays(device.getDevice(), commandBuffer, swapchain.getSwapchainExtent(), swapchain.getSwapchainImages()[imageIndex], imageIndex);
+	raytrace.traceRays(device.getDevice(), commandBuffer, swapchain.resource, imageIndex);
 
 	VkImageMemoryBarrier imguiBarrier{};
 	imguiBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	imguiBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	imguiBarrier.oldLayout = swapchain.resource->layouts[imageIndex];
 	imguiBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	imguiBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	imguiBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imguiBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+	if (swapchain.resource->layouts[imageIndex] == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+		imguiBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	}
+	else if (swapchain.resource->layouts[imageIndex] == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		imguiBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	}
+	else {
+		imguiBarrier.srcAccessMask = 0;
+	}
+
 	imguiBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	imguiBarrier.image = swapchain.getSwapchainImages()[imageIndex];
+	imguiBarrier.image = swapchain.resource->images[imageIndex];
 	imguiBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	imguiBarrier.subresourceRange.levelCount = 1;
 	imguiBarrier.subresourceRange.layerCount = 1;
 
 	vkCmdPipelineBarrier(
 		commandBuffer,
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 		0,
 		0, nullptr,
@@ -933,12 +946,14 @@ void Engine::Core::Application::raytraceFrame()
 		1, &imguiBarrier
 	);
 
+	swapchain.resource->updateLayout(imageIndex, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = imguiRenderPass;
 	renderPassInfo.framebuffer = imguiFramebuffers[imageIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = swapchain.getSwapchainExtent();
+	renderPassInfo.renderArea.extent = swapchain.resource->extent;
 	renderPassInfo.clearValueCount = 0;
 	renderPassInfo.pClearValues = nullptr;
 
@@ -946,26 +961,7 @@ void Engine::Core::Application::raytraceFrame()
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 	vkCmdEndRenderPass(commandBuffer);
 
-	VkImageMemoryBarrier presentBarrier{};
-	presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	presentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	presentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	presentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	presentBarrier.dstAccessMask = 0;
-	presentBarrier.image = swapchain.getSwapchainImages()[imageIndex];
-	presentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	presentBarrier.subresourceRange.levelCount = 1;
-	presentBarrier.subresourceRange.layerCount = 1;
-
-	vkCmdPipelineBarrier(
-		commandBuffer,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-		0,
-		0, nullptr,
-		0, nullptr,
-		1, &presentBarrier
-	);
+	swapchain.resource->updateLayout(imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
 	vkEndCommandBuffer(commandBuffer);
 
@@ -995,7 +991,7 @@ void Engine::Core::Application::raytraceFrame()
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphore;
 
-	VkSwapchainKHR swapChains[] = { swapchain.getSwapchain() };
+	VkSwapchainKHR swapChains[] = { swapchain.resource->swapchain };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapChains;
 	presentInfo.pImageIndices = &imageIndex;
@@ -1030,11 +1026,10 @@ void Engine::Core::Application::recreateSwapchain()
 	swapchain.cleanupSwapChain(device, framebuffer);
 
 	swapchain.createSwapChain(window, instance, device);
-	swapchain.createImageViews(device.getDevice());
 
 	VkExtent3D storageImageExtent = {
-		swapchain.getSwapchainExtent().width,
-		swapchain.getSwapchainExtent().height,
+		swapchain.resource->extent.width,
+		swapchain.resource->extent.height,
 		1
 	};
 
@@ -1061,9 +1056,9 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderpass.getRenderPass();
-	renderPassInfo.framebuffer = swapchain.getSwapchainFramebuffers()[imageIndex];
+	renderPassInfo.framebuffer = swapchain.resource->framebuffers[imageIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = swapchain.getSwapchainExtent();
+	renderPassInfo.renderArea.extent = swapchain.resource->extent;
 
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
@@ -1077,15 +1072,15 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = (float)swapchain.getSwapchainExtent().width;
-	viewport.height = (float)swapchain.getSwapchainExtent().height;
+	viewport.width = (float)swapchain.resource->extent.width;
+	viewport.height = (float)swapchain.resource->extent.height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
-	scissor.extent = swapchain.getSwapchainExtent();
+	scissor.extent = swapchain.resource->extent;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	for (auto& scene : scenemanager.getScenes()) {
@@ -1117,7 +1112,7 @@ void Engine::Core::Application::recordCommandBuffer(VkCommandBuffer commandBuffe
 void Engine::Core::Application::createImGuiRenderPass()
 {
 	VkAttachmentDescription attachment{};
-	attachment.format = swapchain.getSwapchainImageFormat();
+	attachment.format = swapchain.resource->format;
 	attachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1149,17 +1144,17 @@ void Engine::Core::Application::createImGuiRenderPass()
 
 void Engine::Core::Application::createImGuiFramebuffers()
 {
-	imguiFramebuffers.resize(swapchain.getSwapchainFramebuffers().size());
+	imguiFramebuffers.resize(swapchain.resource->framebuffers.size());
 	for (size_t i = 0; i < imguiFramebuffers.size(); i++) {
-		VkImageView attachments[] = { swapchain.getSwapchainImageViews()[i] };
+		VkImageView attachments[] = { swapchain.resource->views[i] };
 
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferInfo.renderPass = imguiRenderPass;
 		framebufferInfo.attachmentCount = 1;
 		framebufferInfo.pAttachments = attachments;
-		framebufferInfo.width = swapchain.getSwapchainExtent().width;
-		framebufferInfo.height = swapchain.getSwapchainExtent().height;
+		framebufferInfo.width = swapchain.resource->extent.width;
+		framebufferInfo.height = swapchain.resource->extent.height;
 		framebufferInfo.layers = 1;
 
 		if (vkCreateFramebuffer(device.getDevice(), &framebufferInfo, nullptr, &imguiFramebuffers[i]) != VK_SUCCESS) {

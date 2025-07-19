@@ -60,8 +60,7 @@ namespace Engine::Graphics {
 		
 	public:
 		void createTextureImage(const std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, bool isPBR = false, bool isCube = false, bool useSampler = false);
-		//void createTextureImageView(Engine::Graphics::Swapchain swapchain, VkDevice device, bool isCube, bool isPBR = false);
-		//void createTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice, bool isCube, bool isPBR = false);
+		ImageResource* createImageResource(const std::string texturePath, Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer framebuffer, Engine::Graphics::Sampler sampler, bool flipTexture, bool isPBR = false, bool isCube = false, bool useSampler = false);
 		void loadModel(const std::string modelPath);
 		void loadModel(const std::string modelPath, const std::string materialPath);
 		MeshObject loadModelRT(const std::string modelPath, Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb);

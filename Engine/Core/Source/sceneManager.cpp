@@ -142,10 +142,10 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 
 	for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
 		if (i < m.texture.uniformResources.size()) {
-			resources->destroy(m.texture.uniformResources[i], device.getDevice());
+			resources->destroy(m.texture.uniformResources[i]);
 		}
 		if (i < m.texture.skyboxUniformResources.size()) {
-			resources->destroy(m.texture.skyboxUniformResources[i], device.getDevice());
+			resources->destroy(m.texture.skyboxUniformResources[i]);
 		}
 	}
 
@@ -153,17 +153,17 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 
 	if(m.hasTexture) {
 		if (textureCount == -1) {
-			resources->destroy(m.texture.textureResource, device.getDevice());
+			resources->destroy(m.texture.textureResource);
 		}
 		else {
 			for (int i = 0; i < textureCount; i++) {
-				resources->destroy(m.texture.textureResources[i], device.getDevice());
+				resources->destroy(m.texture.textureResources[i]);
 			}
 		}
 	}
 
-	resources->destroy(m.texture.vertexResource, device.getDevice());
-	resources->destroy(m.texture.indexResource, device.getDevice());
+	resources->destroy(m.texture.vertexResource);
+	resources->destroy(m.texture.indexResource);
 }
 
 const char* Engine::Core::SceneManager::entityString(EntityType type)

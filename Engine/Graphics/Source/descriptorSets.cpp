@@ -57,7 +57,6 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
         if (hasTexture) {
             if (textureCount == -1) {
                 imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
                 imageInfo.imageView = texture.textureResource->view;
                 imageInfo.sampler = texture.textureResource->sampler;
                 imageInfos.push_back(imageInfo);
@@ -69,7 +68,6 @@ void Engine::Graphics::DescriptorSets::createDescriptorSets(VkDevice device, Eng
                     const std::string& texturePath = texturePair.second;
 
                     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
                     imageInfo.imageView = texture.textureResources[index]->view;
                     imageInfo.sampler = texture.textureResources[index]->sampler;
 

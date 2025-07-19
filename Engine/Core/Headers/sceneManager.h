@@ -186,7 +186,10 @@ namespace Engine::Core {
 			Model m{};
 			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, true);
 
-			m.texture.createCubemap(skyboxPaths, device, commandbuffer, framebuffer, sampler, false);
+			if (m.texture.skyboxUniformResources.empty()) {
+				m.texture.createCubemap(skyboxPaths, device, commandbuffer, framebuffer, sampler, false);
+			}
+
 			m.texture.createSkybox();
 			m.texture.createCubeVertexBuffer(device, commandbuffer, framebuffer);
 			m.texture.createCubeIndexBuffer(device, commandbuffer, framebuffer);

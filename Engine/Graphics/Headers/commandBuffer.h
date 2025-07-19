@@ -26,7 +26,7 @@ namespace Engine::Graphics {
 		void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue graphicsQueue, VkDevice device);
 		void createCommandBuffers(VkDevice device);
 
-		void transitionImageLayout(const Engine::Graphics::Device& device, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount);
+		void transitionImageLayout(const Engine::Graphics::Device& device, ImageResource* image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t layerCount);
 
 		void copyBufferToImage(const Engine::Graphics::Device& device, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
 		void copyBuffer(const Engine::Graphics::Device& device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
