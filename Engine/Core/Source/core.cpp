@@ -167,7 +167,6 @@ void Engine::Core::Application::initImGui()
 	VkCommandBuffer imguiCB = commandbuffer.beginSingleTimeCommands(device.getDevice());
 	ImGui_ImplVulkan_CreateFontsTexture();
 	commandbuffer.endSingleTimeCommands(imguiCB, device.getGraphicsQueue(), device.getDevice());
-	ImGui_ImplVulkan_DestroyFontsTexture();
 
 	createImGuiFramebuffers();
 }
@@ -240,9 +239,11 @@ void Engine::Core::Application::mainLoop()
 					if (fullscreen) {
 						const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 						glfwSetWindowMonitor(window, glfwGetPrimaryMonitor(), 0, 0, mode->width, mode->height, mode->refreshRate);
+						currWidth = mode->width; currHeight = mode->height;
 					}
 					else {
-						glfwSetWindowMonitor(window, nullptr, 100, 100, Engine::Settings::WIDTH, Engine::Settings::HEIGHT, 0);
+						currWidth = Engine::Settings::WIDTH; currHeight = Engine::Settings::HEIGHT;
+						glfwSetWindowMonitor(window, nullptr, 100, 100, currWidth, currHeight, 0);
 					}
 
 					framebufferResized = true;
@@ -593,6 +594,9 @@ void Engine::Core::Application::mainLoop()
 			}
 		}
 
+		g_logBuffer.flush(g_console);
+		g_console.draw("Console");
+
 		ImGui::End();
 
 		ImGui::Render();
@@ -670,12 +674,20 @@ void Engine::Core::Application::cleanup()
 	glfwDestroyWindow(window);
 
 	glfwTerminate();
+
+	std::filesystem::path path = std::filesystem::current_path() / "log.txt";
+	g_logBuffer.dumpToFile(path.string());
 }
 
 void Engine::Core::Application::framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
 	auto app = reinterpret_cast<Engine::Core::Application*>(glfwGetWindowUserPointer(window));
 	app->framebufferResized = true;
+	app->currWidth = width;
+	app->currHeight = height;
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.DisplaySize = ImVec2(0, 0);
 }
 
 void Engine::Core::Application::processInput(GLFWwindow* window)
@@ -1025,6 +1037,11 @@ void Engine::Core::Application::recreateSwapchain()
 
 	swapchain.cleanupSwapChain(device, framebuffer);
 
+	for (auto& framebuffer : imguiFramebuffers) {
+		vkDestroyFramebuffer(device.getDevice(), framebuffer, nullptr);
+	}
+	imguiFramebuffers.clear();
+
 	swapchain.createSwapChain(window, instance, device);
 
 	VkExtent3D storageImageExtent = {
@@ -1041,7 +1058,7 @@ void Engine::Core::Application::recreateSwapchain()
 	framebuffer.createDepthResources(device, swapchain, sampler.getSamples(), commandbuffer);
 	framebuffer.createFramebuffers(device.getDevice(), swapchain, renderpass.getRenderPass());
 
-	createImGuiRenderPass();
+	//createImGuiRenderPass();
 	createImGuiFramebuffers();
 }
 

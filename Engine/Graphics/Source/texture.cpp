@@ -12,7 +12,11 @@ void Engine::Graphics::Texture::createTextureImage(const std::string texturePath
 		stbi_set_flip_vertically_on_load(true);
 	}
 	int texWidth, texHeight, texChannels;
+    auto start = std::chrono::high_resolution_clock::now();
 	stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    std::cout << "'stbi_load' took " << duration << " to load " << texturePath << std::endl;
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 	mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;

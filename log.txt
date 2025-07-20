@@ -1,0 +1,34 @@
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x5c59a0000000056, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkBuffer 0x5c59a0000000056[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x7cd292000000004f, type = VK_OBJECT_TYPE_BUFFER; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkBuffer 0x7cd292000000004f[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x73b89b0000000057, type = VK_OBJECT_TYPE_DEVICE_MEMORY; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkDeviceMemory 0x73b89b0000000057[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x7f79ad0000000050, type = VK_OBJECT_TYPE_DEVICE_MEMORY; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkDeviceMemory 0x7f79ad0000000050[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xe9b2ee0000000094, type = VK_OBJECT_TYPE_SHADER_MODULE; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkShaderModule 0xe9b2ee0000000094[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xe647ea0000000090, type = VK_OBJECT_TYPE_DESCRIPTOR_SET; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkDescriptorSet 0xe647ea0000000090[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0x993a4d000000008f, type = VK_OBJECT_TYPE_DESCRIPTOR_SET; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkDescriptorSet 0x993a4d000000008f[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xb4ae2e000000007d, type = VK_OBJECT_TYPE_DESCRIPTOR_SET; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkDescriptorSet 0xb4ae2e000000007d[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xb8a507000000007c, type = VK_OBJECT_TYPE_DESCRIPTOR_SET; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkDescriptorSet 0xb8a507000000007c[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Validation Error: [ VUID-vkDestroyDevice-device-05137 ] Object 0: handle = 0xd3dd54000000008e, type = VK_OBJECT_TYPE_DESCRIPTOR_POOL; | MessageID = 0x4872eaa0 | vkDestroyDevice(): OBJ ERROR : For VkDevice 0x2b255cd2ae0[], VkDescriptorPool 0xd3dd54000000008e[] has not been destroyed.
+The Vulkan spec states: All child objects created on device must have been destroyed prior to destroying device (https://vulkan.lunarg.com/doc/view/1.4.304.1/windows/antora/spec/latest/chapters/devsandqueues.html#VUID-vkDestroyDevice-device-05137)
+
+[Validation] Unloading layer library C:\WINDOWS\System32\DriverStore\FileRepository\u0416003.inf_amd64_706cc64a85ddf686\B415817\.\amdvlk64.dll
+
+[Validation] Unloading layer library C:\VulkanSDK\1.4.304.1\Bin\.\VkLayer_khronos_validation.dll
+

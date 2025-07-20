@@ -5,6 +5,7 @@
 
 lib
 textures
+fonts
 imgui.ini
 shaders/compileSkyboxShader.bat
 debugStart.bat

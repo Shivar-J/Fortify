@@ -46,6 +46,7 @@ namespace Engine::Core {
 
 		void createImGuiRenderPass();
 		void createImGuiFramebuffers();
+		//void updateImGuiScale(GLFWwindow* window);
 
 		GLFWwindow* getWindow() const { return window; }
 	public:
@@ -58,6 +59,9 @@ namespace Engine::Core {
 		inline static float lastY = 0.0f;
 		inline static bool firstMouse = true;
 		inline static bool isFocused = true;
+		inline static int currWidth = Engine::Settings::WIDTH;
+		inline static int currHeight = Engine::Settings::HEIGHT;
+		inline static float scale = 1.0f;
 
 		inline static Engine::Core::Camera camera;
 

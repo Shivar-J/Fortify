@@ -213,9 +213,14 @@ void Engine::Graphics::Raytracing::initRaytracing(Engine::Graphics::Device devic
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR initAccelerationStructureFeatures{};
 	initAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 
+	VkPhysicalDeviceVulkan12Features vulkan12Features{};
+	vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+	vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+	vulkan12Features.pNext = &initAccelerationStructureFeatures;
+
 	VkPhysicalDeviceFeatures2 deviceFeatures2{};
 	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-	deviceFeatures2.pNext = &initAccelerationStructureFeatures;
+	deviceFeatures2.pNext = &vulkan12Features;
 	vkGetPhysicalDeviceFeatures2(device.getPhysicalDevice(), &deviceFeatures2);
 
 	accelerationStructureFeatures = initAccelerationStructureFeatures;

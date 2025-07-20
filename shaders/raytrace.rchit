@@ -7,8 +7,8 @@
 #include "raycommon.glsl"
 
 layout(location = 0) rayPayloadInEXT RayPayload payload;
-layout(location = 1) rayPayloadInEXT RayPayload reflectPayload;
-layout(location = 2) rayPayloadInEXT RayPayload refractPayload;
+layout(location = 1) rayPayloadEXT RayPayload reflectPayload;
+layout(location = 2) rayPayloadEXT RayPayload refractPayload;
 hitAttributeEXT vec2 attribs;
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;

@@ -56,7 +56,11 @@ void Engine::Graphics::Instance::populateDebugMessengerCreateInfo(VkDebugUtilsMe
 
 VKAPI_ATTR VkBool32 VKAPI_CALL Engine::Graphics::Instance::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
+    const char* msg = pCallbackData->pMessage;
+
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+    g_logBuffer.push(std::string("[Validation] ") + msg + '\n');
 
     return VK_FALSE;
 }

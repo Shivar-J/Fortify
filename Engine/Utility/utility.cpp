@@ -1,6 +1,8 @@
 #include "utility.h"
 
 std::unique_ptr<ResourceManager> resources;
+Console g_console;
+LogBuffer g_logBuffer;
 
 bool Engine::Settings::checkValidationLayerSupport()
 {

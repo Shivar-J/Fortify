@@ -111,6 +111,9 @@ void Engine::Graphics::Device::createLogicalDevice(VkSurfaceKHR surface)
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
+	VkPhysicalDeviceFeatures vkFeatures{};
+	vkFeatures.samplerAnisotropy = VK_TRUE;
+
 	enabledBufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
 	enabledBufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
 
@@ -129,6 +132,7 @@ void Engine::Graphics::Device::createLogicalDevice(VkSurfaceKHR surface)
 	VkPhysicalDeviceFeatures2 deviceFeatures{};
 	deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 	deviceFeatures.pNext = &enabledDescriptorIndexingFeatures;
+	deviceFeatures.features = vkFeatures;
 
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

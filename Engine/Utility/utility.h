@@ -35,9 +35,10 @@
 #include <numeric>
 
 #include "device.h"
-#include "ResourceManager.h"
+#include "fortifyConsole.h"
 
-extern std::unique_ptr<ResourceManager> resources;
+extern Console g_console;
+extern LogBuffer g_logBuffer;
 
 struct Vertex {
 	alignas (16) glm::vec3 pos;

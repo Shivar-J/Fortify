@@ -10,7 +10,7 @@ class Resource {
 public:
 	virtual void destroy(VkDevice device) = 0;
 	virtual ~Resource() = default;
-	virtual void log() = 0;
+	virtual std::string log() = 0;
 };
 
 class BufferResource : public Resource {
@@ -93,12 +93,15 @@ public:
 		}
 	}
 
-	void log() override {
-		std::cout << "BufferResource | "
+	std::string log() override {
+		std::ostringstream ss;
+
+		ss << "BufferResource | "
 			<< "VkBuffer: " << buffer << ", "
 			<< "VkDeviceMemory: " << memory << ", "
-			<< "Mapped: " << (mapped ? "Yes" : "No")
-			<< std::endl;
+			<< "Mapped: " << (mapped ? "Yes" : "No") << "\n";
+
+		return ss.str();
 	}
 
 private:
@@ -182,12 +185,16 @@ public:
 		}
 	}
 
-	void log() override {
-		std::cout << "AccelerationStructureResource | "
+	std::string log() override {
+		std::ostringstream ss;
+
+		ss << "AccelerationStructureResource | "
 			<< "VkBuffer: " << buffer << ", "
 			<< "VkDeviceMemory: " << memory << ", "
 			<< "VkAccelerationStructureKHR: " << handle << ", "
-			<< "VkDeviceAddress: " << address << std::endl;
+			<< "VkDeviceAddress: " << address << "\n";
+
+		return ss.str();
 	}
 
 private:
@@ -290,6 +297,7 @@ public:
 				samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 				samplerInfo.anisotropyEnable = VK_TRUE;
 			}
+
 			samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
 			samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 			samplerInfo.unnormalizedCoordinates = VK_FALSE;
@@ -330,13 +338,17 @@ public:
 		layout = newLayout;
 	}
 
-	void log() override {
-		std::cout << "ImageResource | "
+	std::string log() override {
+		std::ostringstream ss;
+
+		ss << "ImageResource | "
 			<< "VkImage: " << image << ", "
 			<< "VkDeviceMemory: " << memory << ", "
 			<< "View: " << view << ", "
 			<< "Sampler: " << sampler << ", "
-			<< "Image Layout: " << layout << std::endl;
+			<< "Image Layout: " << layout << "\n";
+
+		return ss.str();
 	}
 
 private:
@@ -410,20 +422,23 @@ public:
 		vkDestroySwapchainKHR(device, swapchain, nullptr);
 	}
 
-	void log() override {
+	std::string log() override {
+		std::ostringstream ss;
 
-		std::cout << "SwapchainResource | "
+		ss << "SwapchainResource | "
 			<< "VkSwapchainKHR: " << swapchain << ", "
 			<< "VkFormat: " << format << ", "
-			<< "VkExtent: " << extent.width << "," << extent.height << std::endl;
+			<< "VkExtent: " << extent.width << "," << extent.height << "\n";
 
 		for (int i = 0; i < images.size(); i++) {
-			std::cout << "SwapchainResource | "
+			ss << "SwapchainResource | "
 				<< "VkImage: " << images[i] << ", "
 				<< "VkImageView: " << views[i] << ", "
 				<< "VkFramebuffer: " << framebuffers[i] << ", "
-				<< "VkImageLayout: " << layouts[i]  << std::endl;
+				<< "VkImageLayout: " << layouts[i]  << "\n";
 		}
+
+		return ss.str();
 	}
 
 	void updateLayout(int index, VkImageLayout newLayout) {
@@ -474,23 +489,25 @@ public:
 		}
 	}
 
-	void log() {
-		std::cout << "-------------Resource Log-------------" << std::endl;
-		std::cout << "Total Resources: " << m_resources.size() << std::endl;
+    std::string log() {  
+		std::ostringstream ss;
 
-		for (size_t i = 0; i < m_resources.size(); i++) {
-			const auto& res = m_resources[i];
+		ss << "-------------Resource Log-------------\n";
+		ss << "Total Resources: " << m_resources.size() << "\n";
 
-			std::cout << "Resource [" << i << "]: ";
+		for (size_t i = 0; i < m_resources.size(); ++i) {
+			ss << "Resource [" << i << "]: ";
 
 			try {
-				m_resources[i]->log();
+				ss << m_resources[i]->log();
 			}
-			catch(...) {
-				std::cout << "Unknown Resource Type: " << typeid(*res).name() << std::endl;
+			catch (...) {
+				ss << "Unknown Resource Type: " << typeid(*m_resources[i]).name() << "\n";
 			}
 		}
-	}
+
+		return ss.str();
+    }
 
 private:
 	std::vector<std::unique_ptr<Resource>> m_resources;

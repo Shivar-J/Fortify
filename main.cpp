@@ -4,10 +4,21 @@
 #include <tiny_obj_loader.h>
 #define TINYOBJLOADER_IMPLEMENTATION
 
-#include "core.h"
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
 
+#include "core.h"
 int main() {
 	Engine::Core::Application app;
+
+#ifdef _WIN32
+	HWND hwnd = GetConsoleWindow();
+	if (hwnd != nullptr) {
+		ShowWindow(hwnd, SW_HIDE);
+	}
+#endif
 
 	try {
 		app.run();
