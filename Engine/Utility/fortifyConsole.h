@@ -39,7 +39,7 @@ public:
 	}
 
 	void draw(const char* title, bool* open = nullptr) {
-		if (!ImGui::Begin(title, open)) {
+		if (!ImGui::Begin(title, open, ImGuiWindowFlags_NoResize)) {
 			ImGui::End();
 			return;
 		}

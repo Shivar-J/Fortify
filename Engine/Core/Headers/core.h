@@ -61,7 +61,8 @@ namespace Engine::Core {
 		inline static bool isFocused = true;
 		inline static int currWidth = Engine::Settings::WIDTH;
 		inline static int currHeight = Engine::Settings::HEIGHT;
-		inline static float scale = 1.0f;
+		inline static float scalex = 1.0f;
+		inline static float scaley = 1.0f;
 
 		inline static Engine::Core::Camera camera;
 

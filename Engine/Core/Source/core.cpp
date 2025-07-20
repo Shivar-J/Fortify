@@ -190,6 +190,8 @@ void Engine::Core::Application::mainLoop()
 	bool toggleVsync = true;
 	bool fullscreenTrigger = false;
 	int currRefreshRate = currMode->refreshRate;
+	float baseW, baseH;
+	bool baseSize = false;
 
 	const char* shaderPath = "";
 	std::vector<const char*> shaderPaths;
@@ -211,6 +213,21 @@ void Engine::Core::Application::mainLoop()
 
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
+		int display_w, display_h;
+		glfwGetFramebufferSize(window, &display_w, &display_h);
+
+		io.DisplaySize = ImVec2((float)display_w, (float)display_h);
+
+		if (!baseSize) {
+			
+			baseW = (float)display_w;
+			baseH = (float)display_h;
+			baseSize = true;
+		}
+		
+		scalex = (float)display_w / baseW;
+		scaley = (float)display_h / baseH;
+
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -226,6 +243,11 @@ void Engine::Core::Application::mainLoop()
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 		}
+
+		ImVec2 baseWindowSize = ImVec2(250.0f, 500.0f);
+		ImVec2 baseWindowPos = ImVec2(0.0f, 0.0f);
+		ImGui::SetNextWindowSize(ImVec2(baseWindowSize.x * scalex, baseWindowSize.y * scaley), ImGuiCond_Always);
+		ImGui::SetNextWindowPos(ImVec2(baseWindowPos.x * scalex, baseWindowPos.y * scaley), ImGuiCond_Always);
 
 		ImGui::Begin("Fortify");
 
@@ -595,6 +617,11 @@ void Engine::Core::Application::mainLoop()
 		}
 
 		g_logBuffer.flush(g_console);
+
+		ImVec2 consoleWindowSize = ImVec2(1280.0f, 220.0f);
+		ImVec2 consoleWindowPos = ImVec2(0.0f, 500.0f);
+		ImGui::SetNextWindowSize(ImVec2(consoleWindowSize.x * scalex, consoleWindowSize.y * scaley), ImGuiCond_Always);
+		ImGui::SetNextWindowPos(ImVec2(consoleWindowPos.x * scalex, consoleWindowPos.y * scaley), ImGuiCond_Always);
 		g_console.draw("Console");
 
 		ImGui::End();
@@ -683,11 +710,9 @@ void Engine::Core::Application::framebufferResizeCallback(GLFWwindow* window, in
 {
 	auto app = reinterpret_cast<Engine::Core::Application*>(glfwGetWindowUserPointer(window));
 	app->framebufferResized = true;
+
 	app->currWidth = width;
 	app->currHeight = height;
-
-	ImGuiIO& io = ImGui::GetIO();
-	io.DisplaySize = ImVec2(0, 0);
 }
 
 void Engine::Core::Application::processInput(GLFWwindow* window)
@@ -1040,6 +1065,7 @@ void Engine::Core::Application::recreateSwapchain()
 	for (auto& framebuffer : imguiFramebuffers) {
 		vkDestroyFramebuffer(device.getDevice(), framebuffer, nullptr);
 	}
+	vkDestroyRenderPass(device.getDevice(), imguiRenderPass, nullptr);
 	imguiFramebuffers.clear();
 
 	swapchain.createSwapChain(window, instance, device);
@@ -1058,7 +1084,7 @@ void Engine::Core::Application::recreateSwapchain()
 	framebuffer.createDepthResources(device, swapchain, sampler.getSamples(), commandbuffer);
 	framebuffer.createFramebuffers(device.getDevice(), swapchain, renderpass.getRenderPass());
 
-	//createImGuiRenderPass();
+	createImGuiRenderPass();
 	createImGuiFramebuffers();
 }
 
