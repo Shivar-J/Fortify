@@ -54,13 +54,13 @@ void Engine::Graphics::Instance::populateDebugMessengerCreateInfo(VkDebugUtilsMe
     createInfo.pfnUserCallback = Engine::Graphics::Instance::debugCallback;
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL Engine::Graphics::Instance::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+VKAPI_ATTR VkBool32 VKAPI_CALL Engine::Graphics::Instance::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypeFlag, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
     const char* msg = pCallbackData->pMessage;
 
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
-    g_logBuffer.push(std::string("[Validation] ") + msg + '\n');
+    g_logBuffer.push(std::string("[Validation] ") + msg + '\n', messageSeverity);
 
     return VK_FALSE;
 }

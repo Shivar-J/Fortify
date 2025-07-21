@@ -179,25 +179,8 @@ void Engine::Core::Application::mainLoop()
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	const GLFWvidmode* currMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
-	Entity entity;
-	bool selectVertex = false;
-	bool selectFragment = false;
-	bool selectTexture = false;
-	bool selectModel = false;
-	bool selectMat = false;
-	bool useRaytracer = true;
-	bool setShaderPath = false;
-	bool toggleVsync = true;
-	bool fullscreenTrigger = false;
-	int currRefreshRate = currMode->refreshRate;
-	float baseW, baseH;
-	bool baseSize = false;
-
-	const char* shaderPath = "";
-	std::vector<const char*> shaderPaths;
-
-	ImGui::FileBrowser file;
 	file.SetTitle("File Browser");
+	int currRefreshRate = currMode->refreshRate;
 
 	while (!glfwWindowShouldClose(window)) {
 		float curr = static_cast<float>(glfwGetTime());
@@ -294,7 +277,7 @@ void Engine::Core::Application::mainLoop()
 		ImGui::NewLine();
 
 		if (useRaytracer) {
-			rtscenemanager.updateScene();
+			rtscenemanager.updateScene(deltaTime);
 		}
 		else {
 			/*
@@ -323,296 +306,7 @@ void Engine::Core::Application::mainLoop()
 			}
 
 			if (entity.add) {
-				ImGui::OpenPopup("Add Entity");
-
-				ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-				ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-
-				if (ImGui::BeginPopupModal("Add Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-					ImGui::SetItemDefaultFocus();
-
-					const char* entityItems[] = {
-						scenemanager.entityString(EntityType::Object),
-						scenemanager.entityString(EntityType::Skybox),
-						scenemanager.entityString(EntityType::UI),
-						scenemanager.entityString(EntityType::Light),
-						scenemanager.entityString(EntityType::Terrain),
-						scenemanager.entityString(EntityType::Particle),
-						scenemanager.entityString(EntityType::PBRObject),
-						scenemanager.entityString(EntityType::MatObject),
-						scenemanager.entityString(EntityType::Primitive)
-					};
-
-					int currentItem = static_cast<int>(entity.type);
-
-					if (ImGui::Combo("Entity Type", &currentItem, entityItems, IM_ARRAYSIZE(entityItems))) {
-						entity.type = static_cast<EntityType>(currentItem);
-					}
-
-					if (ImGui::Button("Vertex Shader")) {
-						selectVertex = true;
-						file.Open();
-					}
-
-					if (selectVertex) {
-						file.Display();
-						if (file.HasSelected()) {
-							entity.vertexPath = file.GetSelected().string();
-							file.ClearSelected();
-							selectVertex = false;
-						}
-					}
-
-					ImGui::SameLine();
-
-					ImGui::Text("%s", entity.vertexPath.c_str());
-
-					if (ImGui::Button("Fragment Shader")) {
-						selectFragment = true;
-						file.Open();
-					}
-
-					if (selectFragment) {
-						file.Display();
-						if (file.HasSelected()) {
-							entity.fragmentPath = file.GetSelected().string();
-							file.ClearSelected();
-							selectFragment = false;
-						}
-					}
-
-					ImGui::SameLine();
-
-					ImGui::Text("%s", entity.fragmentPath.c_str());
-
-					if (entity.type == EntityType::Object) {
-						if (ImGui::Button("Texture Path")) {
-							selectTexture = true;
-							file.Open();
-						}
-
-						if (selectTexture) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.texturePath = file.GetSelected().string();
-								file.ClearSelected();
-								selectTexture = false;
-							}
-						}
-
-						ImGui::SameLine();
-						ImGui::Text("%s", entity.texturePath.c_str());
-
-						if (ImGui::Button("Model Path")) {
-							selectModel = true;
-							file.Open();
-						}
-
-						if (selectModel) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.modelPath = file.GetSelected().string();
-								file.ClearSelected();
-								selectModel = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						ImGui::Text("%s", entity.modelPath.c_str());
-
-						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-					}
-					else if (entity.type == EntityType::PBRObject) {
-						const char* textureType[] = {
-							scenemanager.textureString(PBRTextureType::Albedo),
-							scenemanager.textureString(PBRTextureType::Normal),
-							scenemanager.textureString(PBRTextureType::Roughness),
-							scenemanager.textureString(PBRTextureType::Metalness),
-							scenemanager.textureString(PBRTextureType::AmbientOcclusion),
-							scenemanager.textureString(PBRTextureType::Specular),
-						};
-
-						int currentItem = static_cast<int>(entity.textureType) - 1;
-
-						if (ImGui::Combo("Texture Type", &currentItem, textureType, IM_ARRAYSIZE(textureType))) {
-							entity.textureType = static_cast<PBRTextureType>(currentItem + 1);
-						}
-
-						if (ImGui::Button("Add Texture")) {
-							selectTexture = true;
-							file.Open();
-						}
-
-						if (selectTexture) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.texturePaths.insert({ entity.textureType , file.GetSelected().string() });
-								file.ClearSelected();
-								selectTexture = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						if (ImGui::Button("Remove Texture")) {
-							entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
-						}
-
-						for (auto& texturePair : entity.texturePaths) {
-							ImGui::Text("%s %s", scenemanager.textureString(texturePair.first), texturePair.second.c_str());
-						}
-
-						if (ImGui::Button("Model Path")) {
-							selectModel = true;
-							file.Open();
-						}
-
-						if (selectModel) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.modelPath = file.GetSelected().string();
-								file.ClearSelected();
-								selectModel = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						ImGui::Text("%s", entity.modelPath.c_str());
-
-						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-					}
-					else if (entity.type == EntityType::Skybox) {
-						if (!scenemanager.hasSkybox()) {
-							ImGui::Text("Skybox paths include order matters!");
-
-							if (ImGui::Button("Add Texture")) {
-								selectTexture = true;
-								file.Open();
-							}
-
-							if (selectTexture) {
-								file.Display();
-								if (file.HasSelected()) {
-									entity.skyboxPaths.push_back(file.GetSelected().string());
-									file.ClearSelected();
-									selectTexture = false;
-								}
-							}
-
-							ImGui::SameLine();
-
-							if (ImGui::Button("Remove Texture")) {
-								entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
-							}
-
-							for (auto& skybox : entity.skyboxPaths) {
-								ImGui::Text("%s", skybox.c_str());
-							}
-						}
-
-						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-					}
-					else if (entity.type == EntityType::MatObject) {
-						if (ImGui::Button("Model Path")) {
-							selectModel = true;
-							file.Open();
-						}
-
-						if (selectModel) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.modelPath = file.GetSelected().string();
-								file.ClearSelected();
-								selectModel = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						ImGui::Text("%s", entity.modelPath.c_str());
-
-						if (ImGui::Button("Material Path")) {
-							selectMat = true;
-							file.Open();
-						}
-
-						if (selectMat) {
-							file.Display();
-							if (file.HasSelected()) {
-								entity.materialPath = file.GetSelected().string();
-								file.ClearSelected();
-								selectMat = false;
-							}
-						}
-
-						ImGui::SameLine();
-
-						ImGui::Text("%s", entity.materialPath.c_str());
-
-						ImGui::Checkbox("Flip Texture", &entity.flipTexture);
-					}
-					else if (entity.type == EntityType::Primitive) {
-						const char* primitiveType[] = {
-							scenemanager.primitiveString(PrimitiveType::Cube),
-							scenemanager.primitiveString(PrimitiveType::Sphere),
-							scenemanager.primitiveString(PrimitiveType::Plane),
-						};
-
-						int currentItem = static_cast<int>(entity.primitiveType);
-
-						if (ImGui::Combo("Primitive Type", &currentItem, primitiveType, IM_ARRAYSIZE(primitiveType))) {
-							entity.primitiveType = static_cast<PrimitiveType>(currentItem);
-						}
-					}
-
-					if (ImGui::Button("Close")) {
-						ImGui::CloseCurrentPopup();
-						entity.add = false;
-					}
-
-					ImGui::SameLine();
-
-					if (ImGui::Button("Add")) {
-						ImGui::CloseCurrentPopup();
-						EntityType type = static_cast<EntityType>(entity.type);
-
-						switch (type) {
-						case EntityType::Object:
-							scenemanager.addEntity<Vertex, EntityType::Object>(entity.vertexPath, entity.fragmentPath, entity.texturePath, entity.modelPath, entity.flipTexture);
-							entity.add = false;
-							break;
-						case EntityType::PBRObject:
-							scenemanager.addEntity<Vertex, EntityType::PBRObject>(entity.vertexPath, entity.fragmentPath, entity.texturePaths, entity.modelPath, entity.flipTexture);
-							entity.add = false;
-							break;
-						case EntityType::MatObject:
-							scenemanager.addEntity<Vertex, EntityType::MatObject>(entity.vertexPath, entity.fragmentPath, entity.materialPath, entity.modelPath, entity.flipTexture);
-							entity.add = false;
-							break;
-						case EntityType::Primitive:
-							scenemanager.addEntity<Vertex, EntityType::Primitive>(entity.vertexPath, entity.fragmentPath, entity.primitiveType, "", entity.flipTexture);
-							entity.add = false;
-							break;
-						case EntityType::Light:
-							scenemanager.addEntity<Vertex, EntityType::Light>(entity.vertexPath, entity.fragmentPath, "", "", false);
-							entity.add = false;
-							break;
-						case EntityType::Skybox:
-							if (entity.skyboxPaths.size() != 6) {
-								ImGui::Text("Missing skybox side");
-								break;
-							}
-							else {
-								scenemanager.addEntity<CubeVertex, EntityType::Skybox>(entity.vertexPath, entity.fragmentPath, entity.skyboxPaths, "", entity.flipTexture);
-								entity.add = false;
-								break;
-							}
-						}
-					}
-					ImGui::EndPopup();
-				}
+				addItem();
 			}
 		}
 
@@ -1203,5 +897,299 @@ void Engine::Core::Application::createImGuiFramebuffers()
 		if (vkCreateFramebuffer(device.getDevice(), &framebufferInfo, nullptr, &imguiFramebuffers[i]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create ImGui framebuffer");
 		}
+	}
+}
+
+void Engine::Core::Application::addItem()
+{
+	ImGui::OpenPopup("Add Entity");
+
+	ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+	ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+
+	if (ImGui::BeginPopupModal("Add Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+		ImGui::SetItemDefaultFocus();
+
+		const char* entityItems[] = {
+			scenemanager.entityString(EntityType::Object),
+			scenemanager.entityString(EntityType::Skybox),
+			scenemanager.entityString(EntityType::UI),
+			scenemanager.entityString(EntityType::Light),
+			scenemanager.entityString(EntityType::Terrain),
+			scenemanager.entityString(EntityType::Particle),
+			scenemanager.entityString(EntityType::PBRObject),
+			scenemanager.entityString(EntityType::MatObject),
+			scenemanager.entityString(EntityType::Primitive)
+		};
+
+		int currentItem = static_cast<int>(entity.type);
+
+		if (ImGui::Combo("Entity Type", &currentItem, entityItems, IM_ARRAYSIZE(entityItems))) {
+			entity.type = static_cast<EntityType>(currentItem);
+		}
+
+		if (ImGui::Button("Vertex Shader")) {
+			selectVertex = true;
+			file.Open();
+		}
+
+		if (selectVertex) {
+			file.Display();
+			if (file.HasSelected()) {
+				entity.vertexPath = file.GetSelected().string();
+				file.ClearSelected();
+				selectVertex = false;
+			}
+		}
+
+		ImGui::SameLine();
+
+		ImGui::Text("%s", entity.vertexPath.c_str());
+
+		if (ImGui::Button("Fragment Shader")) {
+			selectFragment = true;
+			file.Open();
+		}
+
+		if (selectFragment) {
+			file.Display();
+			if (file.HasSelected()) {
+				entity.fragmentPath = file.GetSelected().string();
+				file.ClearSelected();
+				selectFragment = false;
+			}
+		}
+
+		ImGui::SameLine();
+
+		ImGui::Text("%s", entity.fragmentPath.c_str());
+
+		if (entity.type == EntityType::Object) {
+			if (ImGui::Button("Texture Path")) {
+				selectTexture = true;
+				file.Open();
+			}
+
+			if (selectTexture) {
+				file.Display();
+				if (file.HasSelected()) {
+					entity.texturePath = file.GetSelected().string();
+					file.ClearSelected();
+					selectTexture = false;
+				}
+			}
+
+			ImGui::SameLine();
+			ImGui::Text("%s", entity.texturePath.c_str());
+
+			if (ImGui::Button("Model Path")) {
+				selectModel = true;
+				file.Open();
+			}
+
+			if (selectModel) {
+				file.Display();
+				if (file.HasSelected()) {
+					entity.modelPath = file.GetSelected().string();
+					file.ClearSelected();
+					selectModel = false;
+				}
+			}
+
+			ImGui::SameLine();
+
+			ImGui::Text("%s", entity.modelPath.c_str());
+
+			ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+		}
+		else if (entity.type == EntityType::PBRObject) {
+			const char* textureType[] = {
+				scenemanager.textureString(PBRTextureType::Albedo),
+				scenemanager.textureString(PBRTextureType::Normal),
+				scenemanager.textureString(PBRTextureType::Roughness),
+				scenemanager.textureString(PBRTextureType::Metalness),
+				scenemanager.textureString(PBRTextureType::AmbientOcclusion),
+				scenemanager.textureString(PBRTextureType::Specular),
+			};
+
+			int currentItem = static_cast<int>(entity.textureType) - 1;
+
+			if (ImGui::Combo("Texture Type", &currentItem, textureType, IM_ARRAYSIZE(textureType))) {
+				entity.textureType = static_cast<PBRTextureType>(currentItem + 1);
+			}
+
+			if (ImGui::Button("Add Texture")) {
+				selectTexture = true;
+				file.Open();
+			}
+
+			if (selectTexture) {
+				file.Display();
+				if (file.HasSelected()) {
+					entity.texturePaths.insert({ entity.textureType , file.GetSelected().string() });
+					file.ClearSelected();
+					selectTexture = false;
+				}
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::Button("Remove Texture")) {
+				entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
+			}
+
+			for (auto& texturePair : entity.texturePaths) {
+				ImGui::Text("%s %s", scenemanager.textureString(texturePair.first), texturePair.second.c_str());
+			}
+
+			if (ImGui::Button("Model Path")) {
+				selectModel = true;
+				file.Open();
+			}
+
+			if (selectModel) {
+				file.Display();
+				if (file.HasSelected()) {
+					entity.modelPath = file.GetSelected().string();
+					file.ClearSelected();
+					selectModel = false;
+				}
+			}
+
+			ImGui::SameLine();
+
+			ImGui::Text("%s", entity.modelPath.c_str());
+
+			ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+		}
+		else if (entity.type == EntityType::Skybox) {
+			if (!scenemanager.hasSkybox()) {
+				ImGui::Text("Skybox paths include order matters!");
+
+				if (ImGui::Button("Add Texture")) {
+					selectTexture = true;
+					file.Open();
+				}
+
+				if (selectTexture) {
+					file.Display();
+					if (file.HasSelected()) {
+						entity.skyboxPaths.push_back(file.GetSelected().string());
+						file.ClearSelected();
+						selectTexture = false;
+					}
+				}
+
+				ImGui::SameLine();
+
+				if (ImGui::Button("Remove Texture")) {
+					entity.texturePaths.erase(static_cast<PBRTextureType>(currentItem + 1));
+				}
+
+				for (auto& skybox : entity.skyboxPaths) {
+					ImGui::Text("%s", skybox.c_str());
+				}
+			}
+
+			ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+		}
+		else if (entity.type == EntityType::MatObject) {
+			if (ImGui::Button("Model Path")) {
+				selectModel = true;
+				file.Open();
+			}
+
+			if (selectModel) {
+				file.Display();
+				if (file.HasSelected()) {
+					entity.modelPath = file.GetSelected().string();
+					file.ClearSelected();
+					selectModel = false;
+				}
+			}
+
+			ImGui::SameLine();
+
+			ImGui::Text("%s", entity.modelPath.c_str());
+
+			if (ImGui::Button("Material Path")) {
+				selectMat = true;
+				file.Open();
+			}
+
+			if (selectMat) {
+				file.Display();
+				if (file.HasSelected()) {
+					entity.materialPath = file.GetSelected().string();
+					file.ClearSelected();
+					selectMat = false;
+				}
+			}
+
+			ImGui::SameLine();
+
+			ImGui::Text("%s", entity.materialPath.c_str());
+
+			ImGui::Checkbox("Flip Texture", &entity.flipTexture);
+		}
+		else if (entity.type == EntityType::Primitive) {
+			const char* primitiveType[] = {
+				scenemanager.primitiveString(PrimitiveType::Cube),
+				scenemanager.primitiveString(PrimitiveType::Sphere),
+				scenemanager.primitiveString(PrimitiveType::Plane),
+			};
+
+			int currentItem = static_cast<int>(entity.primitiveType);
+
+			if (ImGui::Combo("Primitive Type", &currentItem, primitiveType, IM_ARRAYSIZE(primitiveType))) {
+				entity.primitiveType = static_cast<PrimitiveType>(currentItem);
+			}
+		}
+
+		if (ImGui::Button("Close")) {
+			ImGui::CloseCurrentPopup();
+			entity.add = false;
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Add")) {
+			ImGui::CloseCurrentPopup();
+			EntityType type = static_cast<EntityType>(entity.type);
+
+			switch (type) {
+			case EntityType::Object:
+				scenemanager.addEntity<Vertex, EntityType::Object>(entity.vertexPath, entity.fragmentPath, entity.texturePath, entity.modelPath, entity.flipTexture);
+				entity.add = false;
+				break;
+			case EntityType::PBRObject:
+				scenemanager.addEntity<Vertex, EntityType::PBRObject>(entity.vertexPath, entity.fragmentPath, entity.texturePaths, entity.modelPath, entity.flipTexture);
+				entity.add = false;
+				break;
+			case EntityType::MatObject:
+				scenemanager.addEntity<Vertex, EntityType::MatObject>(entity.vertexPath, entity.fragmentPath, entity.materialPath, entity.modelPath, entity.flipTexture);
+				entity.add = false;
+				break;
+			case EntityType::Primitive:
+				scenemanager.addEntity<Vertex, EntityType::Primitive>(entity.vertexPath, entity.fragmentPath, entity.primitiveType, "", entity.flipTexture);
+				entity.add = false;
+				break;
+			case EntityType::Light:
+				scenemanager.addEntity<Vertex, EntityType::Light>(entity.vertexPath, entity.fragmentPath, "", "", false);
+				entity.add = false;
+				break;
+			case EntityType::Skybox:
+				if (entity.skyboxPaths.size() != 6) {
+					ImGui::Text("Missing skybox side");
+					break;
+				}
+				else {
+					scenemanager.addEntity<CubeVertex, EntityType::Skybox>(entity.vertexPath, entity.fragmentPath, entity.skyboxPaths, "", entity.flipTexture);
+					entity.add = false;
+					break;
+				}
+			}
+		}
+		ImGui::EndPopup();
 	}
 }

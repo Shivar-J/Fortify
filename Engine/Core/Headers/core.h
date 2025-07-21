@@ -18,6 +18,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "sceneUtility.h"
+#include "animation.h"
 
 namespace Engine::Core {
 	class Application {
@@ -46,6 +47,7 @@ namespace Engine::Core {
 
 		void createImGuiRenderPass();
 		void createImGuiFramebuffers();
+		void addItem();
 		//void updateImGuiScale(GLFWwindow* window);
 
 		GLFWwindow* getWindow() const { return window; }
@@ -74,6 +76,23 @@ namespace Engine::Core {
 		bool accumulateFrames = true;
 		bool fullscreen = false;
 		bool recreateSwapchainFlag = false;
+
+		Entity entity;
+		bool selectVertex = false;
+		bool selectFragment = false;
+		bool selectTexture = false;
+		bool selectModel = false;
+		bool selectMat = false;
+		bool useRaytracer = true;
+		bool setShaderPath = false;
+		bool toggleVsync = true;
+		bool fullscreenTrigger = false;
+		float baseW, baseH;
+		bool baseSize = false;
+		ImGui::FileBrowser file;
+
+		const char* shaderPath = "";
+		std::vector<const char*> shaderPaths;
 
 		Engine::Graphics::Instance instance;
 		Engine::Graphics::Device device;

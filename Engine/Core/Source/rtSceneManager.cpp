@@ -18,6 +18,33 @@ void Engine::Core::RT::SceneManager::add(const std::string& texturePath) {
     scene->name = path.filename().string();
     scene->obj.path = texturePath;
 
+    std::vector<Keyframe> keyframes;
+    constexpr float theta = glm::two_pi<float>() / 10.0f;
+    constexpr float phi = glm::pi<float>() / 20.0f;
+    int radius = 1 + (rand() % 5);
+
+    for (int i = 0; i <= 64; ++i) {
+        float t = (i / static_cast<float>(64)) * 10.0f;
+        float angleTheta = theta * t;
+        float anglePhi = glm::half_pi<float>() + std::sin(phi * t);
+
+        glm::vec3 position = glm::vec3(
+            radius * std::sin(anglePhi) * std::cos(angleTheta),
+            radius * std::cos(anglePhi),
+            radius * std::sin(anglePhi) * std::sin(angleTheta)
+        );
+
+        glm::mat4 translation = glm::translate(glm::mat4(1.0f), position);
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), -angleTheta, glm::vec3(0, 1, 0));
+
+        glm::mat4 model = translation * rotation;
+
+        keyframes.push_back({ t, model });
+    }
+
+    scene->animation = Engine::Graphics::Animation(keyframes, true);
+    scene->animation.setTime(static_cast<float>(rand()) / RAND_MAX * scene->animation.getDuration());
+
     std::vector<std::string> texturePaths;
     texturePaths = Engine::Utility::getAllPathsFromPath(path.parent_path().string() + "/", Engine::Utility::imageFileTypes);
 
@@ -71,7 +98,7 @@ void Engine::Core::RT::SceneManager::pushToAccelerationStructure(std::vector<std
     dst = scenes;
 }
 
-void Engine::Core::RT::SceneManager::updateScene() {
+void Engine::Core::RT::SceneManager::updateScene(float deltaTime) {
     ImGuizmo::SetOrthographic(true);
     ImGuizmo::BeginFrame();
     ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -118,6 +145,15 @@ void Engine::Core::RT::SceneManager::updateScene() {
 
         if (ImGui::Button("Remove Entity")) {
             scene->markedForDeletion = true;
+        }
+
+        glm::mat4 oldMatrix = scene->matrix;
+
+        scene->animation.update(deltaTime);
+        scene->matrix = scene->animation.currentTransform();
+
+        if (oldMatrix != scene->matrix) {
+            transformChanged = true;
         }
 
         ImGui::PopID();

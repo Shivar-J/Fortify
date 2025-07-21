@@ -12,6 +12,7 @@ namespace Engine::Graphics {
     class Swapchain;
     class Texture;
     class Raytracing;
+    class Animation;
 }
 
 namespace Engine::Core {
@@ -34,7 +35,7 @@ namespace Engine::Core {
             void remove(int index);
             
             void pushToAccelerationStructure(std::vector<std::shared_ptr<RTScene>>& dst);
-            void updateScene();
+            void updateScene(float deltaTime);
 
             std::vector<std::shared_ptr<RTScene>> getScenes() const { return scenes; }
             

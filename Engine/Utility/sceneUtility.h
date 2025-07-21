@@ -2,7 +2,7 @@
 #define SCENE_UTILITY
 
 #include "utility.h"
-#include "texture.h"
+#include "animation.h"
 
 struct RTScene {
 	MeshObject obj;
@@ -21,6 +21,7 @@ struct RTScene {
 	int totalTextures = 0;
 	bool hasTexture = false;
 	bool showGizmo = false;
+	Engine::Graphics::Animation animation;
 
 	void textureCleanup() {
 		if (albedo.has_value()) resources->destroy(albedo.value());
