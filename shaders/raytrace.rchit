@@ -23,7 +23,7 @@ layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
 layout(set = 0, binding = 4) buffer Vertices { Vertex vertices[]; } vertexBuffers[];
 layout(set = 0, binding = 5) buffer Indices { uint indices[]; } indexBuffers[];
 layout(set = 0, binding = 8, std140) buffer InstanceTransforms { mat4 transforms[]; };
-layout(set = 0, binding = 9) uniform sampler2D modelTexture;
+layout(set = 0, binding = 9) uniform sampler2D modelTexture[];
 
 const float IOR = 1.5;
 const vec3 glassTint = vec3(0.95, 0.98, 1.0);
@@ -65,6 +65,7 @@ void main() {
 
     vec3 viewDir = -gl_WorldRayDirectionEXT;
 
+    /*
     if(isGlass) {
         float cosTheta = dot(normal, viewDir);
         float eta = cosTheta < 0.0 ? IOR : 1.0 / IOR;
@@ -119,7 +120,8 @@ void main() {
         vec3 surfaceColor = fresnel * reflectPayload.color + (1.0 - fresnel) * refractPayload.color;
         payload.color = surfaceColor * payload.attenuation;
     } else {
-        vec3 albedo = texture(modelTexture, uv).rgb;
+    */
+        vec3 albedo = texture(modelTexture[nonuniformEXT(instID)], uv).rgb;
 
         vec3 reflected = reflect(viewDir, normal);
         reflectPayload = payload;
@@ -142,7 +144,7 @@ void main() {
         payload.color = albedo;
 
        //payload.color = albedo * (reflectPayload.color * vec3(1.0, 0.0, 0.0)) * payload.attenuation;
-    }
+    //}
 
     payload.depth++;
 }

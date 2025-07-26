@@ -9,7 +9,7 @@
 #include "texture.h"
 #include "raytracing.h"
 
-void Engine::Core::RT::SceneManager::add(const std::string& texturePath) {
+void Engine::Core::RT::SceneManager::add(const std::string& texturePath, bool flipTexture) {
     std::filesystem::path path = texturePath;
 
     auto scene = std::make_shared<RTScene>();
@@ -48,38 +48,39 @@ void Engine::Core::RT::SceneManager::add(const std::string& texturePath) {
     std::vector<std::string> texturePaths;
     texturePaths = Engine::Utility::getAllPathsFromPath(path.parent_path().string() + "/", Engine::Utility::imageFileTypes);
 
-    if(texturePaths.size() == 1) {
-        scene->albedo = texture.createImageResource(texturePaths[0], device, commandbuffer, framebuffer, sampler, false, false, false, true);
-    } else if(texturePaths.size() > 1) {
-        for(auto& file : texturePaths) {
-            if(file.find("albedo") != std::string::npos || file.find("diffuse") != std::string::npos) {
-                scene->albedo = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-            }
-            else if(file.find("normal") != std::string::npos) {
-                scene->normal = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-            }
-            else if(file.find("roughness") != std::string::npos) {
-                scene->roughness = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-            }
-            else if(file.find("metalness") != std::string::npos) {
-                scene->metalness = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-            }
-            else if(file.find("specular") != std::string::npos) {
-                scene->specular = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-            }
-            else if(file.find("height") != std::string::npos) {
-                scene->height= texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-            }
-            else if(file.find("ambient_occlusion") != std::string::npos) {
-                scene->ambientOcclusion = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, false, false, false, true);
-            } else {
-                std::cout << "Textures found but naming convention not followed" << std::endl;
-                // manually add textures
-            }
+    for(auto& file : texturePaths) {
+        if(file.find("albedo") != std::string::npos || file.find("diffuse") != std::string::npos) {
+            scene->obj.albedo = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
+            scene->obj.albedoPath = file.c_str();
+        }
+        else if(file.find("normal") != std::string::npos) {
+            scene->obj.normal = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
+            scene->obj.normalPath = file.c_str();
+        }
+        else if(file.find("roughness") != std::string::npos) {
+            scene->obj.roughness = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
+            scene->obj.roughnessPath = file.c_str();
+        }
+        else if(file.find("metalness") != std::string::npos) {
+            scene->obj.metalness = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
+            scene->obj.metalnessPath = file.c_str();
+        }
+        else if(file.find("specular") != std::string::npos) {
+            scene->obj.specular = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
+            scene->obj.specularPath = file.c_str();
+        }
+        else if(file.find("height") != std::string::npos) {
+            scene->obj.height= texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
+            scene->obj.heightPath = file.c_str();
+        }
+        else if(file.find("ambient_occlusion") != std::string::npos) {
+            scene->obj.ambientOcclusion = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
+            scene->obj.ambientOcclusionPath = file.c_str();
+        }
+        else {
+            g_console.add("Textures found for %s but naming convension not followed (albedo, normal, roughness, metalness, specular, height, ambient_occlusion needed in file name)", texturePath.c_str());
         }
     }
-
-    scene->totalTextures = texturePaths.size();
 
     scenes.push_back(scene);
 }
@@ -88,7 +89,7 @@ void Engine::Core::RT::SceneManager::remove(int index)
 {
     if (index >= 0 && index < scenes.size()) {
         scenes[index]->obj.destroy(device.getDevice());
-        scenes[index]->textureCleanup();
+        scenes[index]->obj.textureCleanup();
         scenes.erase(scenes.begin() + index);
         raytrace.sceneUpdated = true;
     }
@@ -123,6 +124,7 @@ void Engine::Core::RT::SceneManager::updateScene(float deltaTime) {
         static ImGuizmo::OPERATION currOp = ImGuizmo::TRANSLATE;
         static ImGuizmo::MODE currMode = ImGuizmo::WORLD;
 
+        ImGui::Checkbox("Animation", &scene->hasAnimation);
         ImGui::Checkbox("Show Gizmo", &scene->showGizmo);
 
         if (scene->showGizmo) {
@@ -149,8 +151,10 @@ void Engine::Core::RT::SceneManager::updateScene(float deltaTime) {
 
         glm::mat4 oldMatrix = scene->matrix;
 
-        scene->animation.update(deltaTime);
-        scene->matrix = scene->animation.currentTransform();
+        if (scene->hasAnimation) {
+            scene->animation.update(deltaTime);
+            scene->matrix = scene->animation.currentTransform();
+        }
 
         if (oldMatrix != scene->matrix) {
             transformChanged = true;

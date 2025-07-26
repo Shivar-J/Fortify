@@ -130,5 +130,4 @@ void MeshObject::destroy(VkDevice device)
 
 	resources->destroy(vertex);
 	resources->destroy(index);
-	resources->destroy(material);
 }

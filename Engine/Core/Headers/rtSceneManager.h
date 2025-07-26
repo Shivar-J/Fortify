@@ -31,7 +31,7 @@ namespace Engine::Core {
                 Engine::Graphics::Raytracing& raytrace
             ) : device(device), sampler(sampler), commandbuffer(commandbuffer), framebuffer(framebuffer), swapchain(swapchain), camera(camera), texture(texture), raytrace(raytrace) {};
 
-            void add(const std::string& texturePath);
+            void add(const std::string& texturePath, bool flipTexture = false);
             void remove(int index);
             
             void pushToAccelerationStructure(std::vector<std::shared_ptr<RTScene>>& dst);

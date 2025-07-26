@@ -156,6 +156,40 @@ struct Materials {
 	VkDeviceMemory specularImageMemory;
 };
 
+struct Textures {
+	std::optional<ImageResource*> albedo = std::nullopt;
+	std::optional<ImageResource*> normal = std::nullopt;
+	std::optional<ImageResource*> roughness = std::nullopt;
+	std::optional<ImageResource*> metalness = std::nullopt;
+	std::optional<ImageResource*> specular = std::nullopt;
+	std::optional<ImageResource*> height = std::nullopt;
+	std::optional<ImageResource*> ambientOcclusion = std::nullopt;
+
+	void textureCleanup() {
+		if (albedo.has_value()) resources->destroy(albedo.value());
+		if (normal.has_value()) resources->destroy(normal.value());
+		if (roughness.has_value()) resources->destroy(roughness.value());
+		if (metalness.has_value()) resources->destroy(metalness.value());
+		if (specular.has_value()) resources->destroy(specular.value());
+		if (height.has_value()) resources->destroy(height.value());
+		if (ambientOcclusion.has_value()) resources->destroy(ambientOcclusion.value());
+	}
+
+	int getTextureCount() {
+		int count = 0;
+
+		if (albedo.has_value()) count++;
+		if (normal.has_value()) count++;
+		if (roughness.has_value()) count++;
+		if (metalness.has_value()) count++;
+		if (specular.has_value()) count++;
+		if (height.has_value()) count++;
+		if (ambientOcclusion.has_value()) count++;
+
+		return count;
+	}
+};
+
 struct MeshObject {
 	std::vector<Vertex> v;
 	std::vector<uint32_t> i;
@@ -164,6 +198,51 @@ struct MeshObject {
 	BufferResource* vertex;
 	BufferResource* index;
 	BufferResource* material;
+
+	std::optional<ImageResource*> albedo = std::nullopt;
+	std::string albedoPath = "";
+
+	std::optional<ImageResource*> normal = std::nullopt;
+	std::string normalPath = "";
+
+	std::optional<ImageResource*> roughness = std::nullopt;
+	std::string roughnessPath = "";
+
+	std::optional<ImageResource*> metalness = std::nullopt;
+	std::string metalnessPath = "";
+
+	std::optional<ImageResource*> specular = std::nullopt;
+	std::string specularPath = "";
+
+	std::optional<ImageResource*> height = std::nullopt;
+	std::string heightPath = "";
+
+	std::optional<ImageResource*> ambientOcclusion = std::nullopt;
+	std::string ambientOcclusionPath = "";
+
+	void textureCleanup() {
+		if (albedo.has_value()) resources->destroy(albedo.value());
+		if (normal.has_value()) resources->destroy(normal.value());
+		if (roughness.has_value()) resources->destroy(roughness.value());
+		if (metalness.has_value()) resources->destroy(metalness.value());
+		if (specular.has_value()) resources->destroy(specular.value());
+		if (height.has_value()) resources->destroy(height.value());
+		if (ambientOcclusion.has_value()) resources->destroy(ambientOcclusion.value());
+	}
+
+	int getTextureCount() {
+		int count = 0;
+
+		if (albedo.has_value()) count++;
+		if (normal.has_value()) count++;
+		if (roughness.has_value()) count++;
+		if (metalness.has_value()) count++;
+		if (specular.has_value()) count++;
+		if (height.has_value()) count++;
+		if (ambientOcclusion.has_value()) count++;
+
+		return count;
+	}
 
 	std::string path = "";
 

@@ -11,6 +11,9 @@ void Engine::Graphics::Texture::createTextureImage(const std::string texturePath
 	if (flipTexture) {
 		stbi_set_flip_vertically_on_load(true);
 	}
+    else {
+        stbi_set_flip_vertically_on_load(false);
+    }
 	int texWidth, texHeight, texChannels;
     auto start = std::chrono::high_resolution_clock::now();
 	stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -50,6 +53,9 @@ ImageResource* Engine::Graphics::Texture::createImageResource(const std::string 
 
     if (flipTexture) {
         stbi_set_flip_vertically_on_load(true);
+    }
+    else {
+        stbi_set_flip_vertically_on_load(false);
     }
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);

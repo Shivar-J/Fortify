@@ -60,7 +60,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Engine::Graphics::Instance::debugCallback(VkDebug
 
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
-    g_logBuffer.push(std::string("[Validation] ") + msg + '\n', messageSeverity);
+    g_logBuffer.push(std::string("[Validation] ") + msg + '\n');
 
     return VK_FALSE;
 }

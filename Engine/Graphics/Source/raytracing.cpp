@@ -718,24 +718,6 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		writeDescriptorSets.push_back(skyboxWrite);
 	}
 
-	std::vector<VkDescriptorBufferInfo> mBufferInfos;
-	for (auto& model : models) {
-		if (model->obj.material && model->obj.material->buffer != VK_NULL_HANDLE) {
-			mBufferInfos.push_back({ model->obj.material->buffer, 0, VK_WHOLE_SIZE });
-		}
-	}
-
-	if (!mBufferInfos.empty()) {
-		VkWriteDescriptorSet mBufferWrite{};
-		mBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		mBufferWrite.dstSet = descriptorSet;
-		mBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		mBufferWrite.dstBinding = 7;
-		mBufferWrite.descriptorCount = static_cast<uint32_t>(mBufferInfos.size());
-		mBufferWrite.pBufferInfo = mBufferInfos.data();
-		writeDescriptorSets.push_back(mBufferWrite);
-	}
-
 	VkDescriptorBufferInfo instanceTransformInfo{};
 	instanceTransformInfo.buffer = instanceBuffer->buffer;
 	instanceTransformInfo.offset = 0;
@@ -750,24 +732,31 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	instanceTransformWrite.pBufferInfo = &instanceTransformInfo;
 	writeDescriptorSets.push_back(instanceTransformWrite);
 
+	std::vector<VkDescriptorImageInfo> imageInfos;
+	int index = 0;
 	for (auto& scene : models) {
-		if (scene->albedo.has_value()) {
+		if (scene->obj.albedo.has_value()) {
+			g_console.add("%s", scene->obj.albedoPath.c_str());
 			VkDescriptorImageInfo modelTextureInfo{};
 			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			modelTextureInfo.imageView = scene->albedo.value()->view;
-			modelTextureInfo.sampler = scene->albedo.value()->sampler;
+			modelTextureInfo.imageView = scene->obj.albedo.value()->view;
+			modelTextureInfo.sampler = scene->obj.albedo.value()->sampler;
 
-			VkWriteDescriptorSet textureWrite{};
-			textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			textureWrite.dstSet = descriptorSet;
-			textureWrite.dstBinding = 9;
-			textureWrite.dstArrayElement = 0;
-			textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			textureWrite.descriptorCount = 1;
-			textureWrite.pImageInfo = &modelTextureInfo;
-			writeDescriptorSets.push_back(textureWrite);
+			imageInfos.push_back(modelTextureInfo);
 		}
+
+		index++;
 	}
+
+	VkWriteDescriptorSet textureWrite{};
+	textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	textureWrite.dstSet = descriptorSet;
+	textureWrite.dstBinding = 9;
+	textureWrite.dstArrayElement = 0;
+	textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	textureWrite.descriptorCount = imageInfos.size();
+	textureWrite.pImageInfo = imageInfos.data();
+	writeDescriptorSets.push_back(textureWrite);
 
 	vkUpdateDescriptorSets(
 		device.getDevice(),
@@ -850,7 +839,7 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		{6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr },
 		{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR| VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 		{8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
-		{9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
 	};
 
 	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
@@ -1196,14 +1185,11 @@ void Engine::Graphics::Raytracing::cleanup(VkDevice device, bool softClean)
 		for (auto& scene : models) {
 			scene->obj.destroy(device);
 
-			scene->textureCleanup();
+			scene->obj.textureCleanup();
 		}
 	}
-
-	
-	(raygenResource);
-	
-	(missResource);
+	resources->destroy(raygenResource);
+	resources->destroy(missResource);
 	resources->destroy(closestHitResource);
 	resources->destroy(anyHitResource);
 	
