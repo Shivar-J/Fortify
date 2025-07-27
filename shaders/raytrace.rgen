@@ -45,7 +45,6 @@ void main() {
     payload.depth = 0;
     payload.color = vec3(0);
     payload.attenuation = vec3(1);
-    payload.insideObj = 0;
 
     traceRayEXT(
         topLevelAS,

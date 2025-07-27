@@ -85,7 +85,7 @@ void Engine::Core::Application::initVulkan()
 	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 
 	rtscenemanager.add("textures/backpack/backpack.obj", true);
-	rtscenemanager.add("textures/viking_room/viking_room.obj");
+	//rtscenemanager.add("textures/viking_room/viking_room.obj");
 	//rtscenemanager.add("textures/backpack/backpack.obj");
 
 	rtscenemanager.pushToAccelerationStructure(raytrace.models);

@@ -457,6 +457,9 @@ void Engine::Graphics::Texture::createCubemap(const std::vector<std::string>& fa
     if (flipTexture) {
         stbi_set_flip_vertically_on_load(true);
     }
+    else {
+        stbi_set_flip_vertically_on_load(false);
+    }
 
     int texWidth, texHeight, texChannels;
     VkDeviceSize layerSize;
