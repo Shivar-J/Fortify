@@ -199,6 +199,8 @@ struct MeshObject {
 	BufferResource* index;
 	BufferResource* material;
 
+	uint32_t flags = 0;
+
 	std::optional<ImageResource*> albedo = std::nullopt;
 	std::string albedoPath = "";
 

@@ -51,7 +51,7 @@ void main() {
 
     if(isGlass) {
         if(rand(payload.rngState) < 0.5) {
-            ignoreIntersectionEXT;
+            //ignoreIntersectionEXT;
         }
     }
 }

@@ -76,6 +76,7 @@ namespace Engine::Graphics {
 		void createSkybox();
 		void createPlane();
 		void createSphere(float radius=1.0f, int stacks=50, int sectors=50);
+		MeshObject createSphereRT(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb, float radius=1.0f, int stacks=50, int sectors=50);
 		void createCubeVertexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createCubeIndexBuffer(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandBuf, Engine::Graphics::FrameBuffer fb);
 		void createSkyboxUniformBuffers(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer framebuffer);

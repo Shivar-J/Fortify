@@ -15,17 +15,25 @@ void Engine::Core::Application::initWindow()
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-
+	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 	char title[256];
 	title[255] = '\0';
 
 	std::snprintf(title, 255, "%s", "Fortify");
 
 	window = glfwCreateWindow(Engine::Settings::WIDTH, Engine::Settings::HEIGHT, title, nullptr, nullptr);
+	
+	int count, monitorX, monitorY;
+	GLFWmonitor** monitors = glfwGetMonitors(&count);
+	const GLFWvidmode* mode = glfwGetVideoMode(monitors[0]);
+	glfwGetMonitorPos(monitors[0], &monitorX, &monitorY);
+
+	glfwSetWindowPos(window, monitorX + (mode->width - Engine::Settings::WIDTH) / 2, monitorY + (mode->height - Engine::Settings::HEIGHT) / 2);
 	glfwSetWindowUserPointer(window, this);
 	glfwSetCursorPosCallback(window, mouse_callback);
 	glfwSetKeyCallback(window, key_callback);
 
+	glfwShowWindow(window);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 }
 

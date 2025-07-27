@@ -259,7 +259,7 @@ void Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine
 	accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 	accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 	accelerationStructureGeometry.geometry.triangles.vertexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model->obj.vertex->buffer);
-	accelerationStructureGeometry.geometry.triangles.maxVertex = model->obj.v.size();
+	accelerationStructureGeometry.geometry.triangles.maxVertex = static_cast<uint32_t>(model->obj.v.size());
 	accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
 	accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	accelerationStructureGeometry.geometry.triangles.indexData.deviceAddress = getBufferDeviceAddress(device.getDevice(), model->obj.index->buffer);
@@ -589,7 +589,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2 },
 		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * modelBufferSize},
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 5 * modelBufferSize},
 		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 7 * modelBufferSize + 1},
 	};
 
@@ -732,31 +732,184 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	instanceTransformWrite.pBufferInfo = &instanceTransformInfo;
 	writeDescriptorSets.push_back(instanceTransformWrite);
 
-	std::vector<VkDescriptorImageInfo> imageInfos;
+	std::vector<VkDescriptorImageInfo> albedoInfo;
+	std::vector<VkDescriptorImageInfo> normalInfo;
+	std::vector<VkDescriptorImageInfo> roughnessInfo;
+	std::vector<VkDescriptorImageInfo> metalnessInfo;
+	std::vector<VkDescriptorImageInfo> specularInfo;
+	std::vector<VkDescriptorImageInfo> heightInfo;
+	std::vector<VkDescriptorImageInfo> ambientOcclusionInfo;
+	std::vector<uint32_t> textureFlags;
+
 	int index = 0;
 	for (auto& scene : models) {
 		if (scene->obj.albedo.has_value()) {
-			g_console.add("%s", scene->obj.albedoPath.c_str());
 			VkDescriptorImageInfo modelTextureInfo{};
 			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			modelTextureInfo.imageView = scene->obj.albedo.value()->view;
 			modelTextureInfo.sampler = scene->obj.albedo.value()->sampler;
 
-			imageInfos.push_back(modelTextureInfo);
+			albedoInfo.push_back(modelTextureInfo);
 		}
+
+		if (scene->obj.normal.has_value()) {
+			VkDescriptorImageInfo modelTextureInfo{};
+			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			modelTextureInfo.imageView = scene->obj.normal.value()->view;
+			modelTextureInfo.sampler = scene->obj.normal.value()->sampler;
+
+			normalInfo.push_back(modelTextureInfo);
+		}
+
+		if (scene->obj.roughness.has_value()) {
+			VkDescriptorImageInfo modelTextureInfo{};
+			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			modelTextureInfo.imageView = scene->obj.roughness.value()->view;
+			modelTextureInfo.sampler = scene->obj.roughness.value()->sampler;
+
+			roughnessInfo.push_back(modelTextureInfo);
+		}
+
+		if (scene->obj.metalness.has_value()) {
+			VkDescriptorImageInfo modelTextureInfo{};
+			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			modelTextureInfo.imageView = scene->obj.metalness.value()->view;
+			modelTextureInfo.sampler = scene->obj.metalness.value()->sampler;
+
+			metalnessInfo.push_back(modelTextureInfo);
+		}
+
+		if (scene->obj.specular.has_value()) {
+			VkDescriptorImageInfo modelTextureInfo{};
+			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			modelTextureInfo.imageView = scene->obj.specular.value()->view;
+			modelTextureInfo.sampler = scene->obj.specular.value()->sampler;
+
+			specularInfo.push_back(modelTextureInfo);
+		}
+
+		if (scene->obj.height.has_value()) {
+			VkDescriptorImageInfo modelTextureInfo{};
+			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			modelTextureInfo.imageView = scene->obj.height.value()->view;
+			modelTextureInfo.sampler = scene->obj.height.value()->sampler;
+
+			heightInfo.push_back(modelTextureInfo);
+		}
+
+		if (scene->obj.ambientOcclusion.has_value()) {
+			VkDescriptorImageInfo modelTextureInfo{};
+			modelTextureInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			modelTextureInfo.imageView = scene->obj.ambientOcclusion.value()->view;
+			modelTextureInfo.sampler = scene->obj.ambientOcclusion.value()->sampler;
+
+			ambientOcclusionInfo.push_back(modelTextureInfo);
+		}
+		
+		textureFlags.push_back(scene->obj.flags);
 
 		index++;
 	}
 
-	VkWriteDescriptorSet textureWrite{};
-	textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	textureWrite.dstSet = descriptorSet;
-	textureWrite.dstBinding = 9;
-	textureWrite.dstArrayElement = 0;
-	textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	textureWrite.descriptorCount = imageInfos.size();
-	textureWrite.pImageInfo = imageInfos.data();
-	writeDescriptorSets.push_back(textureWrite);
+	if (!albedoInfo.empty()) {
+		VkWriteDescriptorSet textureWrite{};
+		textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureWrite.dstSet = descriptorSet;
+		textureWrite.dstBinding = 9;
+		textureWrite.dstArrayElement = 0;
+		textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		textureWrite.descriptorCount = static_cast<uint32_t>(albedoInfo.size());
+		textureWrite.pImageInfo = albedoInfo.data();
+		writeDescriptorSets.push_back(textureWrite);
+	}
+
+	if (!normalInfo.empty()) {
+		VkWriteDescriptorSet textureWrite{};
+		textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureWrite.dstSet = descriptorSet;
+		textureWrite.dstBinding = 10;
+		textureWrite.dstArrayElement = 0;
+		textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		textureWrite.descriptorCount = static_cast<uint32_t>(normalInfo.size());
+		textureWrite.pImageInfo = normalInfo.data();
+		writeDescriptorSets.push_back(textureWrite);
+	}
+
+	if (!roughnessInfo.empty()) {
+		VkWriteDescriptorSet textureWrite{};
+		textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureWrite.dstSet = descriptorSet;
+		textureWrite.dstBinding = 11;
+		textureWrite.dstArrayElement = 0;
+		textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		textureWrite.descriptorCount = static_cast<uint32_t>(roughnessInfo.size());
+		textureWrite.pImageInfo = roughnessInfo.data();
+		writeDescriptorSets.push_back(textureWrite);
+	}
+
+	if (!metalnessInfo.empty()) {
+		VkWriteDescriptorSet textureWrite{};
+		textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureWrite.dstSet = descriptorSet;
+		textureWrite.dstBinding = 12;
+		textureWrite.dstArrayElement = 0;
+		textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		textureWrite.descriptorCount = static_cast<uint32_t>(metalnessInfo.size());
+		textureWrite.pImageInfo = metalnessInfo.data();
+		writeDescriptorSets.push_back(textureWrite);
+	}
+
+	if (!specularInfo.empty()) {
+		VkWriteDescriptorSet textureWrite{};
+		textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureWrite.dstSet = descriptorSet;
+		textureWrite.dstBinding = 13;
+		textureWrite.dstArrayElement = 0;
+		textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		textureWrite.descriptorCount = static_cast<uint32_t>(specularInfo.size());
+		textureWrite.pImageInfo = specularInfo.data();
+		writeDescriptorSets.push_back(textureWrite);
+	}
+
+	if (!heightInfo.empty()) {
+		VkWriteDescriptorSet textureWrite{};
+		textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureWrite.dstSet = descriptorSet;
+		textureWrite.dstBinding = 14;
+		textureWrite.dstArrayElement = 0;
+		textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		textureWrite.descriptorCount = static_cast<uint32_t>(heightInfo.size());
+		textureWrite.pImageInfo = heightInfo.data();
+		writeDescriptorSets.push_back(textureWrite);
+	}
+
+	if (!ambientOcclusionInfo.empty()) {
+		VkWriteDescriptorSet textureWrite{};
+		textureWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureWrite.dstSet = descriptorSet;
+		textureWrite.dstBinding = 15;
+		textureWrite.dstArrayElement = 0;
+		textureWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		textureWrite.descriptorCount = static_cast<uint32_t>(ambientOcclusionInfo.size());
+		textureWrite.pImageInfo = ambientOcclusionInfo.data();
+		writeDescriptorSets.push_back(textureWrite);
+	}
+
+	BufferResource* textureFlag = resources->create<BufferResource>(device.getDevice(), device.getPhysicalDevice(), sizeof(uint32_t) * models.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, textureFlags.data());
+
+	VkDescriptorBufferInfo textureFlagBufferInfo{};
+	textureFlagBufferInfo.buffer = textureFlag->buffer;
+	textureFlagBufferInfo.offset = 0;
+	textureFlagBufferInfo.range = sizeof(uint32_t) * models.size();
+
+	VkWriteDescriptorSet textureFlagBufferWrite{};
+	textureFlagBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	textureFlagBufferWrite.dstSet = descriptorSet;
+	textureFlagBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	textureFlagBufferWrite.dstBinding = 16;
+	textureFlagBufferWrite.descriptorCount = static_cast<uint32_t>(textureFlags.size());
+	textureFlagBufferWrite.pBufferInfo = &textureFlagBufferInfo;
+	writeDescriptorSets.push_back(textureFlagBufferWrite);
 
 	vkUpdateDescriptorSets(
 		device.getDevice(),
@@ -840,6 +993,13 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		{7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR| VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 		{8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR, nullptr},
 		{9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{11, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{12, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{13, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{14, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{15, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
+		{16, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, modelBufferSize, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR, nullptr},
 	};
 
 	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};

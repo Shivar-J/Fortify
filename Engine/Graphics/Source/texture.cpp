@@ -575,11 +575,11 @@ void Engine::Graphics::Texture::createPlane() {
 void Engine::Graphics::Texture::createSphere(float radius, int stacks, int sectors) {
     float pi = 3.14159265358979323846f;
 
-    for (uint32_t i = 0; i <= stacks; i++) {
+    for (int i = 0; i <= stacks; i++) {
         float phi = pi * float(i) / float(stacks);
         float y = radius * cosf(phi);
         float r = radius * sinf(phi);
-        for (uint32_t j = 0; j <= sectors; j++) {
+        for (int j = 0; j <= sectors; j++) {
             float theta = 2 * pi * float(j) / float(sectors);
             float x = radius * cosf(theta);
             float z = radius * sinf(theta);
@@ -603,8 +603,8 @@ void Engine::Graphics::Texture::createSphere(float radius, int stacks, int secto
         }
     }
 
-    for (uint32_t i = 0; i < stacks; i++) {
-        for (uint32_t j = 0; j < sectors; j++) {
+    for (int i = 0; i < stacks; i++) {
+        for (int j = 0; j < sectors; j++) {
             uint32_t first = i * (sectors + 1) + j;
             uint32_t second = first + sectors + 1;
 
@@ -639,13 +639,109 @@ void Engine::Graphics::Texture::createSphere(float radius, int stacks, int secto
     
     vertices.push_back(vertex);
 
-    for (uint32_t j = 0; j < sectors; j++) {
+    for (int j = 0; j < sectors; j++) {
         uint32_t first = bottomStart + j;
         uint32_t second = bottomStart + ((j + 1) % sectors);
         indices.push_back(first);
         indices.push_back(bottomCenterIndex);
         indices.push_back(second);
     }
+}
+
+MeshObject Engine::Graphics::Texture::createSphereRT(Engine::Graphics::Device device, Engine::Graphics::FrameBuffer fb, float radius, int stacks, int sectors) {
+    MeshObject t;
+
+    float pi = 3.14159265358979323846f;
+
+    for (int i = 0; i <= stacks; i++) {
+        float phi = pi * float(i) / float(stacks);
+        float y = radius * cosf(phi);
+        float r = radius * sinf(phi);
+        for (int j = 0; j <= sectors; j++) {
+            float theta = 2 * pi * float(j) / float(sectors);
+            float x = radius * cosf(theta);
+            float z = radius * sinf(theta);
+
+            Vertex vertex{};
+            glm::vec3 pos = {
+                radius * sinf(phi) * cosf(theta),
+                radius * cosf(phi),
+                radius * sinf(phi) * sinf(theta)
+            };
+
+            vertex.pos = pos;
+            vertex.normal = glm::normalize(pos);
+
+            vertex.texCoord = {
+                float(j) / float(sectors),
+                float(i) / float(stacks)
+            };
+
+            t.v.push_back(vertex);
+        }
+    }
+
+    for (int i = 0; i < stacks; i++) {
+        for (int j = 0; j < sectors; j++) {
+            uint32_t first = i * (sectors + 1) + j;
+            uint32_t second = first + sectors + 1;
+
+            if (i != stacks - 1)
+            {
+                t.i.push_back(first);
+                t.i.push_back(second);
+                t.i.push_back(first + 1);
+
+                t.i.push_back(first + 1);
+                t.i.push_back(second);
+                t.i.push_back(second + 1);
+            }
+        }
+    }
+
+    uint32_t bottomStart = (stacks - 1) * (sectors + 1);
+    uint32_t bottomCenterIndex = (uint32_t)vertices.size();
+    Vertex vertex{};
+
+    vertex.pos = {
+        0, -radius, 0
+    };
+
+    vertex.texCoord = {
+        0.5, 1.0
+    };
+
+    vertex.normal = {
+        0, -1, 0
+    };
+
+    t.v.push_back(vertex);
+
+    for (int j = 0; j < sectors; j++) {
+        uint32_t first = bottomStart + j;
+        uint32_t second = bottomStart + ((j + 1) % sectors);
+        t.i.push_back(first);
+        t.i.push_back(bottomCenterIndex);
+        t.i.push_back(second);
+    }
+
+    VkDeviceSize vertexBufferSize = sizeof(t.v[0]) * t.v.size();
+    t.vertex = fb.createBuffer(device, vertexBufferSize,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, t.v.data());
+
+    VkDeviceSize indexBufferSize = sizeof(t.i[0]) * t.i.size();
+    t.index = fb.createBuffer(device, indexBufferSize,
+        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, t.i.data());
+
+    t.material = nullptr;
+
+    return t;
 }
 
 void Engine::Graphics::Texture::createSkybox()

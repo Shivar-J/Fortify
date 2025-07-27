@@ -23,11 +23,77 @@ layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
 layout(set = 0, binding = 4) buffer Vertices { Vertex vertices[]; } vertexBuffers[];
 layout(set = 0, binding = 5) buffer Indices { uint indices[]; } indexBuffers[];
 layout(set = 0, binding = 8, std140) buffer InstanceTransforms { mat4 transforms[]; };
-layout(set = 0, binding = 9) uniform sampler2D modelTexture[];
+layout(set = 0, binding = 9) uniform sampler2D albedoTextures[];
+layout(set = 0, binding = 10) uniform sampler2D normalTextures[];
+layout(set = 0, binding = 11) uniform sampler2D roughnessTextures[];
+layout(set = 0, binding = 12) uniform sampler2D metalnessTextures[];
+layout(set = 0, binding = 13) uniform sampler2D specularTextures[];
+layout(set = 0, binding = 14) uniform sampler2D heightTextures[];
+layout(set = 0, binding = 15) uniform sampler2D ambientOcclusionTextures[];
+layout(set = 0, binding = 16) buffer Textures { uint flags[]; } textureFlags;
+
+const uint ALBEDO_FLAG = 1u << 0;
+const uint NORMAL_FLAG = 1u << 1;
+const uint ROUGHNESS_FLAG = 1u << 2;
+const uint METALNESS_FLAG = 1u << 3;
+const uint SPECULAR_FLAG = 1u << 4;
+const uint HEIGHT_FLAG = 1u << 5;
+const uint AMBIENT_OCCLUSION_FLAG = 1u << 6;
 
 const float IOR = 1.5;
 const vec3 glassTint = vec3(0.95, 0.98, 1.0);
 const vec3 metalTints[4] = vec3[4](vec3(1.0, 0.71, 0.29), vec3(0.95, 0.64, 0.54), vec3(0.95), vec3(0.56, 0.57, 0.58));
+const float PI = 3.14159265359;
+
+mat3 computeTBN(vec3 pos0, vec3 pos1, vec3 pos2, vec2 uv0, vec2 uv1, vec2 uv2, vec3 normal) {
+    vec3 edge1 = pos1 - pos0;
+    vec3 edge2 = pos2 - pos0;
+    vec2 deltaUV1 = uv1 - uv0;
+    vec2 deltaUV2 = uv2 - uv0;
+
+    float denom = deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y;
+    float f = abs(denom) > 1e-6 ? 1.0 / denom : 1.0;
+
+    vec3 tangent = f * (deltaUV2.y * edge1 - deltaUV1.y * edge2);
+    vec3 bitangent = f * (-deltaUV2.x * edge1 + deltaUV1.x * edge2);
+
+    tangent = normalize(tangent - dot(tangent, normal) * normal);
+    bitangent = normalize(bitangent - dot(bitangent, normal) * normal - dot(bitangent, tangent) * tangent);
+
+    return mat3(tangent, bitangent, normal);
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float distributionGGX(vec3 N, vec3 H, float a) {
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
+
+    float nom = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return nom / denom;
+}
+
+float geometrySchlickGGX(float NdotV, float k) {
+    float nom = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+float geometrySmith(vec3 N, vec3 V, vec3 L, float k) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx1 = geometrySchlickGGX(NdotV, k);
+    float ggx2 = geometrySchlickGGX(NdotL, k);
+
+    return ggx1 * ggx2;
+}
 
 void main() {
     if (payload.depth >= ubo.rayBounces) {
@@ -37,7 +103,9 @@ void main() {
 
     uint primID = gl_PrimitiveID;
     uint instID = gl_InstanceCustomIndexEXT;
-    bool isGlass = (instID % 2) == 0;
+    bool isPBR = (instID % 2) == 0;
+
+    uint flagBits = textureFlags.flags[nonuniformEXT(instID)];
 
     mat4 transform = transforms[instID];
 
@@ -56,6 +124,13 @@ void main() {
     vec3 bary = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
     vec3 hitPoint = bary.x * p0 + bary.y * p1 + bary.z * p2;
     vec2 uv = uv0 * (1.0 - attribs.x - attribs.y) + uv1 * attribs.x + uv2 * attribs.y;
+    
+    vec3 edge1 = p1 - p0;
+    vec3 edge2 = p2 - p0;
+    vec3 geometricNormal = normalize(cross(edge1, edge2));
+    if (gl_HitKindEXT == gl_HitKindBackFacingTriangleEXT) {
+        geometricNormal = -geometricNormal;
+    }
 
     mat3 normalMatrix = transpose(inverse(mat3(transform)));
     vec3 n0 = normalize(normalMatrix * vertexBuffers[nonuniformEXT(instID)].vertices[i0].normal);
@@ -63,88 +138,84 @@ void main() {
     vec3 n2 = normalize(normalMatrix * vertexBuffers[nonuniformEXT(instID)].vertices[i2].normal);
     vec3 normal = normalize(bary.x * n0 + bary.y * n1 + bary.z * n2);
 
-    vec3 viewDir = -gl_WorldRayDirectionEXT;
-
-    /*
-    if(isGlass) {
-        float cosTheta = dot(normal, viewDir);
-        float eta = cosTheta < 0.0 ? IOR : 1.0 / IOR;
-        vec3 n = cosTheta < 0.0 ? -normal : normal;
-        cosTheta = abs(cosTheta);
-
-        vec3 R = reflect(-viewDir, n);
-        vec3 T = refract(-viewDir, n, eta);
-        bool TIR = length(T) == 0;
-
-        float R0 = pow((1.0 - eta) / (1.0 + eta), 2.0);
-        float fresnel = R0 + (1.0 - R0) * pow(1.0 - cosTheta, 5.0);
-
-        reflectPayload = payload;
-        reflectPayload.color = vec3(0.0);
-        reflectPayload.depth = payload.depth + 1;
-        reflectPayload.rngState += 1;
+    mat3 tbn = computeTBN(p0, p1, p2, uv0, uv1, uv2, normal);
     
-        traceRayEXT(
-            topLevelAS,
-            gl_RayFlagsNoneEXT,
-            0xFF,
-            0, 0, 0,
-            hitPoint + 1e-9 * R,
-            1e-9,
-            R,
-            1e9,
-            1
-        );
+    vec3 albedo = (flagBits & ALBEDO_FLAG) != 0 ? texture(albedoTextures[nonuniformEXT(instID)], uv).rgb : vec3(1.0);
+    vec3 normalMap = (flagBits & NORMAL_FLAG) != 0 ? texture(normalTextures[nonuniformEXT(instID)], uv).rgb: normal;
+    float roughness = (flagBits & ROUGHNESS_FLAG) != 0 ? texture(roughnessTextures[nonuniformEXT(instID)], uv).r : 0.0;
+    float metalness = (flagBits & METALNESS_FLAG) != 0 ? texture(metalnessTextures[nonuniformEXT(instID)], uv).r : 0.0;
+    float specular = (flagBits & SPECULAR_FLAG) != 0 ? texture(specularTextures[nonuniformEXT(instID)], uv).r : 0.0;
+    float height = (flagBits & HEIGHT_FLAG) != 0 ? texture(heightTextures[nonuniformEXT(instID)], uv).r : 0.0;
+    float ao = (flagBits & AMBIENT_OCCLUSION_FLAG) != 0 ? texture(ambientOcclusionTextures[nonuniformEXT(instID)], uv).r : 1.0;
 
-        refractPayload = payload;
-        refractPayload.color = vec3(0.0);
-        refractPayload.depth = payload.depth + 1;
-        refractPayload.rngState += 1;
+    if((flagBits & NORMAL_FLAG) != 0) {
+        vec3 tangentNormal = normalize(normalMap * 2.0 - 1.0);
 
-        if(!TIR) {
+        vec3 worldNormal = tbn * tangentNormal;
+        
+        if (dot(geometricNormal, worldNormal) < 0) {
+            worldNormal = -worldNormal;
+        }
+        
+        normal = normalize(worldNormal);
+    }
+
+    vec3 viewDir = normalize(-gl_WorldRayDirectionEXT);
+    vec3 F0 = vec3(0.04);
+    F0 = mix(F0, albedo, metalness);
+
+    if(isPBR) {
+        vec3 reflectionDir = reflect(-viewDir, normal);
+        vec3 incomingRadiance = vec3(0.0);
+
+        if(metalness > 0.1 || specular > 0.1) {
+            reflectPayload = payload;
+            reflectPayload.depth = payload.depth + 1;
+            
+            float offsetSign = dot(geometricNormal, normal) > 0 ? 1.0 : -1.0;
+            vec3 offsetOrigin = hitPoint + offsetSign * 1e-3 * geometricNormal;
+
             traceRayEXT(
                 topLevelAS,
-                gl_RayFlagsCullBackFacingTrianglesEXT,
+                gl_RayFlagsOpaqueEXT,
                 0xFF,
                 0, 0, 0,
-                hitPoint + 1e-9 * T,
-                1e-9,
-                T,
+                offsetOrigin,
+                1e-4,
+                reflectionDir,
                 1e9,
-                2
+                1
             );
+
+            incomingRadiance = reflectPayload.color;
         }
+        vec3 L = normalize(reflectionDir);
+        vec3 H = normalize(viewDir + L);
+        float NdotV = max(dot(normal, viewDir), 0.0);
+        float NdotL = max(dot(normal, L), 0.0);
+        float NdotH = max(dot(normal, H), 0.0);
+        float HdotV = max(dot(H, viewDir), 0.0);
 
-        payload.attenuation *= vec3(1.0);
-       
-        vec3 surfaceColor = fresnel * reflectPayload.color + (1.0 - fresnel) * refractPayload.color;
-        payload.color = surfaceColor * payload.attenuation;
+        float D = distributionGGX(normal, H, roughness);
+        float G = geometrySmith(normal, viewDir, L, roughness);
+        vec3 F = fresnelSchlick(HdotV, F0);
+
+        vec3 specularTerm = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
+        
+        vec3 kS = F;
+        vec3 kD = (1.0 - kS) * (1.0 - metalness);
+        vec3 diffuse = kD * albedo / PI;
+        vec3 color = diffuse;
+        if(metalness > 0.1) {
+            color += specularTerm * incomingRadiance * NdotL;
+        }
+        color += vec3(0.03) * albedo * ao;
+        color = color / (color + vec3(1.0));
+
+        payload.color = color;
     } else {
-    */
-        vec3 albedo = texture(modelTexture[nonuniformEXT(instID)], uv).rgb;
-
-        vec3 reflected = reflect(viewDir, normal);
-        reflectPayload = payload;
-        reflectPayload.color = vec3(0.0);
-        reflectPayload.depth = payload.depth + 1;
-        reflectPayload.rngState += 3;
-
-        traceRayEXT(
-            topLevelAS,
-            gl_RayFlagsNoneEXT,
-            0xFF,
-            0, 0, 0,
-            hitPoint + 1e-9 * reflected,
-            1e-9,
-            reflected,
-            1e9,
-            1
-        );
-
-        payload.color = albedo;
-
-       //payload.color = albedo * (reflectPayload.color * vec3(1.0, 0.0, 0.0)) * payload.attenuation;
-    //}
+        payload.color = albedo * payload.attenuation;
+    }
 
     payload.depth++;
 }

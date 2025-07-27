@@ -52,30 +52,37 @@ void Engine::Core::RT::SceneManager::add(const std::string& texturePath, bool fl
         if(file.find("albedo") != std::string::npos || file.find("diffuse") != std::string::npos) {
             scene->obj.albedo = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
             scene->obj.albedoPath = file.c_str();
+            scene->obj.flags = scene->obj.flags | (1 << 0);
         }
         else if(file.find("normal") != std::string::npos) {
             scene->obj.normal = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
             scene->obj.normalPath = file.c_str();
+            scene->obj.flags = scene->obj.flags | (1 << 1);
         }
         else if(file.find("roughness") != std::string::npos) {
             scene->obj.roughness = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
             scene->obj.roughnessPath = file.c_str();
+            scene->obj.flags = scene->obj.flags | (1 << 2);
         }
         else if(file.find("metalness") != std::string::npos) {
             scene->obj.metalness = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
             scene->obj.metalnessPath = file.c_str();
+            //scene->obj.flags = scene->obj.flags | (1 << 3);
         }
         else if(file.find("specular") != std::string::npos) {
             scene->obj.specular = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
             scene->obj.specularPath = file.c_str();
+            scene->obj.flags = scene->obj.flags | (1 << 4);
         }
         else if(file.find("height") != std::string::npos) {
             scene->obj.height= texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
             scene->obj.heightPath = file.c_str();
+            scene->obj.flags = scene->obj.flags | (1 << 5);
         }
         else if(file.find("ambient_occlusion") != std::string::npos) {
             scene->obj.ambientOcclusion = texture.createImageResource(file, device, commandbuffer, framebuffer, sampler, flipTexture, false, false, true);
             scene->obj.ambientOcclusionPath = file.c_str();
+            scene->obj.flags = scene->obj.flags | (1 << 6);
         }
         else {
             g_console.add("Textures found for %s but naming convension not followed (albedo, normal, roughness, metalness, specular, height, ambient_occlusion needed in file name)", texturePath.c_str());
