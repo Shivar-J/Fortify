@@ -37,16 +37,8 @@ struct RaytracingUniformBufferObject {
     uint32_t sampleCount = 1;
     uint32_t samplesPerFrame = 1;
     uint32_t rayBounces = 5;
-};
-
-struct TextureMapFlags {
-    bool hasAlbedo = false;
-    bool hasNormal = false;
-    bool hasRoughness = false;
-    bool hasMetalness = false;
-    bool hasSpecular = false;
-    bool hasHeight = false;
-    bool hasAmbientOcclusion = false;
+    uint32_t numLights = 0;
+    std::vector<Engine::Graphics::LightBuffer> lights;
 };
 
 namespace Engine::Core::RT {
@@ -94,11 +86,11 @@ namespace Engine::Graphics {
         RaytracingUniformBufferObject uboData;
 
         BufferResource* instanceBuffer;
+        BufferResource* textureFlagBuffer;
 
         std::vector<std::shared_ptr<RTScene>> models;
 
         bool sceneUpdated = false;
-
 	public:
         VkDeviceAddress getBufferDeviceAddress(VkDevice device, VkBuffer buffer);
         std::vector<char> readFile(const std::string& filename);

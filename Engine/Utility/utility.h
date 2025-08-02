@@ -40,6 +40,17 @@
 extern Console g_console;
 extern LogBuffer g_logBuffer;
 
+enum shaderFlags {
+	ALBEDO_FLAG = (1 << 0),
+	NORMAL_FLAG = (1 << 1),
+	ROUGHNESS_FLAG = (1 << 2),
+	METALNESS_FLAG = (1 << 3),
+	SPECULAR_FLAG = (1 << 4),
+	HEIGHT_FLAG = (1 << 5),
+	AMBIENT_OCCLUSION_FLAG = (1 << 6),
+	EMISSIVE_FLAG = (1 << 7)
+};
+
 struct Vertex {
 	alignas (16) glm::vec3 pos;
 	alignas (16) glm::vec3 normal;

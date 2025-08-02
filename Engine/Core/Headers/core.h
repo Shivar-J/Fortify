@@ -65,7 +65,7 @@ namespace Engine::Core {
 		inline static int currHeight = Engine::Settings::HEIGHT;
 		inline static float scalex = 1.0f;
 		inline static float scaley = 1.0f;
-
+		inline static bool recreateSwapchainFlag = false;
 		inline static Engine::Core::Camera camera;
 
 	private:
@@ -75,7 +75,6 @@ namespace Engine::Core {
 		std::vector<VkFramebuffer> imguiFramebuffers;
 		bool accumulateFrames = true;
 		bool fullscreen = false;
-		bool recreateSwapchainFlag = false;
 
 		Entity entity;
 		bool selectVertex = false;

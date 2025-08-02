@@ -77,7 +77,7 @@ public:
 
 		return VK_SUCCESS;
 	}
-	
+
 	void destroy(VkDevice device) override {
 		if (mapped) {
 			vkUnmapMemory(device, memory);

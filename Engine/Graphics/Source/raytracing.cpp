@@ -741,7 +741,6 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	std::vector<VkDescriptorImageInfo> ambientOcclusionInfo;
 	std::vector<uint32_t> textureFlags;
 
-	int index = 0;
 	for (auto& scene : models) {
 		if (scene->obj.albedo.has_value()) {
 			VkDescriptorImageInfo modelTextureInfo{};
@@ -806,9 +805,8 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 			ambientOcclusionInfo.push_back(modelTextureInfo);
 		}
 		
-		textureFlags.push_back(scene->obj.flags);
-
-		index++;
+		if(scene->obj.flags)
+			textureFlags.push_back(scene->obj.flags);
 	}
 
 	if (!albedoInfo.empty()) {
@@ -895,19 +893,26 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 		writeDescriptorSets.push_back(textureWrite);
 	}
 
-	BufferResource* textureFlag = resources->create<BufferResource>(device.getDevice(), device.getPhysicalDevice(), sizeof(uint32_t) * models.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, textureFlags.data());
+	textureFlagBuffer = resources->create<BufferResource>(
+		device.getDevice(),
+		device.getPhysicalDevice(),
+		sizeof(uint32_t) * textureFlags.size(),
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		textureFlags.data()
+	);
 
 	VkDescriptorBufferInfo textureFlagBufferInfo{};
-	textureFlagBufferInfo.buffer = textureFlag->buffer;
+	textureFlagBufferInfo.buffer = textureFlagBuffer->buffer;
 	textureFlagBufferInfo.offset = 0;
-	textureFlagBufferInfo.range = sizeof(uint32_t) * models.size();
+	textureFlagBufferInfo.range = VK_WHOLE_SIZE;
 
 	VkWriteDescriptorSet textureFlagBufferWrite{};
 	textureFlagBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	textureFlagBufferWrite.dstSet = descriptorSet;
 	textureFlagBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	textureFlagBufferWrite.dstBinding = 16;
-	textureFlagBufferWrite.descriptorCount = static_cast<uint32_t>(textureFlags.size());
+	textureFlagBufferWrite.descriptorCount = 1;
 	textureFlagBufferWrite.pBufferInfo = &textureFlagBufferInfo;
 	writeDescriptorSets.push_back(textureFlagBufferWrite);
 
@@ -949,6 +954,42 @@ void Engine::Graphics::Raytracing::updateDescriptorSets(Engine::Graphics::Device
 	accumImageWrite.pImageInfo = &accumImageInfo;
 	accumImageWrite.descriptorCount = 1;
 	writeDescriptorSets.push_back(accumImageWrite);
+
+	std::vector<uint32_t> textureFlags;
+	for (auto& scene : models) {
+		textureFlags.push_back(scene->obj.flags);
+	}
+
+	if (!textureFlagBuffer) {
+		if (textureFlagBuffer) {
+			resources->destroy(textureFlagBuffer);
+		}
+		textureFlagBuffer = resources->create<BufferResource>(
+			device.getDevice(),
+			device.getPhysicalDevice(),
+			sizeof(uint32_t) * textureFlags.size(),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			textureFlags.data()
+		);
+
+		VkDescriptorBufferInfo textureFlagBufferInfo{};
+		textureFlagBufferInfo.buffer = textureFlagBuffer->buffer;
+		textureFlagBufferInfo.offset = 0;
+		textureFlagBufferInfo.range = VK_WHOLE_SIZE;
+
+		VkWriteDescriptorSet textureFlagBufferWrite{};
+		textureFlagBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		textureFlagBufferWrite.dstSet = descriptorSet;
+		textureFlagBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		textureFlagBufferWrite.dstBinding = 16;
+		textureFlagBufferWrite.descriptorCount = 1;
+		textureFlagBufferWrite.pBufferInfo = &textureFlagBufferInfo;
+		writeDescriptorSets.push_back(textureFlagBufferWrite);
+	}
+	else {
+		memcpy(textureFlagBuffer->mapped, textureFlags.data(), sizeof(uint32_t) * textureFlags.size());
+	}
 
 	vkUpdateDescriptorSets(
 		device.getDevice(), 
@@ -1297,6 +1338,20 @@ void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device 
 
 void Engine::Graphics::Raytracing::updateUBO(Engine::Graphics::Device device)
 {
+	int numLights = 0;
+	for (auto& scene : models) {
+		if (scene->isEmissive) {
+			Engine::Graphics::LightBuffer light;
+			light.pos = glm::vec3(scene->matrix[3]);
+			light.color = glm::vec3(1.0f);
+
+			uboData.lights.push_back(light);
+			numLights++;
+		}
+	}
+	
+	uboData.numLights = numLights;
+
 	memcpy(uniformBuffer->mapped, &uboData, sizeof(uboData));
 }
 

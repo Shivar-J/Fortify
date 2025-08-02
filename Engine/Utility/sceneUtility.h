@@ -14,6 +14,7 @@ struct RTScene {
 	bool hasTexture = false;
 	bool hasAnimation = false;
 	bool showGizmo = false;
+	bool isEmissive = false;
 	Engine::Graphics::Animation animation;
 };
 

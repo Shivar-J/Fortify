@@ -85,7 +85,7 @@ void Engine::Core::Application::initVulkan()
 	raytrace.accumulationImage.create(device, device.getGraphicsQueue(), commandbuffer.getCommandPool(), VK_FORMAT_R8G8B8A8_UNORM, storageImageExtent);
 
 	rtscenemanager.add("textures/backpack/backpack.obj", true);
-	//rtscenemanager.add("textures/viking_room/viking_room.obj");
+	rtscenemanager.add("textures/viking_room/viking_room.obj");
 	//rtscenemanager.add("textures/backpack/backpack.obj");
 
 	rtscenemanager.pushToAccelerationStructure(raytrace.models);
@@ -286,6 +286,63 @@ void Engine::Core::Application::mainLoop()
 
 		if (useRaytracer) {
 			rtscenemanager.updateScene(deltaTime);
+
+			static bool addItem = false;
+			static bool selectPath = false;
+			static bool flipTexture = false;
+			static std::string path = "";
+
+			if (ImGui::Button("Add")) {
+				addItem = true;
+				ImGui::OpenPopup("Add");
+			}
+
+			ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+			ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+			if (ImGui::BeginPopupModal("Add", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+				ImGui::SetItemDefaultFocus();
+
+				if (ImGui::Button("Path")) {
+					selectPath = true;
+					file.Open();
+				}
+
+				if (selectPath) {
+					file.Display();
+					if (file.HasSelected()) {
+						path = file.GetSelected().string();
+						file.ClearSelected();
+						selectPath = false;
+					}
+				}
+
+				ImGui::SameLine();
+				ImGui::Text("%s", path.c_str());
+
+				ImGui::Checkbox("Flip Texture", &flipTexture);
+
+				if (ImGui::Button("Submit")) {
+					ImGui::CloseCurrentPopup();
+					addItem = false;
+
+					rtscenemanager.add(path, flipTexture);
+
+					path.clear();
+					flipTexture = false;
+					selectPath = false;
+
+					raytrace.sceneUpdated = true;
+				}
+
+				ImGui::SameLine();
+				if (ImGui::Button("Close")) {
+					ImGui::CloseCurrentPopup();
+					addItem = false;
+				}
+
+				ImGui::EndPopup();
+			}
 		}
 		else {
 			/*
