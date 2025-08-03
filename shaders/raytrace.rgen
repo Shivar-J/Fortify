@@ -15,7 +15,7 @@ layout(set = 0, binding = 3, std140) uniform RaytracingUBO {
     uint vertexSize;
     uint sampleCount;
     uint samplesPerFrame;
-    uint rayBounces;
+    uint rayBounces;    
 } ubo;
 
 layout(location = 0) rayPayloadEXT RayPayload payload;

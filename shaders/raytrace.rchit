@@ -39,6 +39,7 @@ const uint METALNESS_FLAG = 1u << 3;
 const uint SPECULAR_FLAG = 1u << 4;
 const uint HEIGHT_FLAG = 1u << 5;
 const uint AMBIENT_OCCLUSION_FLAG = 1u << 6;
+const uint EMISSIVE_FLAG = 1u << 7;
 
 const float PI = 3.14159265359;
 
@@ -50,8 +51,6 @@ void main() {
 
     uint primID = gl_PrimitiveID;
     uint instID = gl_InstanceCustomIndexEXT;
-    bool isPBR = false;
-    uint flagBits = textureFlags.flags[nonuniformEXT(instID)];
     mat4 transform = transforms[instID];
 
     uint i0 = indexBuffers[nonuniformEXT(instID)].indices[primID * 3 + 0];
@@ -78,71 +77,36 @@ void main() {
 
     vec3 viewDir = normalize(-gl_WorldRayDirectionEXT);
 
-    vec3 albedo = (flagBits & ALBEDO_FLAG) != 0 ? texture(albedoTextures[nonuniformEXT(instID)], uv).rgb : vec3(1.0);
-    //vec3 normalMap = (flagBits & NORMAL_FLAG) != 0 ? texture(normalTextures[nonuniformEXT(instID)], uv).rgb: normal;
-    float roughness = (flagBits & ROUGHNESS_FLAG) != 0 ? texture(roughnessTextures[nonuniformEXT(instID)], uv).r : 0.0;
-    float metalness = (flagBits & METALNESS_FLAG) != 0 ? texture(metalnessTextures[nonuniformEXT(instID)], uv).r : 0.0;
-    float specular = (flagBits & SPECULAR_FLAG) != 0 ? texture(specularTextures[nonuniformEXT(instID)], uv).r : 0.0;
-    float height = (flagBits & HEIGHT_FLAG) != 0 ? texture(heightTextures[nonuniformEXT(instID)], uv).r : 0.0;
-    float ao = (flagBits & AMBIENT_OCCLUSION_FLAG) != 0 ? texture(ambientOcclusionTextures[nonuniformEXT(instID)], uv).r : 1.0;
+    vec3 albedo = vec3(1.0);
+    float roughness = 0.0;
+    float metalness = 0.0;
+    float ao = 1.0;
+    bool emissive = false;
 
-    if(((flagBits & ALBEDO_FLAG) != 0) && (((flagBits & NORMAL_FLAG) != 0) || ((flagBits & ROUGHNESS_FLAG) != 0) || ((flagBits & METALNESS_FLAG) != 0) || ((flagBits & SPECULAR_FLAG) != 0) || ((flagBits & AMBIENT_OCCLUSION_FLAG) != 0))) {
-        isPBR = true;
+    uint flagBits = textureFlags.flags[nonuniformEXT(instID)];
+
+    if ((flagBits & ALBEDO_FLAG) != 0) {
+        albedo = texture(albedoTextures[nonuniformEXT(instID)], uv).rgb;
     }
 
     if ((flagBits & NORMAL_FLAG) != 0) {
         vec3 normalMap = texture(normalTextures[nonuniformEXT(instID)], uv).rgb;
-        normalMap = normalize(normalMap * 2.0 - 1.0);
-
-        normal = normalMap;
+        normal = normalize(normalMap * 2.0 - 1.0);
     }
 
-    if (isPBR) {
-        vec3 lightDir = normalize(vec3(0.0, 0.0, 1.0));
-        vec3 lightColor = vec3(0.55);
-        
-        vec3 F0 = vec3(0.04);
-        F0 = mix(F0, albedo, metalness);
-
-        vec3 V = viewDir;
-        vec3 N = normal;
-        vec3 L = lightDir;
-        vec3 H = normalize(V + L);
-
-        float NdotV = max(dot(N, V), 0.0001);
-        float NdotL = max(dot(N, L), 0.0001);
-        float NdotH = max(dot(N, H), 0.0001);
-        float HdotV = max(dot(H, V), 0.0001);
-    
-        float a = roughness * roughness;
-        float a2 = a * a;
-        float denomNDF = NdotH * NdotH * (a2 - 1.0) + 1.0;
-        float NDF = a2 / (PI * denomNDF * denomNDF);
-    
-        float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-        float G1 = NdotV / (NdotV * (1.0 - k) + k);
-        float G2 = NdotL / (NdotL * (1.0 - k) + k);
-        float G = G1 * G2;
-    
-        vec3 F = F0 + (1.0 - F0) * pow(1.0 - HdotV, 5.0);
-    
-        vec3 numerator = NDF * G * F;
-        float denominator = 4.0 * NdotV * NdotL;
-        vec3 specular = numerator / max(denominator, 0.001);
-    
-        vec3 kD = (vec3(1.0) - F) * (1.0 - metalness);
-        vec3 diffuse = kD * albedo / PI;
-    
-        vec3 radiance = lightColor * NdotL;
-        vec3 Lo = (diffuse + specular) * radiance;
-    
-        vec3 ambient = vec3(0.15) * albedo * ao;
-    
-        payload.color = (ambient + Lo) * payload.attenuation;
-
-    } else {
-        payload.color = albedo * payload.attenuation;
+    if ((flagBits & ROUGHNESS_FLAG) != 0) {
+        roughness = texture(roughnessTextures[nonuniformEXT(instID)], uv).r;
     }
 
-    payload.depth++;
+    if ((flagBits & METALNESS_FLAG) != 0) {
+        metalness = texture(metalnessTextures[nonuniformEXT(instID)], uv).r;
+    }
+
+    if ((flagBits & AMBIENT_OCCLUSION_FLAG) != 0) {
+        ao = texture(ambientOcclusionTextures[nonuniformEXT(instID)], uv).r;
+    }
+
+    emissive = (flagBits & EMISSIVE_FLAG) != 0;
+
+    payload.color = albedo * payload.attenuation;
 }

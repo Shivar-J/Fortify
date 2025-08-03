@@ -37,8 +37,6 @@ struct RaytracingUniformBufferObject {
     uint32_t sampleCount = 1;
     uint32_t samplesPerFrame = 1;
     uint32_t rayBounces = 5;
-    uint32_t numLights = 0;
-    std::vector<Engine::Graphics::LightBuffer> lights;
 };
 
 namespace Engine::Core::RT {

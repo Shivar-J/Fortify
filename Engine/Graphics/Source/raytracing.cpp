@@ -1338,20 +1338,6 @@ void Engine::Graphics::Raytracing::createUniformBuffer(Engine::Graphics::Device 
 
 void Engine::Graphics::Raytracing::updateUBO(Engine::Graphics::Device device)
 {
-	int numLights = 0;
-	for (auto& scene : models) {
-		if (scene->isEmissive) {
-			Engine::Graphics::LightBuffer light;
-			light.pos = glm::vec3(scene->matrix[3]);
-			light.color = glm::vec3(1.0f);
-
-			uboData.lights.push_back(light);
-			numLights++;
-		}
-	}
-	
-	uboData.numLights = numLights;
-
 	memcpy(uniformBuffer->mapped, &uboData, sizeof(uboData));
 }
 
