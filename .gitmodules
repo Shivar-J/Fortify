@@ -1,0 +1,26 @@
+[submodule "lib/glfw"]
+	path = lib/glfw
+	url = https://github.com/glfw/glfw.git
+	branch = master
+[submodule "lib/imgui"]
+	path = lib/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = master
+[submodule "lib/stb-master"]
+	path = lib/stb-master
+	url = https://github.com/nothings/stb.git
+[submodule "lib/tinyobj"]
+	path = lib/tinyobj
+	url = https://github.com/tinyobjloader/tinyobjloader.git
+[submodule "lib/VulkanMemoryAllocator"]
+	path = lib/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "lib/glm"]
+	path = lib/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "lib/ImGuizmo"]
+	path = lib/ImGuizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo.git
+[submodule "lib/ImFilebrowser"]
+	path = lib/ImFilebrowser
+	url = https://github.com/AirGuanZ/imgui-filebrowser

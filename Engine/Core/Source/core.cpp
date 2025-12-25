@@ -111,14 +111,14 @@ void Engine::Core::Application::initVulkan()
 		{ PBRTextureType::Specular, "textures/backpack/specular.jpg" },
 	};
 
-	scenemanager.addEntity<CubeVertex, EntityType::Skybox>("shaders/spv/skyboxVert.spv", "shaders/spv/skyboxFrag.spv", skyboxPaths, "", true);
-	//scenemanager.addEntity<Vertex, EntityType::Object>("shaders/spv/vert.spv", "shaders/spv/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
-	//scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
-	//scenemanager.addEntity<Vertex, EntityType::MatObject>("shaders/spv/textureMapVert.spv", "shaders/spv/textureMapFrag.spv", "textures/backpack/backpack.mtl", "textures/backpack/backpack.obj", true);
-	scenemanager.addEntity<Vertex, EntityType::Light>("shaders/spv/lightVert.spv", "shaders/spv/lightFrag.spv", "", "", false);
-	//scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/spv/primitiveVert.spv", "shaders/spv/primitiveFrag.spv", PrimitiveType::Plane, "", false);
+	scenemanager.addEntity<CubeVertex, EntityType::Skybox>("shaders/skyboxVert.vert.spv", "shaders/skyboxFrag.frag.spv", skyboxPaths, "", true);
+	//scenemanager.addEntity<Vertex, EntityType::Object>("shaders/vert.spv", "shaders/frag.spv", "textures/viking_room/viking_room.png", "textures/viking_room/viking_room.obj", false);
+	//scenemanager.addEntity<Vertex, EntityType::PBRObject>("shaders/textureMapVert.spv", "shaders/textureMapFrag.spv", pbrTextures, "textures/backpack/backpack.obj", false);
+	//scenemanager.addEntity<Vertex, EntityType::MatObject>("shaders/textureMapVert.spv", "shaders/textureMapFrag.spv", "textures/backpack/backpack.mtl", "textures/backpack/backpack.obj", true);
+	scenemanager.addEntity<Vertex, EntityType::Light>("shaders/light.vert.spv", "shaders/light.frag.spv", "", "", false);
+	//scenemanager.addEntity<Vertex, EntityType::Primitive>("shaders/primitiveVert.spv", "shaders/primitiveFrag.spv", PrimitiveType::Plane, "", false);
 	
-	raytrace.createRayTracingPipeline(device, "shaders/spv/raytraceRaygen.spv", "shaders/spv/raytraceMiss.spv", "shaders/spv/raytraceChit.spv", "shaders/spv/raytraceAhit.spv", "shaders/spv/raytraceInt.spv");
+	raytrace.createRayTracingPipeline(device, "shaders/raytrace.rgen.spv", "shaders/raytrace.rmiss.spv", "shaders/raytrace.rchit.spv", "shaders/raytrace.rahit.spv", "shaders/raytrace.rint.spv");
 	raytrace.createShaderBindingTables(device);
 	raytrace.createUniformBuffer(device);
 	raytrace.createDescriptorSets(device, skyboxTexture);
@@ -165,16 +165,12 @@ void Engine::Core::Application::initImGui()
 	initInfo.Device = device.getDevice();
 	initInfo.Queue = device.getGraphicsQueue();
 	initInfo.DescriptorPool = imguiPool;
-	initInfo.RenderPass = imguiRenderPass;
 	initInfo.MinImageCount = 3;
-	initInfo.ImageCount = 3;
-	initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	initInfo.ImageCount = swapchain.resource->images.size();
+	initInfo.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	initInfo.PipelineInfoMain.RenderPass = imguiRenderPass;
 
 	ImGui_ImplVulkan_Init(&initInfo);
-
-	VkCommandBuffer imguiCB = commandbuffer.beginSingleTimeCommands(device.getDevice());
-	ImGui_ImplVulkan_CreateFontsTexture();
-	commandbuffer.endSingleTimeCommands(imguiCB, device.getGraphicsQueue(), device.getDevice());
 
 	createImGuiFramebuffers();
 }

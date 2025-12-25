@@ -15,8 +15,8 @@
 #include "camera.h"
 #include "rtSceneManager.h"
 #include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_vulkan.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_vulkan.h"
 #include "sceneUtility.h"
 #include "animation.h"
 
