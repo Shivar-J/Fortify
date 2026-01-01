@@ -12,6 +12,9 @@ debugStart.bat
 releaseStart.bat
 .vscode/
 *.ini
+.idea/
+build/
+cmake-build-debug/
 
 Fortify.sln
 Fortify.vcxproj

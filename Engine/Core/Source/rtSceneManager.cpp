@@ -43,12 +43,12 @@ void Engine::Core::RT::SceneManager::add(const std::string& texturePath, bool fl
     }
 
     scene->animation = Engine::Graphics::Animation(keyframes, true);
-    scene->animation.setTime(static_cast<float>(rand()) / RAND_MAX * scene->animation.getDuration());
+    scene->animation.setTime(static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * scene->animation.getDuration());
 
     std::vector<std::string> texturePaths;
     texturePaths = Engine::Utility::getAllPathsFromPath(path.parent_path().string() + "/", Engine::Utility::imageFileTypes);
 
-    g_console.add("[Scene Manager] found %d textures\n", texturePaths.size());
+    g_console.add("[Scene Manager] found %zu textures\n", texturePaths.size());
 
     for(auto& file : texturePaths) {
         g_console.add("[Scene Manager] attempting to load %s \n", file.c_str());
