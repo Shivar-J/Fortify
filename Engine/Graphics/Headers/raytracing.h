@@ -53,6 +53,7 @@ namespace Engine::Graphics {
 	{
 	public :
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
+	    VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties{};
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
 
         std::vector<AccelerationStructure> BLAS;
@@ -92,7 +93,8 @@ namespace Engine::Graphics {
 	public:
         VkDeviceAddress getBufferDeviceAddress(VkDevice device, VkBuffer buffer);
         std::vector<char> readFile(const std::string& filename);
-        VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code);
+
+        static VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code);
 
         void initRaytracing(Engine::Graphics::Device device);
         auto createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index);
@@ -102,7 +104,7 @@ namespace Engine::Graphics {
         
         void buildAccelerationStructure(Engine::Graphics::Device device, Engine::Graphics::CommandBuffer commandbuffer, Engine::Graphics::FrameBuffer framebuffer);
         void createShaderBindingTables(Engine::Graphics::Device device);
-        void createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt);
+        void createDescriptorSets(const Engine::Graphics::Device& device, std::optional<Engine::Graphics::Texture> skyboxTexture = std::nullopt);
         void updateDescriptorSets(Engine::Graphics::Device device);
         void createRayTracingPipeline(Engine::Graphics::Device device, std::string raygenShaderPath, std::string missShaderPath, std::string chitShaderPath, std::string ahitShaderPath, std::string intShaderPath);
         void createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent);

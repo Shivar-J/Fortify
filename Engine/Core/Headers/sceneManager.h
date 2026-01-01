@@ -37,6 +37,27 @@ struct MatObjectTag{};
 struct PrimitiveTag{};
 struct LightingTag{};
 
+template<EntityType E>
+struct TagFromEntityType;
+
+template<>
+struct TagFromEntityType<EntityType::Object> { using type = ObjectTag; };
+
+template<>
+struct TagFromEntityType<EntityType::PBRObject> { using type = PBRObjectTag; };
+
+template<>
+struct TagFromEntityType<EntityType::Skybox> { using type = SkyboxTag; };
+
+template<>
+struct TagFromEntityType<EntityType::MatObject> { using type = MatObjectTag; };
+
+template<>
+struct TagFromEntityType<EntityType::Primitive> { using type = PrimitiveTag; };
+
+template<>
+struct TagFromEntityType<EntityType::Light> { using type = LightingTag; };
+
 struct Model {
 	Engine::Graphics::Pipeline pipeline;
 	Engine::Graphics::Texture texture;
@@ -79,6 +100,10 @@ namespace Engine::Core {
 			Engine::Graphics::Raytracing& raytrace
 		) : device(device), sampler(sampler), renderpass(renderpass), commandbuffer(commandbuffer), framebuffer(framebuffer), swapchain(swapchain), camera(camera), raytrace(raytrace) {}
 
+		template<EntityType E>
+		using Tag = TagFromEntityType<E>;
+
+		/*
 		template<EntityType Entity> struct TagFromEntityType {};
 		template<> struct TagFromEntityType<EntityType::Object> { using type = ObjectTag; };
 		template<> struct TagFromEntityType<EntityType::PBRObject> { using type = PBRObjectTag; };
@@ -86,6 +111,7 @@ namespace Engine::Core {
 		template<> struct TagFromEntityType<EntityType::MatObject> { using type = MatObjectTag; };
 		template<> struct TagFromEntityType<EntityType::Primitive> { using type = PrimitiveTag; };
 		template<> struct TagFromEntityType<EntityType::Light> { using type = LightingTag; };
+		*/
 
 		template<EntityType Entity>
 		using tag = typename TagFromEntityType<Entity>::type;
@@ -133,27 +159,27 @@ namespace Engine::Core {
 			m.texturePaths = texturePaths;
 			m.pipeline.createGraphicsPipeline<VertexType>(scene.vertexShader, scene.fragmentShader, device.getDevice(), sampler.getSamples(), renderpass, false);
 			
-			if (texturePaths.count(PBRTextureType::Albedo)) {
+			if (texturePaths.contains(PBRTextureType::Albedo)) {
 				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Albedo), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
-			if (texturePaths.count(PBRTextureType::Normal)) {
+			if (texturePaths.contains(PBRTextureType::Normal)) {
 				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Normal), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
-			if (texturePaths.count(PBRTextureType::Roughness)) {
+			if (texturePaths.contains(PBRTextureType::Roughness)) {
 				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Roughness), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
-			if (texturePaths.count(PBRTextureType::Metalness)) {
+			if (texturePaths.contains(PBRTextureType::Metalness)) {
 				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Metalness), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 			
-			if (texturePaths.count(PBRTextureType::AmbientOcclusion)) {
+			if (texturePaths.contains(PBRTextureType::AmbientOcclusion)) {
 				m.texture.createTextureImage(texturePaths.at(PBRTextureType::AmbientOcclusion), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
-			if (texturePaths.count(PBRTextureType::Specular)) {
+			if (texturePaths.contains(PBRTextureType::Specular)) {
 				m.texture.createTextureImage(texturePaths.at(PBRTextureType::Specular), device, commandbuffer, framebuffer, sampler, flipTexture, true, false, true);
 			}
 
@@ -343,17 +369,20 @@ namespace Engine::Core {
 			scenes.push_back(scene);
 		}
 
-		void removeEntity(Scene scene, int index);
+		void removeEntity(const Scene &scene, int index);
 		void updateScene();
-		void cleanup(Scene scene);
-		const char* entityString(EntityType type);
-		const char* textureString(PBRTextureType type);
-		const char* primitiveString(PrimitiveType type);
-		bool hasSkybox();
-		void setShaderPaths(std::vector<const char*> paths);
+		void cleanup(Scene scene) const;
+
+		static const char* entityString(EntityType type);
+
+		static const char* textureString(PBRTextureType type);
+
+		static const char* primitiveString(PrimitiveType type);
+		bool hasSkybox() const;
+		void setShaderPaths(const std::vector<const char*> &paths);
 		std::vector<const char*> getShaderPaths() const { return shaderPaths; }
 
-		bool checkExtension(const std::string path, const std::string ext);
+		static bool checkExtension(const std::string &path, const std::string &ext);
 
 		std::vector<Scene> getScenes() const { return scenes; }
 

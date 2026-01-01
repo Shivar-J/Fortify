@@ -12,7 +12,7 @@ namespace Engine::Graphics {
 		std::optional<uint32_t> graphicsFamily;
 		std::optional<uint32_t> presentFamily;
 
-		bool isComplete() {
+		bool isComplete() const {
 			return graphicsFamily.has_value() && presentFamily.has_value();
 		}
 	};
@@ -24,6 +24,8 @@ namespace Engine::Graphics {
 		VkDevice device;
 		VkQueue graphicsQueue;
 		VkQueue presentQueue;
+		uint32_t graphicsQueueFamilyIndex;
+		uint32_t presentQueueFamilyIndex;
 
 		VkPhysicalDeviceDescriptorIndexingFeaturesEXT enabledDescriptorIndexingFeatures{};
 		VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferDeviceAddressFeatures{};
@@ -36,15 +38,19 @@ namespace Engine::Graphics {
 		//Device(const Device&) = delete;
 		//Device& operator=(const Device&) = delete;
 
-		VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
-		VkDevice getDevice() const { return device; }
-		VkQueue getGraphicsQueue() const { return graphicsQueue; } 
-		VkQueue getPresentQueue() const { return presentQueue; }
+		[[nodiscard]] VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
+		[[nodiscard]] VkDevice getDevice() const { return device; }
+		[[nodiscard]] VkQueue getGraphicsQueue() const { return graphicsQueue; }
+		[[nodiscard]] VkQueue getPresentQueue() const { return presentQueue; }
+		[[nodiscard]] uint32_t getGraphicsQueueFamilyIndex() const { return graphicsQueueFamilyIndex; }
+		[[nodiscard]] uint32_t getPresentQueueFamilyIndex() const { return presentQueueFamilyIndex; }
 
-		void pickPhysicalDevice(const Engine::Graphics::Instance& instance);
-		bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
-		Engine::Graphics::QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
-		bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+		void pickPhysicalDevice(const Engine::Graphics::Instance& m_instance);
+
+		static bool isDeviceSuitable(VkPhysicalDevice m_device, VkSurfaceKHR surface);
+		static Engine::Graphics::QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR m_surface);
+
+		static bool checkDeviceExtensionSupport(VkPhysicalDevice m_device);
 
 		void createLogicalDevice(VkSurfaceKHR surface);
 	};

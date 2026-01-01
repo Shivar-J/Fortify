@@ -824,7 +824,9 @@ void Engine::Graphics::Texture::createSkyboxUniformBuffers(Engine::Graphics::Dev
     for (size_t i = 0; i < Engine::Settings::MAX_FRAMES_IN_FLIGHT; i++) {
         skyboxUniformResources[i] = framebuffer.createBuffer(device, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-        vkMapMemory(device.getDevice(), skyboxUniformResources[i]->memory, 0, bufferSize, 0, &skyboxUniformResources[i]->mapped);
+        if (!skyboxUniformResources[i]->mapped) {
+            vkMapMemory(device.getDevice(), skyboxUniformResources[i]->memory, 0, bufferSize, 0, &skyboxUniformResources[i]->mapped);
+        }
     }
 }
 
@@ -839,6 +841,10 @@ void Engine::Graphics::Texture::updateSkyboxUniformBuffer(uint32_t currentImage,
 
 void Engine::Graphics::Texture::cleanup(VkDevice device) {
     resources->destroy(textureResource);
+
+    for (size_t i = 0; i < skyboxUniformResources.size(); i++) {
+        resources->destroy(skyboxUniformResources[i]);
+    }
 
     for (size_t i = 0; i < textureResources.size(); i++) {
         resources->destroy(textureResources[i]);

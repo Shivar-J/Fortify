@@ -60,7 +60,7 @@ public:
 		if (properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
 			result = vkMapMemory(device, memory, 0, size, 0, &mapped);
 			if (result != VK_SUCCESS) return result;
-
+			/*
 			if (data != nullptr) {
 				memcpy(mapped, data, size);
 
@@ -72,7 +72,7 @@ public:
 					range.size = size;
 					vkFlushMappedMemoryRanges(device, 1, &range);
 				}
-			}
+			}*/
 		}
 
 		return VK_SUCCESS;
@@ -218,7 +218,7 @@ public:
 	VkImageView view = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 	VkDeviceMemory memory = VK_NULL_HANDLE;
-	VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+	VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	VkResult initialize(VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, uint32_t arrayLayers, VkImageCreateFlags flags, VkImageAspectFlags aspectFlags, bool isCube, bool useSampler) {
 		VkImageCreateInfo imageInfo{};

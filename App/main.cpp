@@ -10,9 +10,9 @@
 #endif
 
 #include "core.h"
-int main() {
-	Engine::Core::Application app;
+#include <cstdlib>
 
+int main() {
 #ifdef _WIN32
 	HWND hwnd = GetConsoleWindow();
 	if (hwnd != nullptr) {
@@ -21,12 +21,16 @@ int main() {
 #endif
 
 	try {
+		Engine::Core::Application app;
 		app.run();
 	}
 	catch (const std::exception& e) {
 		std::cerr << e.what() << std::endl;
+#ifdef _WIN32
 		system("pause");
-
+#else
+		std::cerr << "Error: " << e.what() << std::endl;
+#endif
 		return EXIT_FAILURE;
 	}
 	return EXIT_SUCCESS;

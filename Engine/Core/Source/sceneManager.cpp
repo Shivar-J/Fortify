@@ -1,6 +1,8 @@
 #include "sceneManager.h"
 
-void Engine::Core::SceneManager::removeEntity(Scene scene, int index) {
+#include <ranges>
+
+void Engine::Core::SceneManager::removeEntity(const Scene &scene, const int index) {
 	cleanup(scene);
 	scenes.erase(scenes.begin() + index);
 }
@@ -8,7 +10,7 @@ void Engine::Core::SceneManager::removeEntity(Scene scene, int index) {
 void Engine::Core::SceneManager::updateScene() {
 	ImGuizmo::SetOrthographic(true);
 	ImGuizmo::BeginFrame();
-	ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
 	ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
 
@@ -53,8 +55,8 @@ void Engine::Core::SceneManager::updateScene() {
 			int textureCount = static_cast<int>(scenes[i].model.texture.getTextureCount());
 			if (scenes[i].model.hasTexture) {
 				if (textureCount == -1) {
-					if (scenes[i].model.textureIDs.count(0) == 0) {
-						VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.textureResource->sampler, scenes[i].model.texture.textureResource->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+					if (!scenes[i].model.textureIDs.contains(0)) {
+						const VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.textureResource->sampler, scenes[i].model.texture.textureResource->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 						scenes[i].model.textureIDs[0] = textureID;
 					}
 					ImGui::Image((ImTextureID)scenes[i].model.textureIDs[0], ImVec2(64, 64));
@@ -62,14 +64,14 @@ void Engine::Core::SceneManager::updateScene() {
 				else {
 					scenes[i].model.textureIDs.reserve(textureCount);
 					int index = 0;
-					for (auto& texturePair : scenes[i].model.texturePaths) {
-						if (scenes[i].model.textureIDs.count(index) == 0) {
-							VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.textureResources[index]->sampler, scenes[i].model.texture.textureResources[index]->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+					for (const auto &key: scenes[i].model.texturePaths | std::views::keys) {
+						if (!scenes[i].model.textureIDs.contains(index)) {
+							const VkDescriptorSet textureID = ImGui_ImplVulkan_AddTexture(scenes[i].model.texture.textureResources[index]->sampler, scenes[i].model.texture.textureResources[index]->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 							scenes[i].model.textureIDs[index] = textureID;
 						}
 						ImGui::Image((ImTextureID)scenes[i].model.textureIDs[index], ImVec2(64, 64));
 						ImGui::SameLine();
-						ImGui::Text("%s", textureString(texturePair.first));
+						ImGui::Text("%s", textureString(key));
 						index++;
 					}
 				}
@@ -120,18 +122,17 @@ void Engine::Core::SceneManager::updateScene() {
 	}
 }
 
-void Engine::Core::SceneManager::cleanup(Scene scene)
-{
+void Engine::Core::SceneManager::cleanup(Scene scene) const {
 	vkQueueWaitIdle(device.getGraphicsQueue());
 	vkDeviceWaitIdle(device.getDevice());
 
 	auto& p = scene.model.pipeline;
 	auto& m = scene.model;
-	int textureCount = m.texture.getTextureCount();
+	const int textureCount = m.texture.getTextureCount();
 
 	if (m.hasTexture) {
-		for (auto& texturePair : m.textureIDs) {
-			ImGui_ImplVulkan_RemoveTexture(texturePair.second);
+		for (auto &val: m.textureIDs | std::views::values) {
+			ImGui_ImplVulkan_RemoveTexture(val);
 		}
 	}
 
@@ -166,7 +167,7 @@ void Engine::Core::SceneManager::cleanup(Scene scene)
 	resources->destroy(m.texture.indexResource);
 }
 
-const char* Engine::Core::SceneManager::entityString(EntityType type)
+const char* Engine::Core::SceneManager::entityString(const EntityType type)
 {
 	switch (type) {
 		case EntityType::Object: return "Object";
@@ -182,7 +183,7 @@ const char* Engine::Core::SceneManager::entityString(EntityType type)
 	}
 }
 
-const char* Engine::Core::SceneManager::textureString(PBRTextureType type)
+const char* Engine::Core::SceneManager::textureString(const PBRTextureType type)
 {
 	switch (type) {
 		case PBRTextureType::Albedo: return "Albedo";
@@ -195,7 +196,7 @@ const char* Engine::Core::SceneManager::textureString(PBRTextureType type)
 	}
 }
 
-const char* Engine::Core::SceneManager::primitiveString(PrimitiveType type) {
+const char* Engine::Core::SceneManager::primitiveString(const PrimitiveType type) {
 	switch (type) {
 	case PrimitiveType::Cube: return "Cube";
 	case PrimitiveType::Sphere: return "Sphere";
@@ -204,7 +205,7 @@ const char* Engine::Core::SceneManager::primitiveString(PrimitiveType type) {
 	}
 }
 
-bool Engine::Core::SceneManager::hasSkybox() {
+bool Engine::Core::SceneManager::hasSkybox() const {
 	for (auto& scene : scenes) {
 		if (scene.model.type == EntityType::Skybox) {
 			return true;
@@ -214,12 +215,12 @@ bool Engine::Core::SceneManager::hasSkybox() {
 	return false;
 }
 
-void Engine::Core::SceneManager::setShaderPaths(std::vector<const char*> paths)
+void Engine::Core::SceneManager::setShaderPaths(const std::vector<const char*> &paths)
 {
 	shaderPaths = paths;
 }
 
-bool Engine::Core::SceneManager::checkExtension(const std::string path, const std::string ext)
+bool Engine::Core::SceneManager::checkExtension(const std::string &path, const std::string &ext)
 {
 	return path.size() >= ext.size() && path.compare(path.size() - ext.size(), ext.size(), ext) == 0;
 }

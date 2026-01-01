@@ -1,0 +1,245 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "bin/FortifyApp"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_executable",
+			"target_link_libraries"
+		],
+		"files" : 
+		[
+			"CMakeLists.txt",
+			"lib/glfw/src/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 65,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 66,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 50,
+				"parent" : 0
+			},
+			{
+				"file" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 220,
+				"parent" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 232,
+				"parent" : 4
+			}
+		]
+	},
+	"codemodelVersion" : 
+	{
+		"major" : 2,
+		"minor" : 9
+	},
+	"compileDependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "FortifyEngine::@6890427a1f51a3e7e1df"
+		}
+	],
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -std=gnu++20 -fdiagnostics-color=always"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"backtrace" : 2,
+					"define" : "VK_ENABLE_VALIDATION"
+				},
+				{
+					"backtrace" : 2,
+					"define" : "VK_USE_PLATFORM_XCB_KHR"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/Engine/Core/Headers"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/Engine/Graphics/Headers"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/Engine/Utility"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/imgui"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/imgui/backends"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/ImGuizmo"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/ImFilebrowser"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/tinyobj"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/stb-master"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/VulkanMemoryAllocator/include"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/glm"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/home/shivarj/Documents/repo/Fortify/lib/glfw/include"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					1
+				],
+				"standard" : "20"
+			},
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "FortifyEngine::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 2,
+			"id" : "glfw::@17f284a5fc0809a54549"
+		}
+	],
+	"id" : "FortifyApp::@6890427a1f51a3e7e1df",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "-g",
+				"role" : "flags"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "libFortifyEngine.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "/lib/libvulkan.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "lib/glfw/src/libglfw3.a",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 5,
+				"fragment" : "/usr/lib/librt.a",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "-lm",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 6,
+				"fragment" : "-ldl",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX"
+	},
+	"linkLibraries" : 
+	[
+		{
+			"backtrace" : 2,
+			"id" : "FortifyEngine::@6890427a1f51a3e7e1df"
+		}
+	],
+	"name" : "FortifyApp",
+	"nameOnDisk" : "FortifyApp",
+	"paths" : 
+	{
+		"build" : ".",
+		"source" : "."
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "App/main.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "EXECUTABLE"
+}

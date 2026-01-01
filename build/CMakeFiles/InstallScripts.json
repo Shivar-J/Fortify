@@ -1,0 +1,10 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/shivarj/Documents/repo/Fortify/build/cmake_install.cmake",
+		"/home/shivarj/Documents/repo/Fortify/build/lib/glfw/cmake_install.cmake",
+		"/home/shivarj/Documents/repo/Fortify/build/lib/glfw/src/cmake_install.cmake",
+		"/home/shivarj/Documents/repo/Fortify/build/lib/glfw/docs/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

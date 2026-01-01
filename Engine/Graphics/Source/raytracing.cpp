@@ -79,7 +79,7 @@ void StorageImage::create(Engine::Graphics::Device device, VkQueue queue, VkComm
 	if (commandPool == VK_NULL_HANDLE) {
 		VkCommandPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.queueFamilyIndex = (uint32_t)device.getGraphicsQueue();
+		poolInfo.queueFamilyIndex = device.getGraphicsQueueFamilyIndex();
 		poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 		vkCreateCommandPool(device.getDevice(), &poolInfo, nullptr, &commandPool);
 	}
@@ -175,6 +175,9 @@ std::vector<char> Engine::Graphics::Raytracing::readFile(const std::string& file
 
 VkShaderModule Engine::Graphics::Raytracing::createShaderModule(VkDevice device, const std::vector<char>& code)
 {
+	if (code.empty() || code.size() % 4 != 0)
+		return VK_NULL_HANDLE;
+
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	createInfo.codeSize = code.size();
@@ -182,48 +185,84 @@ VkShaderModule Engine::Graphics::Raytracing::createShaderModule(VkDevice device,
 
 	VkShaderModule shaderModule;
 	if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
-		throw std::runtime_error("failed to create shader module");
+		throw std::runtime_error("Failed to create shader module");
 
 	return shaderModule;
 }
 
 void Engine::Graphics::Raytracing::initRaytracing(Engine::Graphics::Device device)
 {
-	VkPhysicalDeviceRayTracingPipelinePropertiesKHR initRayTracingPipelineProperties{};
-	initRayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+    VkPhysicalDevice physicalDevice = device.getPhysicalDevice();
 
-	VkFormatProperties2 formatProps = { VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2 };
-	vkGetPhysicalDeviceFormatProperties2(device.getPhysicalDevice(), VK_FORMAT_R8G8B8A8_UNORM, &formatProps);
+    VkPhysicalDeviceAccelerationStructurePropertiesKHR accelProps{};
+    accelProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
 
-	if (!(formatProps.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)) {
-		VkFormat supportedFormats[] = { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SRGB };
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtPipelineProps{};
+    rtPipelineProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+    rtPipelineProps.pNext = &accelProps;
 
-		for (auto format : supportedFormats) {
-			vkGetPhysicalDeviceFormatProperties2(device.getPhysicalDevice(), format, &formatProps);
-		}
-	}
+    VkPhysicalDeviceProperties2 properties2{};
+    properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    properties2.pNext = &rtPipelineProps;
 
-	VkPhysicalDeviceProperties2 deviceProperties{};
-	deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-	deviceProperties.pNext = &initRayTracingPipelineProperties;
-	vkGetPhysicalDeviceProperties2(device.getPhysicalDevice(), &deviceProperties);
+    vkGetPhysicalDeviceProperties2(physicalDevice, &properties2);
 
-	rayTracingPipelineProperties = initRayTracingPipelineProperties;
+    rayTracingPipelineProperties = rtPipelineProps;
+    accelerationStructureProperties = accelProps;
 
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR initAccelerationStructureFeatures{};
-	initAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    constexpr VkFormat candidateFormats[] = {
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_FORMAT_B8G8R8A8_UNORM,
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        VK_FORMAT_R32G32B32A32_SFLOAT
+    };
 
-	VkPhysicalDeviceVulkan12Features vulkan12Features{};
-	vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-	vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
-	vulkan12Features.pNext = &initAccelerationStructureFeatures;
+    bool storageImageSupported = false;
+    VkFormatProperties2 formatProps{};
+    formatProps.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2;
 
-	VkPhysicalDeviceFeatures2 deviceFeatures2{};
-	deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-	deviceFeatures2.pNext = &vulkan12Features;
-	vkGetPhysicalDeviceFeatures2(device.getPhysicalDevice(), &deviceFeatures2);
+    for (VkFormat format : candidateFormats) {
+        vkGetPhysicalDeviceFormatProperties2(physicalDevice, format, &formatProps);
+        if (formatProps.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
+            storageImageSupported = true;
+            break;
+        }
+    }
 
-	accelerationStructureFeatures = initAccelerationStructureFeatures;
+    if (!storageImageSupported)
+        throw std::runtime_error("Raytracing requires a format supporting STORAGE_IMAGE_BIT");
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeatures{};
+    accelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+    accelFeatures.accelerationStructure = VK_TRUE;
+
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtFeatures{};
+    rtFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+    rtFeatures.rayTracingPipeline = VK_TRUE;
+    rtFeatures.pNext = &accelFeatures;
+
+    VkPhysicalDeviceVulkan12Features vk12{};
+    vk12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    vk12.bufferDeviceAddress = VK_TRUE;
+    vk12.descriptorIndexing = VK_TRUE;
+    vk12.runtimeDescriptorArray = VK_TRUE;
+    vk12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    vk12.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+    vk12.pNext = &rtFeatures;
+
+    VkPhysicalDeviceFeatures2 features2{};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2.pNext = &vk12;
+
+    vkGetPhysicalDeviceFeatures2(physicalDevice, &features2);
+
+    if (!rtFeatures.rayTracingPipeline || !accelFeatures.accelerationStructure)
+        throw std::runtime_error("Device does not support Vulkan ray tracing");
+
+    if (!vk12.shaderSampledImageArrayNonUniformIndexing ||
+        !vk12.shaderStorageBufferArrayNonUniformIndexing ||
+        !vk12.runtimeDescriptorArray)
+        throw std::runtime_error("Device does not support required descriptor indexing features");
 }
 
 auto Engine::Graphics::Raytracing::createBottomLevelAccelerationStructure(Engine::Graphics::Device device, uint32_t index)
@@ -581,7 +620,7 @@ void Engine::Graphics::Raytracing::createShaderBindingTables(Engine::Graphics::D
 	memcpy(anyHitResource->mapped, shaderHandleStorage.data() + handleSizeAligned * 3, handleSizeAligned);
 }
 
-void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device device, std::optional<Engine::Graphics::Texture> skyboxTexture)
+void Engine::Graphics::Raytracing::createDescriptorSets(const Engine::Graphics::Device& device, std::optional<Engine::Graphics::Texture> skyboxTexture)
 {
 	uint32_t modelBufferSize = std::max(static_cast<uint32_t>(models.size()), 1u);
 
@@ -598,7 +637,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 	descriptorPoolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	descriptorPoolCreateInfo.pPoolSizes = poolSizes.data();
 	descriptorPoolCreateInfo.maxSets = 1;
-	
+
 	vkCreateDescriptorPool(device.getDevice(), &descriptorPoolCreateInfo, nullptr, &descriptorPool);
 
 	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo{};
@@ -804,7 +843,7 @@ void Engine::Graphics::Raytracing::createDescriptorSets(Engine::Graphics::Device
 
 			ambientOcclusionInfo.push_back(modelTextureInfo);
 		}
-		
+
 		if(scene->obj.flags)
 			textureFlags.push_back(scene->obj.flags);
 	}
@@ -1061,15 +1100,18 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 	shaderStages.push_back({ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_RAYGEN_BIT_KHR, raygenShaderModule, "main", nullptr });
 	shaderGroups.push_back({ VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR, nullptr, VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR, static_cast<uint32_t>(shaderStages.size()) - 1, VK_SHADER_UNUSED_KHR, VK_SHADER_UNUSED_KHR, VK_SHADER_UNUSED_KHR, nullptr });
 
-	shaderStages.push_back({
-		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		nullptr,
-		0,
-		VK_SHADER_STAGE_MISS_BIT_KHR,
-		missShaderModule,
-		"main",
-		nullptr
-		});
+	if (missShaderModule != VK_NULL_HANDLE) {
+		shaderStages.push_back({
+		   VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		   nullptr,
+		   0,
+		   VK_SHADER_STAGE_MISS_BIT_KHR,
+		   missShaderModule,
+		   "main",
+		   nullptr
+		   });
+	}
+
 	shaderGroups.push_back({
 		VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
 		nullptr,
@@ -1092,25 +1134,29 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 		nullptr
 		});
 	*/
-	shaderStages.push_back({
-		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		nullptr,
-		0,
-		VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-		closestHitShaderModule,
-		"main",
-		nullptr
-		});
+	if (closestHitShaderModule != VK_NULL_HANDLE) {
+		shaderStages.push_back({
+		   VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		   nullptr,
+		   0,
+		   VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
+		   closestHitShaderModule,
+		   "main",
+		   nullptr
+		   });
+	}
 
-	shaderStages.push_back({
-		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		nullptr,
-		0,
-		VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-		anyHitShaderModule,
-		"main",
-		nullptr
-		});
+	if (anyHitShaderModule != VK_NULL_HANDLE) {
+		shaderStages.push_back({
+		   VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		   nullptr,
+		   0,
+		   VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
+		   anyHitShaderModule,
+		   "main",
+		   nullptr
+		   });
+	}
 
 	VkRayTracingShaderGroupCreateInfoKHR hitGroup{};
 	hitGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -1132,10 +1178,17 @@ void Engine::Graphics::Raytracing::createRayTracingPipeline(Engine::Graphics::De
 
 	fpCreateRayTracingPipelinesKHR(device.getDevice(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rayTracingPipelineCreateInfo, nullptr, &pipeline);
 
-	vkDestroyShaderModule(device.getDevice(), raygenShaderModule, nullptr);
-	vkDestroyShaderModule(device.getDevice(), missShaderModule, nullptr);
-	vkDestroyShaderModule(device.getDevice(), closestHitShaderModule, nullptr);
-	vkDestroyShaderModule(device.getDevice(), intersectionShaderModule, nullptr);
+	if (raygenShaderModule != VK_NULL_HANDLE)
+		vkDestroyShaderModule(device.getDevice(), raygenShaderModule, nullptr);
+	if (missShaderModule != VK_NULL_HANDLE)
+		vkDestroyShaderModule(device.getDevice(), missShaderModule, nullptr);
+	if (closestHitShaderModule != VK_NULL_HANDLE)
+		vkDestroyShaderModule(device.getDevice(), closestHitShaderModule, nullptr);
+	if (anyHitShaderModule != VK_NULL_HANDLE)
+		vkDestroyShaderModule(device.getDevice(), anyHitShaderModule, nullptr);
+	if (intersectionShaderModule != VK_NULL_HANDLE)
+		vkDestroyShaderModule(device.getDevice(), intersectionShaderModule, nullptr);
+
 }
 
 void Engine::Graphics::Raytracing::createImage(Engine::Graphics::Device device, VkCommandPool commandPool, VkExtent2D extent)
