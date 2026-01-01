@@ -10,6 +10,7 @@
 #include "string"
 #include "camera.h"
 #include "raytracing.h"
+#include "frameBuffer.h"
 
 #include "imgui.h"
 #include "ImGuizmo.h"

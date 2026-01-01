@@ -27,35 +27,80 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      - name: Set up Vulkan SDK
+      - name: Install dependencies on Ubuntu
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update
-          sudo apt install -y libvulkan-dev vulkan-utils
+          sudo apt install -y \
+            build-essential \
+            cmake \
+            libvulkan-dev \
+            vulkan-tools \
+            glslang-tools \
+            libx11-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libxcursor-dev \
+            libxinerama-dev \
+            libxss-dev \
+            libgl1-mesa-dev \
+            mesa-common-dev
         shell: bash
 
-      - name: Set up Vulkan SDK on Windows
+      - name: Install Vulkan SDK on Windows
         if: matrix.os == 'windows-latest'
-        run: |
-          choco install vulkan-sdk --version=1.3.261.1 -y
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.304.1
+          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang, SPIRV-Cross, SPIRV-Tools, SPIRV-Reflect, SPIRV-Headers
+          vulkan-use-cache: true
+
+      - name: Set Vulkan environment variables on Windows
+        if: matrix.os == 'windows-latest'
         shell: pwsh
-
-      - name: Set build directory
-        id: build-dir
-        run: echo "BUILD_DIR=${{ github.workspace }}/build/ci" >> "$GITHUB_ENV"
-
-      - name: Configure CMake
         run: |
-          cmake -B $BUILD_DIR \
+          $VULKAN_INCLUDE = "$env:VULKAN_SDK\Include"
+          $VULKAN_LIB = "$env:VULKAN_SDK\Lib\vulkan-1.lib"
+          echo "Vulkan_INCLUDE_DIR=$VULKAN_INCLUDE" >> $env:GITHUB_ENV
+          echo "Vulkan_LIBRARY=$VULKAN_LIB" >> $env:GITHUB_ENV
+          echo "$env:VULKAN_SDK\Bin" >> $env:GITHUB_PATH
+
+      - name: Configure CMake (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cmake -B ${{ github.workspace }}/build/ci \
             -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
             -DCMAKE_BUILD_TYPE=Release \
+            -DGLFW_BUILD_WAYLAND=OFF \
+            -DGLFW_BUILD_X11=OFF \
+            -DGLFW_BUILD_TESTS=OFF \
+            -DGLFW_BUILD_EXAMPLES=OFF \
+            -DGLFW_BUILD_DOCS=OFF \
             -S ${{ github.workspace }}
+        shell: bash
+
+      - name: Configure CMake (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cmake -B "${{ github.workspace }}/build/ci" `
+            -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} `
+            -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DVulkan_INCLUDE_DIR="$env:Vulkan_INCLUDE_DIR" `
+            -DVulkan_LIBRARY="$env:Vulkan_LIBRARY" `
+            -DGLFW_BUILD_EXAMPLES=OFF `
+            -DGLFW_BUILD_TESTS=OFF `
+            -DGLFW_BUILD_DOCS=OFF `
+            -S "${{ github.workspace }}"
 
       - name: Build
-        run: cmake --build $BUILD_DIR --config Release
+        run: cmake --build ${{ github.workspace }}/build/ci --config Release
 
-      - name: Test
-        working-directory: $BUILD_DIR
+      - name: Run tests
+        working-directory: ${{ github.workspace }}/build/ci
         run: ctest --build-config Release --output-on-failure

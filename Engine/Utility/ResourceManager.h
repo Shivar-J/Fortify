@@ -470,7 +470,7 @@ public:
 	}
 
 	void destroy(Resource* resource) {
-		auto it = std::find_if(m_resources.begin(), m_resources.end(), [resource](const std::unique_ptr<Resource>& res) {
+		const auto it = std::ranges::find_if(m_resources, [resource](const std::unique_ptr<Resource>& res) {
 			return res.get() == resource;
 			});
 
@@ -482,14 +482,14 @@ public:
 
 	void cleanup() {
 		if (!m_resources.empty()) {
-			for (auto& resource : m_resources) {
+			for (const auto& resource : m_resources) {
 				resource->destroy(m_device);
 			}
 			m_resources.clear();
 		}
 	}
 
-    std::string log() {  
+    [[nodiscard]] std::string log() const {
 		std::ostringstream ss;
 
 		ss << "-------------Resource Log-------------\n";
@@ -502,7 +502,8 @@ public:
 				ss << m_resources[i]->log();
 			}
 			catch (...) {
-				ss << "Unknown Resource Type: " << typeid(*m_resources[i]).name() << "\n";
+				auto& res = *m_resources[i];
+				ss << "Unknown Resource Type: " << typeid(res).name() << "\n";
 			}
 		}
 

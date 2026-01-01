@@ -17,7 +17,12 @@ void Engine::Graphics::Instance::createInstance()
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "Fortify Engine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+
+#ifdef VK_API_VERSION_1_4
     appInfo.apiVersion = VK_API_VERSION_1_4;
+#else
+    appInfo.apiVersion = VK_API_VERSION_1_3;
+#endif
 
     VkInstanceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -66,7 +71,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL Engine::Graphics::Instance::debugCallback(VkDebug
 }
 
 VkResult Engine::Graphics::Instance::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
     if (func != nullptr)
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
     else
@@ -74,7 +79,7 @@ VkResult Engine::Graphics::Instance::CreateDebugUtilsMessengerEXT(VkInstance ins
 }
 
 void Engine::Graphics::Instance::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
     if (func != nullptr)
         func(instance, debugMessenger, pAllocator);
 }

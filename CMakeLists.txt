@@ -82,4 +82,4 @@ endfunction()
 
 assign_source_groups("Engine" ${ENGINE_SRC} ${ENGINE_HEADERS})
 assign_source_groups("ImGui" ${IMGUI_SRC})
-assign_source_groups("App" App/main.cpp)
+assign_source_groups("App" "${CMAKE_SOURCE_DIR}/App/main.cpp")
