@@ -105,7 +105,7 @@ public:
 	}
 
 private:
-	uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
+	static uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
 		VkPhysicalDeviceMemoryProperties memProperties;
 		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
@@ -198,7 +198,7 @@ public:
 	}
 
 private:
-	uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
+	static uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
 		VkPhysicalDeviceMemoryProperties memProperties;
 		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
@@ -352,7 +352,7 @@ public:
 	}
 
 private:
-	uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
+	static uint32_t findMemoryType(uint32_t type, VkMemoryPropertyFlags prop, VkPhysicalDevice physicalDevice) {
 		VkPhysicalDeviceMemoryProperties memProperties;
 		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
