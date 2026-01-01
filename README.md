@@ -8,6 +8,8 @@ git clone --recurse-submodules https://github.com/Shivar-J/Fortify.git
 cmake --build .
 ```
 
+## Demo
+
 ![](https://github.com/Shivar-J/Fortify/blob/master/Demo/Fortify_CGH9qOZ959.png)
 
 ![](https://github.com/Shivar-J/Fortify/blob/master/Demo/Fortify_BtF6s82R3y.png)
